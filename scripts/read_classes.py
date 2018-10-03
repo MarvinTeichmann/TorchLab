@@ -36,10 +36,10 @@ files = [line.rstrip() for line in open(data_file)]
 
 realfiles = [os.path.join(datadir, file) for file in files]
 
-debug_num_images = 10
+debug_num_images = -1
 
 outdir = os.path.join(os.path.dirname(os.path.dirname(realfiles[0])),
-                      outdirname,)
+                      outdirname)
 
 logging.info("Results will be written to {}".format(outdir))
 
@@ -140,11 +140,11 @@ for i, filename in enumerate(realfiles):
     assert(np.all(image == color_image))
 
     output_name = os.path.join(outdir, os.path.basename(filename)) + ".npy"
+    np.save(output_name, id_image)
 
     print(output_name, file=f)
 
     if i < 10:
-        np.save(output_name, id_image)
         read_img = np.load(output_name)
         assert(np.all(read_img == id_image))
 
