@@ -15,8 +15,11 @@ import numpy as np
 import scipy as scp
 
 import logging
+import pickle
 
 import imageio
+
+import time
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -24,13 +27,24 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 
 
 data_file = "camvid360_noprop_train.lst"
+outfile = "camvid360_noprop_train_out.lst"
+
+outdirname = 'ids_labels'
 
 datadir = os.environ['TV_DIR_DATA']
 files = [line.rstrip() for line in open(data_file)]
 
 realfiles = [os.path.join(datadir, file) for file in files]
 
-debug_num_images = 15
+debug_num_images = 10
+
+outdir = os.path.join(os.path.dirname(os.path.dirname(realfiles[0])),
+                      outdirname,)
+
+logging.info("Results will be written to {}".format(outdir))
+
+if not os.path.exists(outdir):
+    os.mkdir(outdir)
 
 
 def get_unique_classes(filenames):
@@ -101,28 +115,44 @@ unique_classes = get_unique_classes(realfiles)
 
 table = dict(zip(unique_classes, range(len(unique_classes))))
 
+with open(os.path.join(outdir, "table.p"), "wb") as f:
+    pickle.dump(table, f)
+
+f = open(outfile, 'w')
+
 for i, filename in enumerate(realfiles):
 
-    image = imageio.imread(realfiles[0])
+    if i == debug_num_images:
+        break
 
+    start_time = time.time()
+    image = imageio.imread(filename)
+    duration = time.time() - start_time
+    logging.debug("Loading an images took {} seconds".format(duration))
+
+    start_time = time.time()
     id_image = image_to_id(image, table)
+    duration = time.time() - start_time
+    logging.debug("Converting an images took {} seconds".format(duration))
 
     color_image = id2color(id_image, unique_classes)
 
     assert(np.all(image == color_image))
 
-    np.save("test_{}.png.npy".format(i), id_image)
+    output_name = os.path.join(outdir, os.path.basename(filename)) + ".npy"
 
-    read_img = np.load("test_{}.png.npy".format(i))
+    print(output_name, file=f)
 
-    assert(np.all(read_img == id_image))
+    if i < 10:
+        np.save(output_name, id_image)
+        read_img = np.load(output_name)
+        assert(np.all(read_img == id_image))
 
     if i % 10 == 0:
         logging.info("Converting example: {}".format(i))
 
-    if i == debug_num_images:
-        break
 
+f.close()
 
 if __name__ == '__main__':
     logging.info("Hello World.")
