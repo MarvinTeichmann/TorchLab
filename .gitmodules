@@ -1,0 +1,3 @@
+[submodule "pyvision"]
+	path = pyvision
+	url = git@github.com:MarvinTeichmann/pyvision.git
