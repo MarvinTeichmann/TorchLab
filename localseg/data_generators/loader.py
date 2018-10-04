@@ -241,35 +241,38 @@ class PascalVOCLoader(data.Dataset):
                                                 lower_size, upper_size, sig)
                 shape_distorted = True
 
-            if transform['fix_shape'] and shape_distorted:
-                patch_size = transform['patch_size']
-                image, gt_image = crop_to_size(image, gt_image, patch_size)
-
-            if transform['random_crop'] and False:
+            if transform['random_crop']:
                 max_crop = transform['max_crop']
                 crop_chance = transform['crop_chance']
                 image, gt_image = random_crop_soft(image, gt_image,
                                                    max_crop, crop_chance)
+                shape_distorted = True
+
+            if transform['fix_shape'] and shape_distorted:
+                patch_size = transform['patch_size']
+                image, gt_image = crop_to_size(image, gt_image, patch_size)
 
             assert(not (transform['fix_shape'] and transform['reseize_image']))
 
         if transform['fix_shape']:
-            new_shape = transform['patch_size'] + [3]
-            new_img = 127 * np.ones(shape=new_shape, dtype=np.float32)
+            if image.shape[0] < transform['patch_size'][0] or \
+                    image.shape[1] < transform['patch_size'][1]:
+                new_shape = transform['patch_size'] + [3]
+                new_img = 127 * np.ones(shape=new_shape, dtype=np.float32)
 
-            new_gt = 255 * np.ones(transform['patch_size'], dtype=np.int32)
-            shape = image.shape
+                new_gt = 255 * np.ones(transform['patch_size'], dtype=np.int32)
+                shape = image.shape
 
-            assert(new_shape[0] >= shape[0])
-            assert(new_shape[1] >= shape[1])
-            pad_h = (new_shape[0] - shape[0]) // 2
-            pad_w = (new_shape[1] - shape[1]) // 2
+                assert(new_shape[0] >= shape[0])
+                assert(new_shape[1] >= shape[1])
+                pad_h = (new_shape[0] - shape[0]) // 2
+                pad_w = (new_shape[1] - shape[1]) // 2
 
-            new_img[pad_h:pad_h + shape[0], pad_w:pad_w + shape[1]] = image
-            new_gt[pad_h:pad_h + shape[0], pad_w:pad_w + shape[1]] = gt_image
+                new_img[pad_h:pad_h + shape[0], pad_w:pad_w + shape[1]] = image
+                new_gt[pad_h:pad_h + shape[0], pad_w:pad_w + shape[1]] = gt_image # NOQA
 
-            image = new_img
-            gt_image = new_gt
+                image = new_img
+                gt_image = new_gt
 
         if transform['reseize_image']:
             image, gt_image = self.resize_label_image(image, gt_image)
@@ -338,7 +341,7 @@ def random_crop_soft(image, gt_image, max_crop, crop_chance):
     offset_x = random.randint(1, max_crop)
     offset_y = random.randint(1, max_crop)
 
-    if random.random() > 0.8:
+    if random.random() < 0.8:
         image = image[offset_x:, offset_y:]
         gt_image = gt_image[offset_x:, offset_y:]
     else:
@@ -631,4 +634,7 @@ class RandomRotation(object):
 if __name__ == '__main__':  # NOQA
     loader = PascalVOCLoader()
     test = loader[1]
+    from IPython import embed
+    embed()
+    pass
     logging.info("Hello World.")
