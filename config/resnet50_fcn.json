@@ -1,0 +1,72 @@
+{
+    "modules": {
+        "dataset": "camvid360",
+        "encoder": "resnet",
+        "decoder": "fcn",
+        "loss": "xentropy",
+        "optimizer": "adam",
+        "eval": "voc"
+    },
+
+    "dataset": {
+        "train_file": "train_red.lst",
+        "crf_file": "train_crf.lst",
+        "val_file": "val.lst",
+        "transform": {
+            "color_augmentation_level": 1,
+            "fix_shape": true,
+            "reseize_image": false,
+            "patch_size": [512, 512],
+            "random_crop": true,
+            "max_crop": 8,
+            "crop_chance": 0.6,
+            "random_resize": true,
+            "lower_fac": 0.5,
+            "upper_fac": 2,
+            "resize_sig": 0.4,
+            "random_rotation": true,
+            "random_flip": true,
+            "normalize": true,
+            "mean": [0.485, 0.456, 0.406],
+            "std": [0.229, 0.224, 0.225]
+        },
+        "num_worker": 10
+    },
+    "encoder": {
+        "num_layer": 50,
+        "mean": [0.485, 0.456, 0.406],
+        "std": [0.229, 0.224, 0.225],
+        "simple_norm": false
+    },
+
+    "decoder": {
+        "skip_connections": true,
+        "scale_down": 0.01
+    },
+
+    "training": {
+        "batch_size": 8,
+        "learning_rate": 1e-5,
+        "weight_decay": 5e-4,
+        "clip_norm": 1.0,
+        "max_epochs": 100,
+        "max_epoch_steps": null,
+        "wd_policy": 0
+    },
+
+    "logging": {
+        "display_iter": 100,
+        "eval_iter": 1,
+        "max_val_examples": null,
+        "max_train_examples": 500
+    },
+
+    "pyvision": {
+        "project_name": "TorchSeg",
+        "main_source_file": "../torchsegkit/segmodel.py",
+        "required_packages": ["../torchsegkit"],
+        "optional_packages": ["../pyvision/pyvision"],
+        "copy_required_packages": true,
+        "copy_optional_packages": true
+    }
+}
