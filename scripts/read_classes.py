@@ -26,20 +26,24 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     stream=sys.stdout)
 
 
-data_file = "camvid360_noprop_train.lst"
-outfile = "camvid360_noprop_train_out.lst"
+data_file = "datasets/camvid360_noprop_train.lst"
+
+data_file2 = "datasets/camvid360_prop_train.lst"
+
 
 outdirname = 'ids_labels'
 
 datadir = os.environ['TV_DIR_DATA']
 files = [line.rstrip() for line in open(data_file)]
-
 realfiles = [os.path.join(datadir, file) for file in files]
+
+files2 = [line.rstrip() for line in open(data_file2)]
+realfiles2 = [os.path.join(datadir, file) for file in files2]
 
 debug_num_images = -1
 
-outdir = os.path.join(os.path.dirname(os.path.dirname(realfiles[0])),
-                      outdirname)
+outdir = os.path.join(os.path.dirname((realfiles2[0])), outdirname)
+outfile = data_file2.split('.')[0] + "_out.lst"
 
 logging.info("Results will be written to {}".format(outdir))
 
@@ -68,10 +72,12 @@ def get_unique_classes(filenames):
         len(unique_classes)))
 
     new_name = data_file.split('.')[0] + "_classes.txt"
+    result_file = os.path.join(outdir, os.path.basename(new_name))
 
-    with open(new_name, 'w') as f:
+    with open(new_name, 'w') as f, open(result_file, 'w') as f2:
         for item in unique_classes:
             print("{}".format(item), file=f)
+            print("{}".format(item), file=f2)
 
     return unique_classes
 
@@ -119,8 +125,9 @@ with open(os.path.join(outdir, "table.p"), "wb") as f:
     pickle.dump(table, f)
 
 f = open(outfile, 'w')
+f2 = open(os.path.join(outdir, os.path.basename(outfile)), 'w')
 
-for i, filename in enumerate(realfiles):
+for i, filename in enumerate(realfiles2):
 
     if i == debug_num_images:
         break
@@ -143,6 +150,7 @@ for i, filename in enumerate(realfiles):
     np.save(output_name, id_image)
 
     print(output_name, file=f)
+    print(output_name, file=f2)
 
     if i < 10:
         read_img = np.load(output_name)
@@ -152,6 +160,7 @@ for i, filename in enumerate(realfiles):
         logging.info("Converting example: {}".format(i))
 
 
+f.close()
 f.close()
 
 if __name__ == '__main__':
