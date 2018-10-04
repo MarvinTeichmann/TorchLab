@@ -26,9 +26,9 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     stream=sys.stdout)
 
 
-data_file = "datasets/camvid360_noprop_train.lst"
+data_file = "datasets/scenecity_small_train.lst"
 
-data_file2 = "datasets/camvid360_prop_train.lst"
+data_file2 = "datasets/scenecity_small_test.lst"
 
 
 outdirname = 'ids_labels'
