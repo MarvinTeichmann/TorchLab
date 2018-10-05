@@ -34,27 +34,24 @@ from pyvision.metric import SegmentationMetric as IoU
 from pyvision import pretty_printer as pp
 import pyvision.logger
 
-from IPython import embed
-embed()
-pass
+
+import localseg
+from localseg.data_generators import loader
+from localseg import encoder as segencoder
+from localseg.encoder import parallel as parallel
 
 
-import torchsegkit
-from torchsegkit.datasets.pascal import loader
-from torchsegkit.datasets.pascal import visualizer as pvis
-from torchsegkit import encoder as segencoder
-from torchsegkit.encoder import parallel as parallel
-
-
-from torchsegkit import decoder as segdecoder
-from torchsegkit import loss
-
-from torchsegkit.crf import convcrf
+from localseg import decoder as segdecoder
+from localseg import loss
 
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
+
+from IPython import embed
+embed()
+pass
 
 default_conf = {
     "modules": {
@@ -280,7 +277,7 @@ class SegModel(nn.Module):
         self.valloader = loader.get_data_loader(
             conf['dataset'], split='val', batch_size=bs, shuffle=False)
 
-        self.visualizer = pvis.PascalVisualizer()
+        # self.visualizer = pvis.PascalVisualizer()
         self.logger = pyvision.logger.Logger()
 
         self.trainer = Trainer(conf, self, self.trainloader)

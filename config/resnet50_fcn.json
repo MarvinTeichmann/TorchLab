@@ -39,7 +39,12 @@
     }
 
     "encoder": {
+        "source": "simple",
+        "dilated": false,
+        "normalize": false,
+        "batched_dilation": null,
         "num_layer": 50,
+        "load_pretrained": true,
         "mean": [0.485, 0.456, 0.406],
         "std": [0.229, 0.224, 0.225],
         "simple_norm": false
