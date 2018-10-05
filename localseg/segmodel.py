@@ -51,13 +51,9 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
 
-from IPython import embed
-embed()
-pass
 
 default_conf = {
     "modules": {
-        "dataset": "pascal",
         "encoder": "resnet",
         "decoder": "fcn",
         "loss": "xentropy",
@@ -97,7 +93,12 @@ default_conf = {
     },
 
     "encoder": {
+        "source": "simple",
+        "dilated": False,
+        "normalize": False,
+        "batched_dilation": None,
         "num_layer": 50,
+        "load_pretrained": True,
         "mean": [0.485, 0.456, 0.406],
         "std": [0.229, 0.224, 0.225],
         "simple_norm": False
@@ -105,27 +106,35 @@ default_conf = {
 
     "decoder": {
         "skip_connections": True,
-        "scale_down": 0.01
+        "scale_down": 0.01,
+        "dropout": True
     },
 
     "training": {
         "batch_size": 8,
-        "learning_rate": 1e-5,
+        "learning_rate": 2e-5,
+        "lr_schedule": "poly",
+        "exp": 1.5,
+        "base": 0.9,
+        "base2": 2,
+        "momentum": 0.9,
         "weight_decay": 5e-4,
-        "clip_norm": 1.0,
-        "max_epochs": 100,
+        "clip_norm": None,
+        "max_epochs": 200,
+        "pre_eval": True,
+        "cnn_gpus": None,
         "max_epoch_steps": None,
-        "wd_policy": 2
+        "init_weights_from_checkpoint": False,
+        "wd_policy": 2,
+        "num_gpus": 1
     },
 
     "logging": {
         "display_iter": 100,
-        "eval_iter": 20,
-        "checkpoint_iter": 2000,
-        "max_val_iter": None,
-        "max_train_iter": 100,
-    }
-
+        "eval_iter": 1,
+        "max_val_examples": None,
+        "max_train_examples": 500
+    },
 
 }
 
@@ -224,60 +233,37 @@ def _get_encoder(conf):
 
 class SegModel(nn.Module):
 
-    def __init__(self, conf, logdir=None):
+    def __init__(self, conf, logdir='tmp'):
         super().__init__()
 
         self.conf = conf
         self.logdir = logdir
 
-        torch.cuda.device_count()
+        self._assert_num_gpus(conf)
 
-        if conf['training']['num_gpus']:
-            assert torch.cuda.device_count() == conf['training']['num_gpus'], \
-                ('Requested: {0} GPUs   Visible: {1} GPUs.'
-                 ' Please set visible GPUs to {0}'.format(
-                     conf['training']['num_gpus'], torch.cuda.device_count()))
+        # Load Dataset
+        bs = conf['training']['batch_size']
+        self.trainloader = loader.get_data_loader(
+            conf['dataset'], split='train', batch_size=bs)
+        self.valloader = loader.get_data_loader(
+            conf['dataset'], split='val', batch_size=bs, shuffle=False)
+        nclasses = self.conf['dataset']['num_classes']
 
+        # Build Encoder and Decoder
         encoder = _get_encoder(conf)
         channel_dict = encoder.get_channel_dict()
-
-        nclasses = 21
 
         decoder = segdecoder.fcn.FCN(num_classes=nclasses,
                                      scale_dict=channel_dict,
                                      conf=conf['decoder']).cuda()
 
-        self_parallel = conf['encoder']['source'] == "encoding"
+        self.model, device_ids = self._get_parallelized_model(
+            conf, encoder, decoder)
 
-        ngpus = conf['training']['cnn_gpus']
-
-        if not self_parallel:
-            model = EncoderDecoder(encoder=encoder, decoder=decoder)
-
-            if ngpus is None:
-                device_ids = None
-            else:
-                device_ids = list(range(ngpus))
-
-            self.model = parallel.ModelDataParallel(
-                model, device_ids=device_ids).cuda()
-        else:
-            self.model = EncoderDecoder(encoder=encoder, decoder=decoder,
-                                        self_parallel=True, ngpus=ngpus)
-            self.model.cuda()
-
-        myloss = loss.CrossEntropyLoss2d()
-        self.loss = parallel.CriterionDataParallel(myloss,
+        self.loss = parallel.CriterionDataParallel(loss.CrossEntropyLoss2d(),
                                                    device_ids=device_ids)
 
         self._load_pretrained_weights(conf)
-
-        bs = conf['training']['batch_size']
-
-        self.trainloader = loader.get_data_loader(
-            conf['dataset'], split='train', batch_size=bs)
-        self.valloader = loader.get_data_loader(
-            conf['dataset'], split='val', batch_size=bs, shuffle=False)
 
         # self.visualizer = pvis.PascalVisualizer()
         self.logger = pyvision.logger.Logger()
@@ -299,9 +285,42 @@ class SegModel(nn.Module):
             std = np.array(self.conf['encoder']['std'])
             self.std = Variable(torch.Tensor(std).view(1, 3, 1, 1).cuda())
 
+    def _assert_num_gpus(self, conf):
+        torch.cuda.device_count()
+        if conf['training']['num_gpus']:
+            assert torch.cuda.device_count() == conf['training']['num_gpus'], \
+                ('Requested: {0} GPUs   Visible: {1} GPUs.'
+                 ' Please set visible GPUs to {0}'.format(
+                     conf['training']['num_gpus'], torch.cuda.device_count()))
+
+    def _get_parallelized_model(self, conf, encoder, decoder):
+        # Self parallel has not been used for a while. TODO test
+        # TODO: use new device assignment
+
+        ngpus = conf['training']['cnn_gpus']
+        self_parallel = conf['encoder']['source'] == "encoding"
+
+        if self_parallel:
+            model = EncoderDecoder(encoder=encoder, decoder=decoder,
+                                   self_parallel=True, ngpus=ngpus)
+            return model.cuda(), None
+
+        if not self_parallel:
+            model = EncoderDecoder(encoder=encoder, decoder=decoder)
+
+            if ngpus is None:
+                device_ids = None
+            else:
+                device_ids = list(range(ngpus))
+
+            model = parallel.ModelDataParallel(
+                model, device_ids=device_ids).cuda()
+            return model, device_ids
+
     def _load_pretrained_weights(self, conf):
 
-        if conf['crf']['use_weight']:
+        if conf['training']['init_weights_from_checkpoint']:
+            raise NotImplementedError
 
             weight_dir = conf['crf']['pretrained_weights']
             weights = os.path.join(weight_dir, 'checkpoint.pth.tar')
@@ -531,7 +550,7 @@ class Evaluator():
             self.count = range(1, max_iter + 1)
             self.num_step = max_iter
 
-        self.names = data_loader.dataset.names
+        # self.names = data_loader.dataset.names TODO
         self.num_classes = data_loader.dataset.num_classes
         self.ignore_idx = -100
 
