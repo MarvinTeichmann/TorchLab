@@ -44,6 +44,8 @@ from localseg.encoder import parallel as parallel
 from localseg import decoder as segdecoder
 from localseg import loss
 
+from localseg.evaluators import segevaluator as evaluator
+
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
