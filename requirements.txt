@@ -7,3 +7,4 @@ ipdb
 ipython
 deepdish
 torchvision
+deepdish
