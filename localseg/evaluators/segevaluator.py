@@ -42,10 +42,7 @@ class MetaEvaluator(object):
         self.model = model
 
         val_file = conf['dataset']['val_file']
-        if self.conf['crf']['evaluation']['eval_crf_train']:
-            train_file = conf['dataset']['crf_file']
-        else:
-            train_file = conf['dataset']['train_file']
+        train_file = conf['dataset']['train_file']
 
         val_iter = self.conf['logging']["max_val_examples"]
         train_iter = self.conf['logging']["max_train_examples"]
@@ -177,13 +174,13 @@ class Evaluator():
         self.name = name
 
         loader = self.model.get_loader()
-        batch_size = conf['training']['unary']['batch_size']
+        batch_size = conf['training']['batch_size']
 
         self.loader = loader.get_data_loader(
             conf['dataset'], split='val', batch_size=batch_size,
             lst_file=data_file, shuffle=False)
 
-        self.bs = conf['training']['unary']['batch_size']
+        self.bs = conf['training']['batch_size']
 
         if max_examples is None:
             self.num_step = len(self.loader)
@@ -193,14 +190,13 @@ class Evaluator():
             self.count = range(1, max_iter + 1)
             self.num_step = max_iter
 
-        self.names = self.loader.dataset.names
+        # self.names = self.loader.dataset.names
         self.num_classes = self.loader.dataset.num_classes
         self.ignore_idx = -100
 
         self.display_iter = conf['logging']['display_iter']
 
         self.smoother = pyvision.utils.MedianSmoother(20)
-        pass
 
     def evaluate(self, eval_fkt=None):
 
