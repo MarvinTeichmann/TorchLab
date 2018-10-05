@@ -25,7 +25,6 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
 
-
 data_file = "datasets/camvid360_noprop_train.lst"
 data_file2 = "datasets/camvid360_prop_train2.lst"
 
@@ -147,12 +146,12 @@ for i, filename in enumerate(realfiles2):
 
     assert(np.all(image == color_image))
 
-    rel_outdir = os.path.join(os.path.dirname((files2[0])),
-                              outdirname)
-
-    output_name = os.path.join(rel_outdir, os.path.basename(filename)) + ".npy"
+    output_name = os.path.join(outdir, os.path.basename(filename)) + ".npy"
     np.save(output_name, id_image)
 
+    rel_outdir = os.path.join(os.path.dirname((files2[0])),
+                              outdirname)
+    output_name = os.path.join(rel_outdir, os.path.basename(filename)) + ".npy"
     print(output_name, file=f)
     print(output_name, file=f2)
 
