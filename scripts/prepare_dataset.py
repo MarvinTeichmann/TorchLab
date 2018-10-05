@@ -151,9 +151,9 @@ for i, filename in enumerate(realfiles2):
 
     rel_outdir = os.path.join(os.path.dirname((files2[0])),
                               outdirname)
-    output_name = os.path.join(rel_outdir, os.path.basename(filename)) + ".npy"
-    print(output_name, file=f)
-    print(output_name, file=f2)
+    rel_name = os.path.join(rel_outdir, os.path.basename(filename)) + ".npy"
+    print(rel_name, file=f)
+    print(rel_name, file=f2)
 
     if i < 10:
         read_img = np.load(output_name)
