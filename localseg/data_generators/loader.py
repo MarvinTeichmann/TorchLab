@@ -44,7 +44,7 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 
 
 default_conf = {
-    'dataset': 'camvid360_noprop',
+    'dataset': 'sincity_small',
     'train_file': None,
     'val_file': None,
 
@@ -143,6 +143,14 @@ class PascalVOCLoader(data.Dataset):
             conf['ignore_label'] = 0
             conf['idx_offset'] = 1
             conf['num_classes'] = 308
+
+        if conf['dataset'] == 'sincity_small':
+            conf['train_file'] = 'datasets/scenecity_small_train.lst'
+            conf['val_file'] = 'datasets/scenecity_small_test.lst'
+
+            conf['ignore_label'] = 0
+            conf['idx_offset'] = 1
+            conf['num_classes'] = 113
 
         return
 
@@ -634,7 +642,4 @@ class RandomRotation(object):
 if __name__ == '__main__':  # NOQA
     loader = PascalVOCLoader()
     test = loader[1]
-    from IPython import embed
-    embed()
-    pass
     logging.info("Hello World.")
