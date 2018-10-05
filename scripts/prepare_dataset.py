@@ -26,10 +26,11 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     stream=sys.stdout)
 
 
-data_file = "datasets/scenecity_small_train.lst"
+data_file = "datasets/camvid360_noprop_train.lst"
+data_file2 = "datasets/camvid360_prop_train2.lst"
 
-data_file2 = "datasets/scenecity_small_test.lst"
-
+data_file = "datasets/scenecity_medium_train.lst"
+data_file2 = "datasets/scenecity_medium_test.lst"
 
 outdirname = 'ids_labels'
 
@@ -146,7 +147,10 @@ for i, filename in enumerate(realfiles2):
 
     assert(np.all(image == color_image))
 
-    output_name = os.path.join(outdir, os.path.basename(filename)) + ".npy"
+    rel_outdir = os.path.join(os.path.dirname((files2[0])),
+                              outdirname)
+
+    output_name = os.path.join(rel_outdir, os.path.basename(filename)) + ".npy"
     np.save(output_name, id_image)
 
     print(output_name, file=f)
