@@ -1,6 +1,5 @@
 {
     "modules": {
-        "dataset": "camvid360",
         "encoder": "resnet",
         "decoder": "fcn",
         "loss": "xentropy",
@@ -8,10 +7,15 @@
         "eval": "voc"
     },
 
-    "dataset": {
-        "train_file": "train_red.lst",
-        "crf_file": "train_crf.lst",
-        "val_file": "val.lst",
+    "dataset" : {
+        "dataset": "sincity_small",
+        "train_file": null,
+        "val_file": null,
+
+        "ignore_label": 0,
+        "idx_offset": 1,
+        "num_classes": null,
+
         "transform": {
             "color_augmentation_level": 1,
             "fix_shape": true,
@@ -24,14 +28,16 @@
             "lower_fac": 0.5,
             "upper_fac": 2,
             "resize_sig": 0.4,
-            "random_rotation": true,
             "random_flip": true,
+            "random_rotation": false,
+            "equirectangular": false,
             "normalize": true,
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 10
-    },
+        "num_worker": 5
+    }
+
     "encoder": {
         "num_layer": 50,
         "mean": [0.485, 0.456, 0.406],

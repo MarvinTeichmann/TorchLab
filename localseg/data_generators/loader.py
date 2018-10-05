@@ -66,7 +66,7 @@ default_conf = {
         'resize_sig': 0.4,
         'random_flip': True,
         'random_rotation': False,
-        'equirectangular': True,
+        'equirectangular': False,
         'normalize': True,
         'mean': [0.485, 0.456, 0.406],
         'std': [0.229, 0.224, 0.225]
@@ -79,7 +79,8 @@ def get_data_loader(conf=default_conf, split='train',
                     lst_file=None, batch_size=4,
                     pin_memory=True, shuffle=True):
 
-    dataset = PascalVOCLoader(conf=conf, split=split, lst_file=lst_file)
+    dataset = LocalSegmentationLoader(
+        conf=conf, split=split, lst_file=lst_file)
 
     data_loader = data.DataLoader(dataset, batch_size=batch_size,
                                   shuffle=shuffle,
@@ -89,7 +90,7 @@ def get_data_loader(conf=default_conf, split='train',
     return data_loader
 
 
-class PascalVOCLoader(data.Dataset):
+class LocalSegmentationLoader(data.Dataset):
     """Face Landmarks dataset."""
 
     def __init__(self, conf=default_conf, split="train", lst_file=None):
@@ -640,6 +641,6 @@ class RandomRotation(object):
 
 
 if __name__ == '__main__':  # NOQA
-    loader = PascalVOCLoader()
+    loader = LocalSegmentationLoader()
     test = loader[1]
     logging.info("Hello World.")

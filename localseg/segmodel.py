@@ -29,18 +29,23 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
-import encoding.parallel as parallel
-
 import pyvision.utils
 from pyvision.metric import SegmentationMetric as IoU
 from pyvision import pretty_printer as pp
 import pyvision.logger
+
+from IPython import embed
+embed()
+pass
 
 
 import torchsegkit
 from torchsegkit.datasets.pascal import loader
 from torchsegkit.datasets.pascal import visualizer as pvis
 from torchsegkit import encoder as segencoder
+from torchsegkit.encoder import parallel as parallel
+
+
 from torchsegkit import decoder as segdecoder
 from torchsegkit import loss
 
@@ -62,15 +67,34 @@ default_conf = {
     },
 
     "dataset": {
-        'train_file': 'train3.lst',
-        'val_file': 'val.lst',
+        'dataset': 'sincity_small',
+        'train_file': None,
+        'val_file': None,
+
+        'ignore_label': 0,
+        'idx_offset': 1,
+        'num_classes': None,
+
         'transform': {
-            'fix_shape': False,
-            'reseize_image': True,
+            'color_augmentation_level': 1,
+            'fix_shape': True,
+            'reseize_image': False,
             'patch_size': [512, 512],
-            'random_flip': True
+            'random_crop': True,
+            'max_crop': 8,
+            'crop_chance': 0.6,
+            'random_resize': True,
+            'lower_fac': 0.5,
+            'upper_fac': 2,
+            'resize_sig': 0.4,
+            'random_flip': True,
+            'random_rotation': False,
+            'equirectangular': False,
+            'normalize': True,
+            'mean': [0.485, 0.456, 0.406],
+            'std': [0.229, 0.224, 0.225]
         },
-        'num_worker': 4
+        'num_worker': 5
     },
 
     "encoder": {
@@ -789,4 +813,5 @@ class Trainer():
 
 
 if __name__ == '__main__':
+    segmentationmodel = SegModel(default_conf)
     logging.info("Hello World.")
