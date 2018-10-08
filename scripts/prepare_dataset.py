@@ -29,7 +29,7 @@ data_file = "datasets/camvid360_noprop_train.lst"
 data_file2 = "datasets/camvid360_prop_train2.lst"
 
 data_file = "datasets/scenecity_small_train.lst"
-data_file2 = "datasets/scenecity_small_train.lst"
+data_file2 = "datasets/scenecity_small_test.lst"
 
 outdirname = 'ids_labels2'
 
@@ -40,7 +40,7 @@ realfiles = [os.path.join(datadir, file) for file in files]
 files2 = [line.rstrip() for line in open(data_file2)]
 realfiles2 = [os.path.join(datadir, file) for file in files2]
 
-debug_num_images = 15
+debug_num_images = -1
 
 outdir = os.path.join(os.path.dirname((realfiles2[0])), outdirname)
 outfile = data_file2.split('.')[0] + "_out.lst"
@@ -96,16 +96,14 @@ def image_to_id(image, table):
     gt_reshaped = np.zeros([shape[0], shape[1], 3], dtype=np.int32)
     mask = np.zeros([shape[0], shape[1]], dtype=np.int32)
 
-    import ipdb # NOQA
-    ipdb.set_trace()
-    pass
-
     for color in list(np.unique(image.reshape(-1, 3), axis=0)):
         myid = table[tuple(color)]
 
-        gt_label = np.all(image == color, axis=2).reshape(
-            shape[0], shape[1], 1)
+        gt_label = np.all(image == color, axis=2)
         mask = mask + 1 * gt_label
+
+        gt_label = gt_label.reshape(
+            shape[0], shape[1], 1)
 
         idcolor = id_to_colour(myid)
 
@@ -125,12 +123,10 @@ def id2color(id_image, unique_classes):
     shape = id_image.shape
     gt_out = np.zeros([shape[0], shape[1], 3], dtype=np.int32)
 
-    from IPython import embed
-    embed()
-    pass
-
     for train_id, color in enumerate(unique_classes):
-        c_mask = id_image == train_id
+
+        color_id = id_to_colour(train_id)
+        c_mask = np.all(id_image == color_id, axis=2)
         c_mask = c_mask.reshape(c_mask.shape + tuple([1]))
         gt_out = gt_out + color * c_mask
 
@@ -162,21 +158,28 @@ for i, filename in enumerate(realfiles2):
     duration = time.time() - start_time
     logging.debug("Converting an images took {} seconds".format(duration))
 
+    start_time = time.time()
     color_image = id2color(id_image, unique_classes)
+    duration = time.time() - start_time
+    logging.debug("UnConverting an images took {} seconds".format(duration))
 
     assert(np.all(image == color_image))
 
-    output_name = os.path.join(outdir, os.path.basename(filename)) + ".npy"
-    np.save(output_name, id_image)
+    output_name = os.path.join(outdir, os.path.basename(filename))
+
+    assert(np.max(id_image) == 255)
+    assert(np.min(id_image) == 0)
+    id_image = id_image.astype(np.uint8)
+    imageio.imwrite(output_name, id_image)
 
     rel_outdir = os.path.join(os.path.dirname((files2[0])),
                               outdirname)
-    rel_name = os.path.join(rel_outdir, os.path.basename(filename)) + ".npy"
+    rel_name = os.path.join(rel_outdir, os.path.basename(filename))
     print(rel_name, file=f)
     print(rel_name, file=f2)
 
-    if i < 10:
-        read_img = np.load(output_name)
+    if i < 10000:
+        read_img = imageio.imread(output_name)
         assert(np.all(read_img == id_image))
 
     if i % 10 == 0:
