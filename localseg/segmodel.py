@@ -512,6 +512,31 @@ class Trainer():
         self.epoch = 0
         self.step = 0
 
+    def measure_data_loading_speed(self):
+        start_time = time.time()
+
+        for step, sample in enumerate(self.loader):
+
+            if step == 100:
+                break
+
+            logging.info("Processed example: {}".format(step))
+
+        duration = time.time() - start_time
+        logging.info("Loading 100 examples took: {}".format(duration))
+
+        start_time = time.time()
+
+        for step, sample in enumerate(self.loader):
+
+            if step == 100:
+                break
+
+            logging.info("Processed example: {}".format(step))
+
+        duration = time.time() - start_time
+        logging.info("Loading 100 examples took: {}".format(duration))
+
     def update_lr(self):
 
         conf = self.conf['training']

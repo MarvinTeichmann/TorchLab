@@ -67,7 +67,7 @@ class MetaEvaluator(object):
 
         # logging.info("Evaluating Model on the Validation Dataset.")
         start_time = time.time()
-        val_metric, val_base = self.val_evaluator.evaluate()
+        val_metric = self.val_evaluator.evaluate()
         # train_metric, train_base = self.val_evaluator.evaluate()
         dur = time.time() - start_time
         logging.info("Finished Validation run in {} minutes.".format(dur / 60))
@@ -75,7 +75,7 @@ class MetaEvaluator(object):
 
         logging.info("Evaluating Model on the Training Dataset.")
         start_time = time.time()
-        train_metric, train_base = self.train_evaluator.evaluate()
+        train_metric = self.train_evaluator.evaluate()
         duration = time.time() - start_time
         logging.info("Finished Training run in {} minutes.".format(
             duration / 60))
@@ -83,58 +83,31 @@ class MetaEvaluator(object):
 
         self.model.train(True)
 
-        if epoch is None and self.conf['crf']['evaluation']["display_first"]:
-            self.train_first = train_metric
-            self.val_first = val_metric
-
         if verbose:
             # Prepare pretty print
 
-            names = val_metric.get_pp_names(time_unit="ms")
+            names = val_metric.get_pp_names(time_unit="ms", summary=True)
             table = pp.TablePrinter(row_names=names)
 
-            values = val_metric.get_pp_values(time_unit="ms")
-            base_values = val_base.get_pp_values(time_unit="ms")
+            values = val_metric.get_pp_values(time_unit="ms", summary=True)
             smoothed = self.val_evaluator.smoother.update_weights(values)
 
-            if self.conf['crf']['evaluation']["display_first"]:
-                first = self.val_first.get_pp_values(time_unit="ms")
-                table.add_column(values, name="Validation")
-                table.add_column(first, name="Val (fist)")
-                table.add_column(base_values, name="Val (base)")
-            else:
-                table.add_column(smoothed, name="Validation")
-                table.add_column(values, name="Val (raw)")
-                table.add_column(base_values, name="Val (base)")
+            table.add_column(smoothed, name="Validation")
+            table.add_column(values, name="Val (raw)")
 
-            values = train_metric.get_pp_values(time_unit="ms")
+            values = train_metric.get_pp_values(time_unit="ms", summary=True)
             smoothed = self.train_evaluator.smoother.update_weights(values)
-            base_values = train_base.get_pp_values(time_unit="ms")
 
-            if self.conf['crf']['evaluation']["display_first"]:
-                first = self.train_first.get_pp_values(time_unit="ms")
-                table.add_column(values, name="Training")
-                table.add_column(first, name="Train (fist)")
-                table.add_column(base_values, name="Train (base)")
-            else:
-                table.add_column(smoothed, name="Training")
-                table.add_column(values, name="Train (raw)")
-                table.add_column(base_values, name="Train (base)")
+            table.add_column(smoothed, name="Training")
+            table.add_column(values, name="Train (raw)")
 
             table.print_table()
-
         if epoch is not None:
             vdict = val_metric.get_pp_dict(self, time_unit="ms", summary=True)
             self.logger.add_values(value_dict=vdict, step=epoch, prefix='val')
 
             tdic = train_metric.get_pp_dict(self, time_unit="ms", summary=True)
             self.logger.add_values(value_dict=tdic, step=epoch, prefix='train')
-
-            bdict = val_base.get_pp_dict(self, time_unit="ms", summary=True)
-            self.logger.add_values(value_dict=bdict, step=epoch, prefix='base')
-            tbdict = train_base.get_pp_dict(self, time_unit="ms", summary=True)
-            self.logger.add_values(
-                value_dict=tbdict, step=epoch, prefix='tbase')
 
             runname = os.path.basename(self.model.logdir)
             if len(runname.split("_")) > 2:
@@ -150,15 +123,12 @@ class MetaEvaluator(object):
 
             max_epochs = self.model.trainer.max_epochs
 
-            out_str = ("Summary:   [{:22}](mIoU: {:.2f} | {:.2f} | {:.2f}     "
-                       "accuracy: {:.2f} |  {:.2f} | {:.2f})"
-                       "     Epoch: {} / {}").format(
+            out_str = ("Summary:   [{:22}](mIoU: {:.2f} | {:.2f}      "
+                       "accuracy: {:.2f} | {:.2f})     Epoch: {} / {}").format(
                 runname[0:22],
                 100 * median(self.logger.data['val\\mIoU']),
-                100 * median(self.logger.data['base\\mIoU']),
                 100 * median(self.logger.data['train\\mIoU']),
                 100 * median(self.logger.data['val\\accuracy']),
-                100 * median(self.logger.data['base\\accuracy']),
                 100 * median(self.logger.data['train\\accuracy']),
                 epoch, max_epochs)
 
@@ -190,7 +160,7 @@ class Evaluator():
             self.count = range(1, max_iter + 1)
             self.num_step = max_iter
 
-        # self.names = self.loader.dataset.names
+        self.names = None
         self.num_classes = self.loader.dataset.num_classes
         self.ignore_idx = -100
 
@@ -202,7 +172,6 @@ class Evaluator():
 
         assert eval_fkt is None
         metric = IoU(self.num_classes, self.names)
-        baseline = IoU(self.num_classes, self.names)
 
         for step, sample in zip(self.count, self.loader):
 
@@ -211,49 +180,43 @@ class Evaluator():
             img_var = Variable(sample['image'], volatile=True).cuda()
 
             cur_bs = sample['image'].size()[0]
-            real_bs = self.conf['training']['unary']['batch_size']
+            real_bs = self.conf['training']['batch_size']
 
             if cur_bs == real_bs:
 
-                batched_pred, unary_pred = self.model.predict(img_var)
+                if eval_fkt is None:
+                    batched_pred = self.model(img_var)
+                else:
+                    batched_pred = eval_fkt(img_var)
 
                 if type(batched_pred) is list:
                     batched_pred = torch.nn.parallel.gather(batched_pred,
                                                             target_device=0)
-                if type(unary_pred) is list:
-                    unary_pred = torch.nn.parallel.gather(unary_pred,
-                                                          target_device=0)
             else:
                 # last batch makes troubles in parallel mode
 
                 # Fill the input to equal batch_size
                 cur_bs = sample['image'].size()[0]
-                real_bs = self.conf['training']['unary']['batch_size']
+                real_bs = self.conf['training']['batch_size']
                 fake_img = sample['image'][0]
                 fake_img = fake_img.view(tuple([1]) + fake_img.shape)
                 num_copies = real_bs - cur_bs
 
                 input = [sample['image']] + num_copies * [fake_img]
 
-                gathered_in = Variable(torch.cat(input), volatile=True).cuda()
-
-                batched_pred, unary_pred = self.model.predict(gathered_in)
+                gathered_in = Variable(torch.cat(input)).cuda()
+                if eval_fkt is None:
+                    batched_pred = self.model(gathered_in)
+                else:
+                    batched_pred = eval_fkt(gathered_in)
 
                 if type(batched_pred) is list:
                     batched_pred = torch.nn.parallel.gather(batched_pred,
                                                             target_device=0)
 
-                if type(unary_pred) is list:
-                    unary_pred = torch.nn.parallel.gather(unary_pred,
-                                                          target_device=0)
-
                 # Remove the fillers
-                if batched_pred is None:
-                    raise NotImplementedError
                 batched_pred = batched_pred[0:cur_bs]
-                unary_pred = unary_pred[0:cur_bs]
 
-            unary_pred = unary_pred.data.cpu().numpy()
             batched_pred = batched_pred.data.cpu().numpy()
 
             duration = (time.time() - start_time)
@@ -269,16 +232,6 @@ class Evaluator():
                 metric.add(label, mask, hard_pred, time=duration / self.bs,
                            ignore_idx=self.ignore_idx)
 
-            for d in range(unary_pred.shape[0]):
-                pred = unary_pred[d]
-                hard_pred = np.argmax(pred, axis=0)
-
-                label = sample['label'][d].numpy()
-                mask = label != self.ignore_idx
-
-                baseline.add(label, mask, hard_pred, time=duration / self.bs,
-                             ignore_idx=self.ignore_idx)
-
             # Print Information
             if step % self.display_iter == 0:
                 log_str = ("    {:8} [{:3d}/{:3d}] "
@@ -292,4 +245,4 @@ class Evaluator():
 
                 logging.info(for_str)
 
-        return metric, baseline
+        return metric

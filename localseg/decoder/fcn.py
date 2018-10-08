@@ -30,7 +30,8 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 default_conf = {
     "skip_connections": False,
     "scale_down": 0.01,
-    "dropout": False
+    "dropout": False,
+    "bottleneck": None
 }
 
 
@@ -38,8 +39,12 @@ class FCN(nn.Module):
 
     def __init__(self, num_classes, scale_dict,
                  conf=default_conf):
-        self.num_classes = num_classes
         super().__init__()
+
+        self.num_classes = num_classes
+
+        if conf['bottleneck'] is not None:
+            num_classes = conf['bottleneck']
 
         self.conv32 = nn.Conv2d(scale_dict['scale32'], num_classes,
                                 kernel_size=1, stride=1, padding=0,
@@ -77,6 +82,11 @@ class FCN(nn.Module):
                                    kernel_size=1, stride=1, padding=0,
                                    bias=False)
             self.upsample8 = nn.Upsample(scale_factor=8, mode='bilinear')
+
+        if conf['bottleneck'] is not None:
+            self.bottle = nn.Conv2d(conf['bottleneck'], self.num_classes,
+                                    kernel_size=1, stride=1, padding=0,
+                                    bias=False)
 
         if conf['scale_down'] == 1:
             self._initialize_all_weights() # NoQA
@@ -137,6 +147,9 @@ class FCN(nn.Module):
         score8 = self.conv8(scale8)
         fuse8 = up16 + score8
         up8 = self.upsample8(fuse8)
+
+        if self.conf['bottleneck'] is not None:
+            up8 = self.bottle(up8)
 
         return up8
 

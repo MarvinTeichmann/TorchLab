@@ -71,7 +71,7 @@ default_conf = {
         'mean': [0.485, 0.456, 0.406],
         'std': [0.229, 0.224, 0.225]
     },
-    'num_worker': 5
+    'num_worker': 4
 }
 
 
@@ -153,6 +153,14 @@ class LocalSegmentationLoader(data.Dataset):
             conf['idx_offset'] = 1
             conf['num_classes'] = 113
 
+        if conf['dataset'] == 'sincity_medium':
+            conf['train_file'] = 'datasets/scenecity_medium_train.lst'
+            conf['val_file'] = 'datasets/scenecity_medium_test.lst'
+
+            conf['ignore_label'] = 0
+            conf['idx_offset'] = 1
+            conf['num_classes'] = 838
+
         return
 
     def __len__(self):
@@ -212,7 +220,15 @@ class LocalSegmentationLoader(data.Dataset):
         labels = ids_image - self.conf['idx_offset']
         labels[ignore] = -100
 
-        assert(np.max(labels) < self.conf['num_classes'])
+        if np.max(labels) > self.conf['num_classes']:
+            logging.error("More labels then classes.")
+            logging.warning("np.unique(labels) {}".format(np.unique(labels)))
+
+            assert False, "np.unique(labels) {}".format(np.unique(labels))
+
+        # assert np.max(labels) <= self.conf['num_classes'], \
+        #     "np.max(labels): {}, self.conf['num_classes']: {}".format(
+        #         np.max(labels), self.conf['num_classes'])
 
         labels = labels.astype(np.int64)
         labels[ignore] = -100
@@ -425,8 +441,8 @@ def random_resize(image, gt_image, lower_size, upper_size, sig):
     """
 
     if not np.all(np.unique(gt_image2) == np.unique(gt_image)):
-        logging.warning("np.unique(gt_image2) {}".format(np.unique(gt_image2)))
-        logging.warning("np.unique(gt_image) {}".format(np.unique(gt_image)))
+        logging.debug("np.unique(gt_image2) {}".format(np.unique(gt_image2)))
+        logging.debug("np.unique(gt_image) {}".format(np.unique(gt_image)))
 
         for i in np.unique(gt_image2):
             if i == 255:
@@ -643,4 +659,7 @@ class RandomRotation(object):
 if __name__ == '__main__':  # NOQA
     loader = LocalSegmentationLoader()
     test = loader[1]
+    from IPython import embed
+    embed()
+    pass
     logging.info("Hello World.")

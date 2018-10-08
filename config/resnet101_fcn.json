@@ -70,6 +70,7 @@
         "pre_eval": true,
         "cnn_gpus": null,
         "max_epoch_steps": null,
+        "init_weights_from_checkpoint": false,
         "wd_policy": 2,
         "num_gpus": 2
     },
