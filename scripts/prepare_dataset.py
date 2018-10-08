@@ -28,10 +28,10 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 data_file = "datasets/camvid360_noprop_train.lst"
 data_file2 = "datasets/camvid360_prop_train2.lst"
 
-data_file = "datasets/scenecity_medium_train.lst"
-data_file2 = "datasets/scenecity_medium_test.lst"
+data_file = "datasets/scenecity_small_train.lst"
+data_file2 = "datasets/scenecity_small_train.lst"
 
-outdirname = 'ids_labels'
+outdirname = 'ids_labels2'
 
 datadir = os.environ['TV_DIR_DATA']
 files = [line.rstrip() for line in open(data_file)]
@@ -40,7 +40,7 @@ realfiles = [os.path.join(datadir, file) for file in files]
 files2 = [line.rstrip() for line in open(data_file2)]
 realfiles2 = [os.path.join(datadir, file) for file in files2]
 
-debug_num_images = -1
+debug_num_images = 15
 
 outdir = os.path.join(os.path.dirname((realfiles2[0])), outdirname)
 outfile = data_file2.split('.')[0] + "_out.lst"
@@ -49,6 +49,15 @@ logging.info("Results will be written to {}".format(outdir))
 
 if not os.path.exists(outdir):
     os.mkdir(outdir)
+
+
+def id_to_colour(id):
+    assert id < 255 * 255
+    return [id % 255, id // 255, 255]
+
+
+def colour_to_id(colour):
+    colour[0] + 255 * colour[1]
 
 
 def get_unique_classes(filenames):
@@ -84,15 +93,23 @@ def get_unique_classes(filenames):
 
 def image_to_id(image, table):
     shape = image.shape
-    gt_reshaped = np.zeros([shape[0], shape[1]], dtype=np.int32)
+    gt_reshaped = np.zeros([shape[0], shape[1], 3], dtype=np.int32)
     mask = np.zeros([shape[0], shape[1]], dtype=np.int32)
+
+    import ipdb # NOQA
+    ipdb.set_trace()
+    pass
 
     for color in list(np.unique(image.reshape(-1, 3), axis=0)):
         myid = table[tuple(color)]
 
-        gt_label = np.all(image == color, axis=2)
+        gt_label = np.all(image == color, axis=2).reshape(
+            shape[0], shape[1], 1)
         mask = mask + 1 * gt_label
-        gt_reshaped = gt_reshaped + myid * gt_label
+
+        idcolor = id_to_colour(myid)
+
+        gt_reshaped = gt_reshaped + gt_label * idcolor
 
     assert(np.all(mask == 1))
 
@@ -107,7 +124,10 @@ def id2color(id_image, unique_classes):
 
     shape = id_image.shape
     gt_out = np.zeros([shape[0], shape[1], 3], dtype=np.int32)
-    id_image
+
+    from IPython import embed
+    embed()
+    pass
 
     for train_id, color in enumerate(unique_classes):
         c_mask = id_image == train_id
