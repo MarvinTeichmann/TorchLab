@@ -160,6 +160,7 @@ class LocalSegmentationLoader(data.Dataset):
         if conf['dataset'] == 'sincity_mini':
             conf['train_file'] = 'datasets/scenecity_mini_train.lst'
             conf['val_file'] = 'datasets/scenecity_mini_test.lst'
+            conf['vis_file'] = 'datasets/scenecity_mini_train_classes.lst'
 
             conf['ignore_label'] = 0
             conf['idx_offset'] = 1

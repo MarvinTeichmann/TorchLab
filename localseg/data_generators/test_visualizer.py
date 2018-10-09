@@ -26,7 +26,7 @@ import loader
 import visualizer
 import time
 
-class_file = "datasets/scenecity_small_train_classes.txt"
+class_file = "datasets/scenecity_small_train_classes.lst"
 
 
 def test_plot_sample():
