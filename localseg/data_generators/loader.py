@@ -125,8 +125,9 @@ class LocalSegmentationLoader(data.Dataset):
 
         self._init_transformations(conf)
 
-        logging.info("Pascal VOC Dataset ({}) with {} examples successful"
-                     " loaded.".format(split, self.__len__()))
+        logging.info("Segmentation Dataset '{}' ({}) with {} examples "
+                     "successfully loaded.".format(
+                         conf['dataset'], split, self.__len__()))
 
     def _init_transformations(self, conf):
         self.to_img = torchvision.transforms.ToPILImage()
@@ -252,10 +253,11 @@ class LocalSegmentationLoader(data.Dataset):
 
         transform = self.conf['transform']
 
-        if transform is not None:
-            image = scipy.misc.imresize(image, size=0.5, interp='cubic')
+        if transform['presize'] is not None:
+            image = scipy.misc.imresize(
+                image, size=transform['presize'], interp='cubic')
             gt_image = scipy.misc.imresize(
-                gt_image, size=0.5, interp='nearest')
+                gt_image, size=transform['presize'], interp='nearest')
 
         if self.split == 'train':
 

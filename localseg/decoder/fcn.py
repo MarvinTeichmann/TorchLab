@@ -45,6 +45,7 @@ class FCN(nn.Module):
 
         if conf['bottleneck'] is not None:
             num_classes = conf['bottleneck']
+            logging.info("Using Bottleneck of {}".format(num_classes))
 
         self.conv32 = nn.Conv2d(scale_dict['scale32'], num_classes,
                                 kernel_size=1, stride=1, padding=0,

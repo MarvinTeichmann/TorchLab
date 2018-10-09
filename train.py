@@ -88,8 +88,8 @@ if __name__ == '__main__':
     if args.debug:
         args.bench = 'Debug'
         config['logging']['display_iter'] = 5
-        config['logging']['max_val_examples'] = 20
-        config['logging']['max_train_examples'] = 20
+        config['logging']['max_val_examples'] = 120
+        config['logging']['max_train_examples'] = 120
 
         config['training']['max_epoch_steps'] = 50
         config['training']['max_epochs'] = 5

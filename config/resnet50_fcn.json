@@ -36,7 +36,7 @@
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 8
+        "num_worker": 12
     },
 
     "encoder": {
@@ -55,20 +55,20 @@
         "skip_connections": true,
         "scale_down": 0.01,
         "dropout": true,
-        "bottleneck": 32
+        "bottleneck": null
     },
 
     "training": {
-        "batch_size": 4,
+        "batch_size": 8,
         "learning_rate": 2e-5,
-        "lr_schedule": "poly",
+        "lr_schedule": "constant",
         "exp": 1.5,
         "base": 0.9,
         "base2": 2,
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": null,
-        "max_epochs": 200,
+        "max_epochs": 600,
         "pre_eval": false,
         "cnn_gpus": null,
         "max_epoch_steps": null,
@@ -79,9 +79,9 @@
 
     "logging": {
         "display_iter": 20,
-        "eval_iter": 1,
+        "eval_iter": 5,
         "max_val_examples": null,
-        "max_train_examples": 500
+        "max_train_examples": 300
     },
 
     "plotting": {

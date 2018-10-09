@@ -246,8 +246,6 @@ class SegModel(nn.Module):
         self.loader = loader
         self.trainloader = loader.get_data_loader(
             conf['dataset'], split='train', batch_size=bs)
-        self.valloader = loader.get_data_loader(
-            conf['dataset'], split='val', batch_size=bs, shuffle=False)
         nclasses = self.conf['dataset']['num_classes']
 
         # Build Encoder and Decoder
@@ -502,6 +500,7 @@ class Trainer():
 
         self.max_epochs = conf['training']['max_epochs']
         self.display_iter = conf['logging']['display_iter']
+        self.eval_iter = conf['logging']['eval_iter']
         self.max_epoch_steps = conf['training']['max_epoch_steps']
 
         self.checkpoint_name = os.path.join(self.model.logdir,
@@ -653,23 +652,25 @@ class Trainer():
             duration = (time.time() - epoche_time) / 60
             logging.info("Finished Epoch {} in {} minutes"
                          .format(epoch, duration))
-
-            self.logger.init_step(epoch)
-            self.logger.add_value(losses, 'loss', epoch)
-            self.model.evaluate(epoch)
-            logging.info("Saving checkpoint to: {}".format(self.model.logdir))
-            # Save Checkpoint
-            self.logger.save(filename=self.log_file)
             self.epoch = epoch + 1
-            state = {
-                'epoch': epoch + 1,
-                'step': self.step,
-                'conf': self.conf,
-                'state_dict': self.model.state_dict(),
-                'optimizer': self.optimizer.state_dict()}
 
-            torch.save(state, self.checkpoint_name)
-            logging.info("Checkpoint saved sucessfully.")
+            if self.epoch % self.eval_iter == 0:
+                self.logger.init_step(epoch)
+                self.logger.add_value(losses, 'loss', epoch)
+                self.model.evaluate(epoch)
+                logging.info("Saving checkpoint to: {}".format(
+                    self.model.logdir))
+                # Save Checkpoint
+                self.logger.save(filename=self.log_file)
+                state = {
+                    'epoch': epoch + 1,
+                    'step': self.step,
+                    'conf': self.conf,
+                    'state_dict': self.model.state_dict(),
+                    'optimizer': self.optimizer.state_dict()}
+
+                torch.save(state, self.checkpoint_name)
+                logging.info("Checkpoint saved sucessfully.")
 
             if self.epoch % 50 == 0:
                 name = 'checkpoint_{}.pth.tar'.format(self.epoch)

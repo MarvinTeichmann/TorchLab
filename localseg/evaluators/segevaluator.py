@@ -19,8 +19,9 @@ import torch.nn as nn
 
 import time
 
+from .metric import SegmentationMetric as IoU
+
 import pyvision
-from pyvision.metric import SegmentationMetric as IoU
 from pyvision import pretty_printer as pp
 from torch.autograd import Variable
 
@@ -48,9 +49,9 @@ class MetaEvaluator(object):
         train_iter = self.conf['logging']["max_train_examples"]
 
         self.val_evaluator = Evaluator(
-            conf, model, val_file, val_iter, name="Val")
+            conf, model, val_file, val_iter, name="Val", split="val")
         self.train_evaluator = Evaluator(
-            conf, model, train_file, train_iter, name="Train")
+            conf, model, train_file, train_iter, name="Train", split="train")
 
         self.evaluators = []
 
@@ -68,6 +69,7 @@ class MetaEvaluator(object):
         # logging.info("Evaluating Model on the Validation Dataset.")
         start_time = time.time()
         val_metric = self.val_evaluator.evaluate()
+
         # train_metric, train_base = self.val_evaluator.evaluate()
         dur = time.time() - start_time
         logging.info("Finished Validation run in {} minutes.".format(dur / 60))
@@ -86,16 +88,18 @@ class MetaEvaluator(object):
         if verbose:
             # Prepare pretty print
 
-            names = val_metric.get_pp_names(time_unit="ms", summary=True)
+            names = val_metric.get_pp_names(time_unit="ms", summary=False)
             table = pp.TablePrinter(row_names=names)
 
-            values = val_metric.get_pp_values(time_unit="ms", summary=True)
+            values = val_metric.get_pp_values(
+                time_unit="ms", summary=False, ignore_first=False)
             smoothed = self.val_evaluator.smoother.update_weights(values)
 
             table.add_column(smoothed, name="Validation")
             table.add_column(values, name="Val (raw)")
 
-            values = train_metric.get_pp_values(time_unit="ms", summary=True)
+            values = train_metric.get_pp_values(
+                time_unit="ms", summary=False, ignore_first=False)
             smoothed = self.train_evaluator.smoother.update_weights(values)
 
             table.add_column(smoothed, name="Training")
@@ -103,10 +107,12 @@ class MetaEvaluator(object):
 
             table.print_table()
         if epoch is not None:
-            vdict = val_metric.get_pp_dict(self, time_unit="ms", summary=True)
+            vdict = val_metric.get_pp_dict(time_unit="ms", summary=True,
+                                           ignore_first=False)
             self.logger.add_values(value_dict=vdict, step=epoch, prefix='val')
 
-            tdic = train_metric.get_pp_dict(self, time_unit="ms", summary=True)
+            tdic = train_metric.get_pp_dict(time_unit="ms", summary=True,
+                                            ignore_first=False)
             self.logger.add_values(value_dict=tdic, step=epoch, prefix='train')
 
             runname = os.path.basename(self.model.logdir)
@@ -138,19 +144,24 @@ class MetaEvaluator(object):
 class Evaluator():
 
     def __init__(self, conf, model, data_file, max_examples=None,
-                 name=''):
+                 name='', split=None):
         self.model = model
         self.conf = conf
         self.name = name
 
+        if split is None:
+            split = 'val'
+
         loader = self.model.get_loader()
         batch_size = conf['training']['batch_size']
+        if split == 'val' and batch_size > 8:
+            batch_size = 8
 
         self.loader = loader.get_data_loader(
-            conf['dataset'], split='val', batch_size=batch_size,
+            conf['dataset'], split=split, batch_size=batch_size,
             lst_file=data_file, shuffle=False)
 
-        self.bs = conf['training']['batch_size']
+        self.bs = batch_size
 
         if max_examples is None:
             self.num_step = len(self.loader)
@@ -177,45 +188,47 @@ class Evaluator():
 
             # Run Model
             start_time = time.time()
-            img_var = Variable(sample['image'], volatile=True).cuda()
+            img_var = Variable(sample['image']).cuda()
 
             cur_bs = sample['image'].size()[0]
             real_bs = self.conf['training']['batch_size']
 
-            if cur_bs == real_bs:
+            with torch.no_grad():
 
-                if eval_fkt is None:
-                    batched_pred = self.model(img_var)
+                if cur_bs == real_bs:
+
+                    if eval_fkt is None:
+                        batched_pred = self.model(img_var)
+                    else:
+                        batched_pred = eval_fkt(img_var)
+
+                    if type(batched_pred) is list:
+                        batched_pred = torch.nn.parallel.gather(
+                            batched_pred, target_device=0)
                 else:
-                    batched_pred = eval_fkt(img_var)
+                    # last batch makes troubles in parallel mode
 
-                if type(batched_pred) is list:
-                    batched_pred = torch.nn.parallel.gather(batched_pred,
-                                                            target_device=0)
-            else:
-                # last batch makes troubles in parallel mode
+                    # Fill the input to equal batch_size
+                    cur_bs = sample['image'].size()[0]
+                    real_bs = self.conf['training']['batch_size']
+                    fake_img = sample['image'][0]
+                    fake_img = fake_img.view(tuple([1]) + fake_img.shape)
+                    num_copies = real_bs - cur_bs
 
-                # Fill the input to equal batch_size
-                cur_bs = sample['image'].size()[0]
-                real_bs = self.conf['training']['batch_size']
-                fake_img = sample['image'][0]
-                fake_img = fake_img.view(tuple([1]) + fake_img.shape)
-                num_copies = real_bs - cur_bs
+                    input = [sample['image']] + num_copies * [fake_img]
 
-                input = [sample['image']] + num_copies * [fake_img]
+                    gathered_in = Variable(torch.cat(input)).cuda()
+                    if eval_fkt is None:
+                        batched_pred = self.model(gathered_in)
+                    else:
+                        batched_pred = eval_fkt(gathered_in)
 
-                gathered_in = Variable(torch.cat(input)).cuda()
-                if eval_fkt is None:
-                    batched_pred = self.model(gathered_in)
-                else:
-                    batched_pred = eval_fkt(gathered_in)
+                    if type(batched_pred) is list:
+                        batched_pred = torch.nn.parallel.gather(
+                            batched_pred, target_device=0)
 
-                if type(batched_pred) is list:
-                    batched_pred = torch.nn.parallel.gather(batched_pred,
-                                                            target_device=0)
-
-                # Remove the fillers
-                batched_pred = batched_pred[0:cur_bs]
+                    # Remove the fillers
+                    batched_pred = batched_pred[0:cur_bs]
 
             batched_pred = batched_pred.data.cpu().numpy()
 
