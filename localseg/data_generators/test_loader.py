@@ -48,14 +48,14 @@ def test_loading():
 
 def speed_bench():
 
-    num_iters = 100
+    num_iters = 30
     bs = 1
 
     log_str = ("    {:8} [{:3d}/{:3d}] "
                " Speed: {:.1f} imgs/sec ({:.3f} sec/batch)")
 
     conf = loader.default_conf
-    conf['num_worker'] = 16
+    conf['num_worker'] = 10
 
     myloader = loader.get_data_loader(
         conf=conf, batch_size=1, pin_memory=False)
@@ -70,7 +70,7 @@ def speed_bench():
         logging.info("Processed example: {}".format(step))
 
     duration = time.time() - start_time
-    logging.info("Loading 100 examples took: {}".format(duration))
+    logging.info("Loading {} examples took: {}".format(num_iters, duration))
 
     duration = duration / num_iters
     imgs_per_sec = bs / duration
@@ -87,7 +87,8 @@ def speed_bench():
             break
 
     duration = time.time() - start_time
-    logging.info("Loading another 100 examples took: {}".format(duration))
+    logging.info("Loading another {} examples took: {}".format(
+        num_iters, duration))
 
     duration = duration / num_iters
     imgs_per_sec = bs / duration
