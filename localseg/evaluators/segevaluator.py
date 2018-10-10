@@ -13,13 +13,14 @@ import logging
 import matplotlib.pyplot as plt
 
 from pyvision.logger import Logger
+from ast import literal_eval
 
 import torch
 import torch.nn as nn
 
 import time
 
-from .metric import SegmentationMetric as IoU
+from localseg.evaluators.metric import SegmentationMetric as IoU
 
 import pyvision
 from pyvision import pretty_printer as pp
@@ -27,20 +28,30 @@ from torch.autograd import Variable
 
 from pprint import pprint
 
+from localseg.data_generators import visualizer
+
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
 
 
-def get_pyvision_evaluator(conf, model, names=None):
-    return MetaEvaluator(conf, model)
+def get_pyvision_evaluator(conf, model, names=None, imgdir=None):
+    return MetaEvaluator(conf, model, imgdir=imgdir)
 
 
 class MetaEvaluator(object):
     """docstring for MetaEvaluator"""
-    def __init__(self, conf, model):
+    def __init__(self, conf, model, imgdir=None):
         self.conf = conf
         self.model = model
+
+        if imgdir is None:
+            self.imgdir = os.path.join(model.logdir, "images")
+        else:
+            self.imgdir = imgdir
+
+        if not os.path.exists(self.imgdir):
+            os.mkdir(self.imgdir)
 
         val_file = conf['dataset']['val_file']
         train_file = conf['dataset']['train_file']
@@ -49,18 +60,27 @@ class MetaEvaluator(object):
         train_iter = self.conf['logging']["max_train_examples"]
 
         self.val_evaluator = Evaluator(
-            conf, model, val_file, val_iter, name="Val", split="val")
+            conf, model, val_file, val_iter, name="Val", split="val",
+            imgdir=imgdir)
         self.train_evaluator = Evaluator(
-            conf, model, train_file, train_iter, name="Train", split="train")
+            conf, model, train_file, train_iter, name="Train", split="train",
+            imgdir=imgdir)
 
         self.evaluators = []
 
         self.logger = model.logger
 
-    def evaluate(self, epoch=None, verbose=True):
+    def evaluate(self, epoch=None, verbose=True, level='minor'):
+        """
+        level: 'minor', 'mayor' or 'full'.
+        """
 
         # if not self.conf['crf']['use_crf']:
         #    return super().evaluate(epoch=epoch, verbose=verbose)
+
+        if level not in ['minor', 'mayor', 'full', 'none']:
+            logging.error("Unknown evaluation level.")
+            assert False
 
         self.model.train(False)
 
@@ -68,7 +88,7 @@ class MetaEvaluator(object):
 
         # logging.info("Evaluating Model on the Validation Dataset.")
         start_time = time.time()
-        val_metric = self.val_evaluator.evaluate()
+        val_metric = self.val_evaluator.evaluate(epoch=epoch, level=level)
 
         # train_metric, train_base = self.val_evaluator.evaluate()
         dur = time.time() - start_time
@@ -77,7 +97,7 @@ class MetaEvaluator(object):
 
         logging.info("Evaluating Model on the Training Dataset.")
         start_time = time.time()
-        train_metric = self.train_evaluator.evaluate()
+        train_metric = self.train_evaluator.evaluate(epoch=epoch, level='none')
         duration = time.time() - start_time
         logging.info("Finished Training run in {} minutes.".format(
             duration / 60))
@@ -144,10 +164,13 @@ class MetaEvaluator(object):
 class Evaluator():
 
     def __init__(self, conf, model, data_file, max_examples=None,
-                 name='', split=None):
+                 name='', split=None, imgdir=None):
         self.model = model
         self.conf = conf
         self.name = name
+        self.imgdir = imgdir
+
+        self.minor_steps = [1, 50, 100]
 
         if split is None:
             split = 'val'
@@ -161,6 +184,8 @@ class Evaluator():
             conf['dataset'], split=split, batch_size=batch_size,
             lst_file=data_file, shuffle=False)
 
+        class_file = conf['dataset']['vis_file']
+        self.vis = visualizer.LocalSegVisualizer(class_file)
         self.bs = batch_size
 
         if max_examples is None:
@@ -179,7 +204,12 @@ class Evaluator():
 
         self.smoother = pyvision.utils.MedianSmoother(20)
 
-    def evaluate(self, eval_fkt=None):
+    def evaluate(self, epoch=None, eval_fkt=None, level='minor'):
+
+        if level == 'mayor' or level == 'full':
+            epochdir = os.path.join(self.imgdir, "epoch_{}".format(epoch))
+            if not os.path.exists(epochdir):
+                os.mkdir(epochdir)
 
         assert eval_fkt is None
         metric = IoU(self.num_classes, self.names)
@@ -230,13 +260,43 @@ class Evaluator():
                     # Remove the fillers
                     batched_pred = batched_pred[0:cur_bs]
 
-            batched_pred = batched_pred.data.cpu().numpy()
-
+            batched_np = batched_pred.data.cpu().numpy()
             duration = (time.time() - start_time)
 
+            if level == 'mayor' and step * real_bs < 300 or level == 'full':
+
+                for d in range(cur_bs):
+                    self.vis.plot_prediction(
+                        sample, batched_pred, trans=0.4, idx=d)
+                    filename = literal_eval(
+                        sample['load_dict'][d])['image_file']
+                    new_name = os.path.join(epochdir,
+                                            os.path.basename(filename))
+                    plt.tight_layout()
+                    plt.savefig(new_name, format='png', bbox_inches='tight',
+                                dpi=199)
+
+            if level is not 'none' and step in self.minor_steps:
+                stepdir = os.path.join(self.imgdir, "step_{}".format(step))
+                if not os.path.exists(stepdir):
+                    os.mkdir(stepdir)
+
+                self.vis.plot_prediction(
+                    sample, batched_pred, trans=0.4, idx=0)
+                filename = literal_eval(
+                    sample['load_dict'][0])['image_file']
+                newfile = filename.split(".")[0] + "_epoch_{}.png".format(
+                    epoch)
+
+                new_name = os.path.join(stepdir,
+                                        os.path.basename(newfile))
+                plt.tight_layout()
+                plt.savefig(new_name, format='png', bbox_inches='tight',
+                            dpi=199)
+
             # Analyze output
-            for d in range(batched_pred.shape[0]):
-                pred = batched_pred[d]
+            for d in range(batched_np.shape[0]):
+                pred = batched_np[d]
                 hard_pred = np.argmax(pred, axis=0)
 
                 label = sample['label'][d].numpy()
