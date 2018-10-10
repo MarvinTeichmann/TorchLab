@@ -8,7 +8,7 @@
     },
 
     "dataset" : {
-        "dataset": "sincity_small",
+        "dataset": "camvid360_noprop",
         "train_file": null,
         "val_file": null,
 
@@ -23,6 +23,7 @@
             "reseize_image": false,
             "patch_size": [480, 480],
             "random_crop": true,
+            "random_roll": true,
             "max_crop": 8,
             "crop_chance": 0.6,
             "random_resize": true,
@@ -59,7 +60,7 @@
     },
 
     "training": {
-        "batch_size": 8,
+        "batch_size": 4,
         "learning_rate": 2e-5,
         "lr_schedule": "constant",
         "exp": 1.5,

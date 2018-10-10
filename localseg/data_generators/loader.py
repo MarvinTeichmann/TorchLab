@@ -37,6 +37,11 @@ from PIL import Image
 
 from torch.utils import data
 
+try:
+    from fast_equi import extractEquirectangular_quick
+    from algebra import Algebra
+except ImportError:
+    pass
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -58,6 +63,7 @@ default_conf = {
         'fix_shape': True,
         'reseize_image': False,
         'patch_size': [480, 480],
+        'random_roll': True,
         'random_crop': True,
         'max_crop': 8,
         'crop_chance': 0.6,
@@ -66,7 +72,7 @@ default_conf = {
         'upper_fac': 2,
         'resize_sig': 0.4,
         'random_flip': True,
-        'random_rotation': False,
+        'random_rotation': True,
         'equirectangular': False,
         'normalize': True,
         'mean': [0.485, 0.456, 0.406],
@@ -155,7 +161,7 @@ class LocalSegmentationLoader(data.Dataset):
 
             conf['ignore_label'] = 0
             conf['idx_offset'] = 1
-            conf['num_classes'] = 113
+            conf['num_classes'] = 112
 
         if conf['dataset'] == 'sincity_mini':
             conf['train_file'] = 'datasets/scenecity_mini_train.lst'
@@ -164,7 +170,7 @@ class LocalSegmentationLoader(data.Dataset):
 
             conf['ignore_label'] = 0
             conf['idx_offset'] = 1
-            conf['num_classes'] = 113
+            conf['num_classes'] = 112
 
         if conf['dataset'] == 'sincity_medium':
             conf['train_file'] = 'datasets/scenecity_medium_train.lst'
@@ -272,7 +278,14 @@ class LocalSegmentationLoader(data.Dataset):
                 else:
                     load_dict['flipped'] = False
 
+            if transform['random_roll']:
+                if random.random() > 0.6:
+                    image, gt_image = roll_img(image, gt_image)
+
             shape_distorted = False
+
+            if transform['equirectangular']:
+                image, gt_image = random_equi_rotation(image, gt_image)
 
             if transform['random_rotation']:
 
@@ -384,14 +397,65 @@ def to_np(img):
     return np.array(img, np.int32, copy=True)
 
 
+def roll_img(image, gt_image):
+    half = image.shape[1] // 2
+
+    image_r = image[:, half:]
+    image_l = image[:, :half]
+    image_rolled = np.concatenate([image_r, image_l], axis=1)
+
+    gt_image_r = gt_image[:, half:]
+    gt_image_l = gt_image[:, :half]
+    gt_image_rolled = np.concatenate([gt_image_r, gt_image_l], axis=1)
+
+    return image_rolled, gt_image_rolled
+
+
+def random_equi_rotation(image, gt_image):
+    yaw = 2 * np.pi * random.random()
+    roll = 2 * np.pi * (random.random() - 0.5) * 0.1
+    pitch = 2 * np.pi * (random.random() - 0.5) * 0.1
+
+    rotation_angles = np.array([yaw, roll, pitch])
+    image_res = np.zeros(image.shape)
+    gtimage_res = np.zeros(gt_image.shape)
+
+    extractEquirectangular_quick(
+        True, image, image_res, Algebra.rotation_matrix(rotation_angles))
+
+    extractEquirectangular_quick(
+        True, gt_image, gtimage_res, Algebra.rotation_matrix(rotation_angles))
+
+    gtimage_res = (gtimage_res + 0.1).astype(np.int32)
+
+    if DEBUG:
+        if not np.all(np.unique(gtimage_res) == np.unique(gt_image)):
+            logging.warning("np.unique(gt_image    ) {}".format(
+                np.unique(gt_image)))
+            logging.warning("np.unique(gt_image_res) {}".format(
+                np.unique(gtimage_res)))
+
+            for i in np.unique(gtimage_res):
+                if i == 255:
+                    continue
+                else:
+                    if i not in np.unique(gt_image):
+                        logging.error("Equirectangular removed classes.")
+                    assert i in np.unique(gt_image)
+
+    return image_res, gtimage_res
+
+
 def random_crop_soft(image, gt_image, max_crop, crop_chance):
-    offset_x = random.randint(1, max_crop)
-    offset_y = random.randint(1, max_crop)
+    offset_x = random.randint(0, max_crop)
+    offset_y = random.randint(0, max_crop)
 
     if random.random() < 0.8:
         image = image[offset_x:, offset_y:]
         gt_image = gt_image[offset_x:, offset_y:]
     else:
+        offset_x += 1
+        offset_y += 1
         image = image[:-offset_x, :-offset_y]
         gt_image = gt_image[:-offset_x, :-offset_y]
 
@@ -487,19 +551,18 @@ def random_rotation(image, gt_image,
 
     angle = truncated_normal(mean=0, std=std, lower=lower,
                              upper=upper)
+    angle = -5
     image_r = scipy.ndimage.rotate(image, angle, order=3, cval=127)
     gt_image_r = scipy.ndimage.rotate(gt_image, angle, order=0, cval=255)
 
     gt_image[10, 10] = 255
-    if not np.all(np.unique(gt_image_r) == np.unique(gt_image)):
-        logging.info("np.unique(gt_image_r): {}".format(np.unique(gt_image_r)))
-        logging.info("np.unique(gt_image): {}".format(np.unique(gt_image)))
+    if False:
+        if not np.all(np.unique(gt_image_r) == np.unique(gt_image)):
+            logging.info("np.unique(gt_image_r): {}".format(
+                np.unique(gt_image_r)))
+            logging.info("np.unique(gt_image): {}".format(np.unique(gt_image)))
 
-        from IPython import embed
-        embed()
-        pass
-
-        assert(False)
+            assert(False)
 
     return image_r, gt_image_r
 

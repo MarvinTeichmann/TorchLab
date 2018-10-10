@@ -55,7 +55,7 @@ def speed_bench():
                " Speed: {:.1f} imgs/sec ({:.3f} sec/batch)")
 
     conf = loader.default_conf
-    conf['num_worker'] = 10
+    conf['num_worker'] = 8
 
     myloader = loader.get_data_loader(
         conf=conf, batch_size=1, pin_memory=False)
