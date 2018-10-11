@@ -16,6 +16,8 @@
         "idx_offset": 1,
         "num_classes": null,
 
+        "label_encoding": "dense",
+
         "transform": {
             "presize": 0.5,
             "color_augmentation_level": 1,

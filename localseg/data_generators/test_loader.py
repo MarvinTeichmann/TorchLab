@@ -46,6 +46,29 @@ def test_loading():
     logging.info("Loading 10 examples took: {}".format(duration))
 
 
+def test_loading_2d():
+
+    conf = loader.default_conf
+    conf['num_worker'] = 8
+    conf['label_encoding'] = 'spatial_2d'
+
+    myloader = loader.get_data_loader(
+        conf=conf, batch_size=1, pin_memory=False)
+
+    start_time = time.time()
+
+    for step, sample in enumerate(myloader):
+
+        if step == 10:
+            break
+
+        logging.info("Processed example: {}".format(step))
+
+    duration = time.time() - start_time
+
+    logging.info("Loading 10 examples took: {}".format(duration))
+
+
 def speed_bench():
 
     num_iters = 30
@@ -99,5 +122,6 @@ def speed_bench():
 
 
 if __name__ == '__main__':
-    speed_bench()
+    test_loading_2d()
+    # speed_bench()
     logging.info("Hello World.")

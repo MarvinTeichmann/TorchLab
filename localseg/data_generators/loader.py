@@ -53,6 +53,8 @@ default_conf = {
     'train_file': None,
     'val_file': None,
 
+    'label_encoding': 'dense',
+
     'ignore_label': 0,
     'idx_offset': 1,
     'num_classes': None,
@@ -128,6 +130,12 @@ class LocalSegmentationLoader(data.Dataset):
         self.root_dir = os.environ['TV_DIR_DATA']
 
         self.num_classes = conf['num_classes']
+
+        assert self.conf['label_encoding'] in ['dense', 'spatial_2d']
+
+        if self.conf['label_encoding'] == 'spatial_2d':
+            self.root_classes = int(np.ceil(np.sqrt(self.num_classes)))
+            self.conf['root_classes'] = self.root_classes
 
         self._init_transformations(conf)
 
@@ -240,23 +248,33 @@ class LocalSegmentationLoader(data.Dataset):
         decoded = ids_image[:, :, 0] + 255 * ids_image[:, :, 1]
         ignore = decoded == self.conf['ignore_label']
         decoded = decoded.astype(np.int32)
-        labels = decoded - self.conf['idx_offset']
-        labels[ignore] = -100
 
-        if np.max(labels) > self.conf['num_classes']:
+        if np.max(decoded) > self.conf['num_classes'] + 1:
             logging.error("More labels then classes.")
-            logging.warning("np.unique(labels) {}".format(np.unique(labels)))
+            assert False, "np.unique(labels) {}".format(np.unique(decoded))
 
-            assert False, "np.unique(labels) {}".format(np.unique(labels))
+        labels = decoded - self.conf['idx_offset']
 
-        # assert np.max(labels) <= self.conf['num_classes'], \
-        #     "np.max(labels): {}, self.conf['num_classes']: {}".format(
-        #         np.max(labels), self.conf['num_classes'])
+        if self.conf['label_encoding'] == 'dense':
+            labels[ignore] = -100
 
-        labels = labels.astype(np.int64)
-        labels[ignore] = -100
+            # assert np.max(labels) <= self.conf['num_classes'], \
+            #     "np.max(labels): {}, self.conf['num_classes']: {}".format(
+            #         np.max(labels), self.conf['num_classes'])
 
-        return labels
+            labels = labels.astype(np.int64)
+            labels[ignore] = -100
+            return labels
+
+        if self.conf['label_encoding'] == 'spatial_2d':
+            # labels[ignore] = -1
+
+            d1 = labels % self.root_classes
+            d2 = labels // self.root_classes
+            d1[ignore] = -100
+            d2[ignore] = -100
+
+            return np.stack([d1, d2])
 
     def transform(self, image, gt_image, load_dict):
 
@@ -747,8 +765,5 @@ class RandomRotation(object):
 
 if __name__ == '__main__':  # NOQA
     loader = LocalSegmentationLoader()
-    test = loader[1]
-    test = loader[1]
-    test = loader[1]
     test = loader[1]
     logging.info("Hello World.")
