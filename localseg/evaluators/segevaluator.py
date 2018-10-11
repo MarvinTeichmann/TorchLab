@@ -275,7 +275,7 @@ class Evaluator():
                     plt.tight_layout()
                     plt.savefig(new_name, format='png', bbox_inches='tight',
                                 dpi=199)
-                    fig.close()
+                    plt.close(fig=fig)
 
             if level is not 'none' and step in self.minor_steps:
                 stepdir = os.path.join(self.imgdir, "step_{}".format(step))
@@ -294,7 +294,7 @@ class Evaluator():
                 plt.tight_layout()
                 plt.savefig(new_name, format='png', bbox_inches='tight',
                             dpi=199)
-                fig.close()
+                plt.close(fig=fig)
 
             # Analyze output
             for d in range(batched_np.shape[0]):

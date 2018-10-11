@@ -32,11 +32,14 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 
 class LocalSegVisualizer(vis.SegmentationVisualizer):
 
-    def __init__(self, class_file):
+    def __init__(self, class_file, label_type='dense'):
 
         color_list = self._read_class_file(class_file)
         mask_color = color_list[0]
         color_list = color_list[1:]
+
+        assert label_type in ['dense', 'spatial_2d']
+        self.label_type = label_type
 
         super().__init__(color_list=color_list)
 
@@ -86,15 +89,14 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
             image = sample_batch['image'][d].numpy().transpose(1, 2, 0)
             label = sample_batch['label'][d].numpy()
 
-            mask = label != -100
+            mask = self.getmask(label)
 
             pred = prediction[d].cpu().data.numpy().transpose(1, 2, 0)
             pred_hard = np.argmax(pred, axis=2)
 
             idx = eval(sample_batch['load_dict'][d])['idx']
 
-            coloured_label = self.id2color(id_image=label,
-                                           mask=mask)
+            coloured_label = self.label2color(id_image=label, mask=mask)
 
             # coloured_prediction = self.pred2color(pred_image=pred,
             #                                       mask=mask)
@@ -126,6 +128,38 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
         return figure
 
+    def getmask(self, label):
+        if self.label_type == 'dense':
+            return label != -100
+
+    def label2color(self, label, mask):
+        if self.label_type == 'dense':
+            return self.id2color(id_image=label, mask=mask)
+        else:
+            raise NotImplementedError
+
+    def pred2color_hard(self, pred, mask):
+        if self.label_type == 'dense':
+            pred_hard = np.argmax(pred, axis=2)
+            return self.id2color(id_image=pred_hard, mask=mask)
+        else:
+            raise NotImplementedError
+
+    def coloured_diff(self, label, pred, mask):
+        if self.label_type == 'dense':
+            true_colour = [0, 0, 255]
+            false_colour = [255, 0, 0]
+
+            pred_hard = np.argmax(pred, axis=2)
+            diff_img = 1 * (pred_hard == label)
+            diff_img = diff_img + (1 - mask)
+
+            diff_img = np.expand_dims(diff_img, axis=-1)
+
+            assert(np.max(diff_img) <= 1)
+
+            return true_colour * diff_img + false_colour * (1 - diff_img)
+
     def plot_prediction(self, sample_batch, prediction, idx=0, trans=0.5):
         figure = plt.figure()
         figure.tight_layout()
@@ -142,33 +176,19 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         image = imageio.imread(load_dict['image_file'])
         image = scp.misc.imresize(image, size=label.shape[:2])
 
-        mask = label != -100
+        mask = self.getmask(label)
 
         pred = prediction[idx].cpu().data.numpy().transpose(1, 2, 0)
-        pred_hard = np.argmax(pred, axis=2)
 
         idx = load_dict['idx']
 
-        coloured_label = self.id2color(id_image=label,
-                                       mask=mask)
-
+        coloured_label = self.label2color(label=label, mask=mask)
         coloured_label = trans * image + (1 - trans) * coloured_label
 
-        diff_img = np.expand_dims(1 * (pred_hard == label), axis=-1)
-        add_mask = np.expand_dims(1 * (label == -100), axis=-1)
-
-        diff_img = diff_img + add_mask
-        assert(np.max(diff_img) <= 1)
-
-        diff_colour = [0, 0, 255] * diff_img + [255, 0, 0] * (1 - diff_img)
+        diff_colour = self.coloured_diff(label, pred, mask)
         diff_colour = 0.6 * image + 0.4 * diff_colour
 
-        # coloured_prediction = self.pred2color(pred_image=pred,
-        #                                       mask=mask)
-
-        coloured_hard = self.id2color(id_image=pred_hard,
-                                      mask=mask)
-
+        coloured_hard = self.pred2color_hard(pred=pred, mask=mask)
         coloured_hard = trans * image + (1 - trans) * coloured_hard
 
         ax = figure.add_subplot(2, 2, 1)

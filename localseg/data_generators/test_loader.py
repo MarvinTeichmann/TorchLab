@@ -123,5 +123,5 @@ def speed_bench():
 
 if __name__ == '__main__':
     test_loading_2d()
-    # speed_bench()
+    speed_bench()
     logging.info("Hello World.")

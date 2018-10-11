@@ -53,7 +53,7 @@ default_conf = {
     'train_file': None,
     'val_file': None,
 
-    'label_encoding': 'dense',
+    'label_encoding': 'spatial_2d',
 
     'ignore_label': 0,
     'idx_offset': 1,
@@ -766,4 +766,15 @@ class RandomRotation(object):
 if __name__ == '__main__':  # NOQA
     loader = LocalSegmentationLoader()
     test = loader[1]
+
+    mylabel = test['label']
+    '''
+    ignore = mylabel == -100
+    mylabel[ignore] = 0
+    batched_label = np.transpose(mylabel.reshape([2, -1]))
+    label_tensor = torch.tensor(batched_label)
+
+    myloss = torch.nn.MultiLabelMarginLoss(reduction='none')
+    myloss(label_tensor[:5].double(), label_tensor[:5].long())
+    '''
     logging.info("Hello World.")
