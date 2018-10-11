@@ -26,7 +26,7 @@ import time
 
 def test_loading():
 
-    conf = loader.default_conf
+    conf = loader.default_conf.copy()
     conf['num_worker'] = 8
 
     myloader = loader.get_data_loader(
@@ -48,7 +48,7 @@ def test_loading():
 
 def test_loading_2d():
 
-    conf = loader.default_conf
+    conf = loader.default_conf.copy()
     conf['num_worker'] = 8
     conf['label_encoding'] = 'spatial_2d'
 
@@ -77,7 +77,7 @@ def speed_bench():
     log_str = ("    {:8} [{:3d}/{:3d}] "
                " Speed: {:.1f} imgs/sec ({:.3f} sec/batch)")
 
-    conf = loader.default_conf
+    conf = loader.default_conf.copy()
     conf['num_worker'] = 8
 
     myloader = loader.get_data_loader(

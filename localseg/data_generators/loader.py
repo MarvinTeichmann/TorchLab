@@ -53,7 +53,7 @@ default_conf = {
     'train_file': None,
     'val_file': None,
 
-    'label_encoding': 'spatial_2d',
+    'label_encoding': 'dense',
 
     'ignore_label': 0,
     'idx_offset': 1,
@@ -269,8 +269,8 @@ class LocalSegmentationLoader(data.Dataset):
         if self.conf['label_encoding'] == 'spatial_2d':
             # labels[ignore] = -1
 
-            d1 = labels % self.root_classes
-            d2 = labels // self.root_classes
+            d1 = labels % self.root_classes + 0.5
+            d2 = labels // self.root_classes + 0.5
             d1[ignore] = -100
             d2[ignore] = -100
 

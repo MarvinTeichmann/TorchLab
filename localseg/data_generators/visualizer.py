@@ -32,14 +32,16 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 
 class LocalSegVisualizer(vis.SegmentationVisualizer):
 
-    def __init__(self, class_file, label_type='dense'):
+    def __init__(self, class_file, conf=None):
 
         color_list = self._read_class_file(class_file)
         mask_color = color_list[0]
         color_list = color_list[1:]
 
-        assert label_type in ['dense', 'spatial_2d']
-        self.label_type = label_type
+        self.conf = conf
+
+        assert conf['label_encoding'] in ['dense', 'spatial_2d']
+        self.label_type = conf['label_encoding']
 
         super().__init__(color_list=color_list)
 
@@ -56,12 +58,12 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
         image = sample['image'].transpose(1, 2, 0)
         label = sample['label']
-        mask = label != -100
+        mask = self.getmask(label)
 
         idx = eval(sample['load_dict'])['idx']
 
-        coloured_label = self.id2color(id_image=label,
-                                       mask=mask)
+        coloured_label = self.label2color(label=label,
+                                          mask=mask)
 
         figure = plt.figure()
         figure.tight_layout()
@@ -131,10 +133,18 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
     def getmask(self, label):
         if self.label_type == 'dense':
             return label != -100
+        elif self.label_type == 'spatial_2d':
+            return label[0] != -100
+        else:
+            raise NotImplementedError
 
     def label2color(self, label, mask):
         if self.label_type == 'dense':
             return self.id2color(id_image=label, mask=mask)
+        elif self.label_type == 'spatial_2d':
+            id_label = label[0].astype(np.int) + \
+                self.conf['root_classes'] * label[1].astype(np.int)
+            return self.id2color(id_image=id_label, mask=mask)
         else:
             raise NotImplementedError
 
@@ -142,6 +152,10 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         if self.label_type == 'dense':
             pred_hard = np.argmax(pred, axis=2)
             return self.id2color(id_image=pred_hard, mask=mask)
+        elif self.label_type == 'spatial_2d':
+            pred_id = pred[0].astype(np.int) + \
+                self.conf['root_classes'] * pred[1].astype(np.int)
+            self.id2color(id_image=pred_id, mask=mask)
         else:
             raise NotImplementedError
 
@@ -159,6 +173,39 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
             assert(np.max(diff_img) <= 1)
 
             return true_colour * diff_img + false_colour * (1 - diff_img)
+
+        elif self.label_type == 'spatial_2d':
+            true_colour = [0, 255, 0]
+            false_ch1 = [255, 0, 255]
+            false_ch2 = [255, 255, 0]
+            false_both = [255, 0, 0]
+
+            tr_img = int(label[0]) == int(pred[0]) \
+                and int(label[1]) == int(pred[1])
+            tr_img = tr_img + (1 - mask)
+
+            ch1_img = int(label[0]) == int(pred[0]) \
+                and int(label[1]) != int(pred[1])
+
+            ch2_img = int(label[0]) != int(pred[0]) \
+                and int(label[1]) == int(pred[1])
+
+            fl_img = int(label[0]) != int(pred[0]) \
+                and int(label[1]) != int(pred[1])
+
+            assert np.all(sum(tr_img, ch1_img, ch2_img, fl_img) == 1)
+
+            tr_img_col = true_colour * np.expand_dims(tr_img, axis=-1)
+            ch1_img_col = false_ch1 * np.expand_dims(ch1_img, axis=-1)
+            ch2_img_col = false_ch2 * np.expand_dims(ch2_img, axis=-1)
+            fl_img_col = false_both * np.expand_dims(fl_img, axis=-1)
+
+            diff_img_col = sum(tr_img_col, ch1_img_col,
+                               ch2_img_col, fl_img_col)
+
+            return diff_img_col
+        else:
+            raise NotImplementedError
 
     def plot_prediction(self, sample_batch, prediction, idx=0, trans=0.5):
         figure = plt.figure()
@@ -224,12 +271,12 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
             image = sample_batch['image'][d].numpy().transpose(1, 2, 0)
             label = sample_batch['label'][d].numpy()
-            mask = label != -100
+            mask = self.getmask(label)
 
             idx = eval(sample_batch['load_dict'][d])['idx']
 
-            coloured_label = self.id2color(id_image=label,
-                                           mask=mask)
+            coloured_label = self.label2color(label=label,
+                                              mask=mask)
 
             ax = figure.add_subplot(2, batch_size, d + 1)
             ax.set_title('Image #{}'.format(idx))

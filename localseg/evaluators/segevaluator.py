@@ -41,6 +41,7 @@ def get_pyvision_evaluator(conf, model, names=None, imgdir=None):
 
 class MetaEvaluator(object):
     """docstring for MetaEvaluator"""
+
     def __init__(self, conf, model, imgdir=None):
         self.conf = conf
         self.model = model
@@ -185,7 +186,8 @@ class Evaluator():
             lst_file=data_file, shuffle=False)
 
         class_file = conf['dataset']['vis_file']
-        self.vis = visualizer.LocalSegVisualizer(class_file)
+        self.vis = visualizer.LocalSegVisualizer(
+            class_file, conf=conf['dataset'])
         self.bs = batch_size
 
         if max_examples is None:
