@@ -69,6 +69,41 @@ def test_losses_zero(verbose=False):
     assert(res3.data.numpy() < 1e-7)
 
 
+def test_hinge_loss_zero(verbose=False):
+
+    gt = np.random.randint(20, size=[4, 2, 512, 512]) + 0.5
+    pred = gt.copy()
+
+    gt[0, 0, 0, 0] = -100
+    gt[0, 0, 10, 20] = -100
+
+    gt_var = torch.Tensor(gt)
+    hot_var = torch.Tensor(pred + 0.3)
+
+    loss2 = loss.HingeLoss2d()
+    res2 = loss2(hot_var, gt_var)
+    if verbose:
+        logging.info('Res2: {}'.format(res2))
+    assert(res2 == 0)
+
+    # assert(res3.data.numpy() < 1e-7)
+
+
+def test_hinge_loss_one(verbose=False):
+
+    gt = np.random.randint(20, size=[4, 2, 512, 512]) + 0.5
+    pred = gt.copy() + 1.5
+
+    gt_var = torch.Tensor(gt)
+    hot_var = torch.Tensor(pred)
+
+    loss2 = loss.HingeLoss2d()
+    res2 = loss2(hot_var, gt_var)
+    if verbose:
+        logging.info('Res2: {}'.format(res2))
+    assert(res2 == 1)
+
+
 def test_losses_equal(verbose=False):
     gt = np.random.randint(20, size=[4, 512, 512])
     gt_var = Variable(torch.Tensor(gt)).long()
@@ -126,6 +161,10 @@ def test_ignore_idx(verbose=False):
 
 
 if __name__ == '__main__':
+    test_hinge_loss_zero(True)
+    test_hinge_loss_one(True)
+
+    exit(1)
     test_losses_zero(True)
     test_losses_equal(True)
     test_ignore_idx(verbose=True)

@@ -28,6 +28,23 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     stream=sys.stdout)
 
 
+class HingeLoss2d(_WeightedLoss):
+
+    def __init__(self, weight=None, ignore_index=-100,
+                 reduction='elementwise_mean', delta=0.5):
+        super(HingeLoss2d, self).__init__(
+            weight, reduction='elementwise_mean')
+        self.ignore_index = ignore_index
+
+    def forward(self, input, target):
+        # _assert_no_grad(target)
+
+        loss = torch.relu(torch.abs(target - input) - 0.5)
+        mask = target != -100
+
+        return torch.mean(mask.float() * loss)
+
+
 class CrossEntropyLoss2d(_WeightedLoss):
 
     def __init__(self, weight=None, ignore_index=-100,
