@@ -8,7 +8,7 @@
     },
 
     "dataset" : {
-        "dataset": "camvid360_noprop",
+        "dataset": "sincity_small",
         "train_file": null,
         "val_file": null,
 
@@ -60,7 +60,7 @@
     },
 
     "training": {
-        "batch_size": 4,
+        "batch_size": 8,
         "learning_rate": 2e-5,
         "lr_schedule": "constant",
         "exp": 1.5,
@@ -82,7 +82,8 @@
         "display_iter": 20,
         "eval_iter": 5,
         "max_val_examples": null,
-        "max_train_examples": 300
+        "max_train_examples": 300,
+        "mayor_eval": 150
     },
 
     "plotting": {

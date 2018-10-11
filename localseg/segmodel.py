@@ -453,9 +453,9 @@ class SegModel(nn.Module):
 
         return weight_list
 
-    def evaluate(self, epoch=None, verbose=True):
+    def evaluate(self, epoch=None, verbose=True, level='minor'):
 
-        self.evaluator.evaluate(epoch=epoch, verbose=verbose)
+        self.evaluator.evaluate(epoch=epoch, verbose=verbose, level=level)
 
         return
 
@@ -501,6 +501,7 @@ class Trainer():
         self.max_epochs = conf['training']['max_epochs']
         self.display_iter = conf['logging']['display_iter']
         self.eval_iter = conf['logging']['eval_iter']
+        self.mayor_eval = conf['logging']['mayor_eval']
         self.max_epoch_steps = conf['training']['max_epoch_steps']
 
         self.checkpoint_name = os.path.join(self.model.logdir,
@@ -654,10 +655,15 @@ class Trainer():
                          .format(epoch, duration))
             self.epoch = epoch + 1
 
-            if self.epoch % self.eval_iter == 0:
+            if self.epoch % self.eval_iter == 0 or self.epoch == max_epochs:
+
+                level = 'minor'
+                if self.epoch % self.mayor_eval == 0 or \
+                        self.epoch == max_epochs:
+                    level = 'mayor'
                 self.logger.init_step(epoch)
                 self.logger.add_value(losses, 'loss', epoch)
-                self.model.evaluate(epoch)
+                self.model.evaluate(epoch, level=level)
                 logging.info("Saving checkpoint to: {}".format(
                     self.model.logdir))
                 # Save Checkpoint

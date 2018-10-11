@@ -61,10 +61,10 @@ class MetaEvaluator(object):
 
         self.val_evaluator = Evaluator(
             conf, model, val_file, val_iter, name="Val", split="val",
-            imgdir=imgdir)
+            imgdir=self.imgdir)
         self.train_evaluator = Evaluator(
             conf, model, train_file, train_iter, name="Train", split="train",
-            imgdir=imgdir)
+            imgdir=self.imgdir)
 
         self.evaluators = []
 
@@ -170,7 +170,7 @@ class Evaluator():
         self.name = name
         self.imgdir = imgdir
 
-        self.minor_steps = [1, 50, 100]
+        self.minor_steps = [1, 15, 30]
 
         if split is None:
             split = 'val'
@@ -266,7 +266,7 @@ class Evaluator():
             if level == 'mayor' and step * real_bs < 300 or level == 'full':
 
                 for d in range(cur_bs):
-                    self.vis.plot_prediction(
+                    fig = self.vis.plot_prediction(
                         sample, batched_pred, trans=0.4, idx=d)
                     filename = literal_eval(
                         sample['load_dict'][d])['image_file']
@@ -275,24 +275,26 @@ class Evaluator():
                     plt.tight_layout()
                     plt.savefig(new_name, format='png', bbox_inches='tight',
                                 dpi=199)
+                    fig.close()
 
             if level is not 'none' and step in self.minor_steps:
                 stepdir = os.path.join(self.imgdir, "step_{}".format(step))
                 if not os.path.exists(stepdir):
                     os.mkdir(stepdir)
 
-                self.vis.plot_prediction(
+                fig = self.vis.plot_prediction(
                     sample, batched_pred, trans=0.4, idx=0)
                 filename = literal_eval(
                     sample['load_dict'][0])['image_file']
-                newfile = filename.split(".")[0] + "_epoch_{}.png".format(
-                    epoch)
+                newfile = filename.split(".")[0] + "_epoch_{num:05d}.png"\
+                    .format(num=epoch)
 
                 new_name = os.path.join(stepdir,
                                         os.path.basename(newfile))
                 plt.tight_layout()
                 plt.savefig(new_name, format='png', bbox_inches='tight',
                             dpi=199)
+                fig.close()
 
             # Analyze output
             for d in range(batched_np.shape[0]):
