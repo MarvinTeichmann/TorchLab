@@ -245,9 +245,12 @@ class LocalSegmentationLoader(data.Dataset):
         labels : numpy array of integer
             Contains numbers 0 to 20, each corresponding to a class
         """
+
+        ign = np.all(ids_image == 255, axis=2)
+        ids_image = ids_image.astype(np.int32)
         decoded = ids_image[:, :, 0] + 255 * ids_image[:, :, 1]
+        decoded[ign] = self.conf['ignore_label']
         ignore = decoded == self.conf['ignore_label']
-        decoded = decoded.astype(np.int32)
 
         if np.max(decoded) > self.conf['num_classes'] + 1:
             logging.error("More labels then classes.")
