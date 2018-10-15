@@ -206,6 +206,48 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         else:
             raise NotImplementedError
 
+    def vec2d_2_colour(self, vector):
+        id_list = vector[0].astype(np.int) + \
+            self.conf['root_classes'] * vector[1].astype(np.int)
+
+        return np.take(self.color_list, id_list, axis=0)
+
+    def scatter_plot(self, prediction, batch=None, label=None, idx=0):
+
+        if batch is not None:
+            label = batch['label'][idx].numpy()
+            prediction = prediction[idx].cpu().data.numpy()
+        else:
+            assert label is not None
+
+        label = label.reshape([2, -1])
+        prediction = prediction.reshape([2, -1])
+
+        assert label.shape == prediction.shape
+
+        unique_labels = np.unique(label, axis=1)
+
+        if unique_labels[0, 0] == -100:
+            unique_labels = unique_labels[:, 1:]
+
+        ignore = label[0, :] == -100
+        label_filtered = label[:, ~ignore]
+        prediction_filtered = prediction[:, ~ignore]
+
+        assert -100 not in unique_labels
+        label_colours = self.vec2d_2_colour(unique_labels) / 255
+        prediction_colours = self.vec2d_2_colour(label_filtered) / 255
+
+        fig, ax = plt.subplots()
+        ax.scatter(x=unique_labels[0], y=unique_labels[1], c=label_colours)
+        ax.scatter(x=prediction_filtered[0], y=prediction_filtered[1],
+                   c=prediction_colours, marker='x')
+
+        plt.xticks(np.arange(0, self.conf['root_classes'], step=1))
+        plt.yticks(np.arange(0, self.conf['root_classes'], step=1))
+
+        return fig
+
     def plot_prediction(self, sample_batch, prediction, idx=0, trans=0.5):
         figure = plt.figure()
         figure.tight_layout()

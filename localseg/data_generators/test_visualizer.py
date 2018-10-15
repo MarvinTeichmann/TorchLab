@@ -81,7 +81,26 @@ def test_plot_batch_2d():
     logging.info("Visualizing one batch took {} seconds".format(duration))
 
 
+def test_scatter_plot_2d():
+    conf = loader.default_conf.copy()
+    conf['label_encoding'] = 'spatial_2d'
+    myloader = loader.get_data_loader(
+        conf=conf, batch_size=6, pin_memory=False,
+        split='val')
+
+    batch = next(myloader.__iter__())
+    myvis = visualizer.LocalSegVisualizer(
+        class_file=class_file, conf=conf)
+
+    label = batch['label'][0].numpy()
+    prediction = 0.5 * np.random.random((label.shape)) + label
+
+    myvis.scatter_plot(label=label, prediction=prediction)
+
 if __name__ == '__main__':
+    test_scatter_plot_2d()
+    plt.show()
+
     test_plot_sample_2d()
     plt.show()
 
