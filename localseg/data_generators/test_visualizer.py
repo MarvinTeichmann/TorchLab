@@ -93,13 +93,15 @@ def test_scatter_plot_2d():
         class_file=class_file, conf=conf)
 
     label = batch['label'][0].numpy()
-    prediction = 0.5 * np.random.random((label.shape)) + label
+    prediction = np.random.random((label.shape)) - 0.5 + label
 
     myvis.scatter_plot(label=label, prediction=prediction)
 
 if __name__ == '__main__':
     test_scatter_plot_2d()
     plt.show()
+
+    exit(1)
 
     test_plot_sample_2d()
     plt.show()

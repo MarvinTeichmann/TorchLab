@@ -299,6 +299,7 @@ class Evaluator():
                         plt.savefig(new_name, format='png',
                                     bbox_inches='tight', dpi=199)
                         plt.close(fig=fig)
+                        logging.info("Finished: {}".format(new_name))
 
             if level is not 'none' and step in self.minor_steps:
                 stepdir = os.path.join(self.imgdir, "step_{}".format(step))

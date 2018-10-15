@@ -689,7 +689,7 @@ class Trainer():
                 logging.info("Checkpoint saved sucessfully.")
 
             if self.epoch % self.checkpoint_backup == 0:
-                name = 'checkpoint_{04d}.pth.tar'.format(self.epoch)
+                name = 'checkpoint_{:04d}.pth.tar'.format(self.epoch)
                 checkpoint_name = os.path.join(
                     self.model.logdir, name)
                 torch.save(state, checkpoint_name)
