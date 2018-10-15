@@ -511,6 +511,7 @@ class Trainer():
         self.display_iter = conf['logging']['display_iter']
         self.eval_iter = conf['logging']['eval_iter']
         self.mayor_eval = conf['logging']['mayor_eval']
+        self.checkpoint_backup = conf['logging']['checkpoint_backup']
         self.max_epoch_steps = conf['training']['max_epoch_steps']
 
         self.checkpoint_name = os.path.join(self.model.logdir,
@@ -687,8 +688,8 @@ class Trainer():
                 torch.save(state, self.checkpoint_name)
                 logging.info("Checkpoint saved sucessfully.")
 
-            if self.epoch % 50 == 0:
-                name = 'checkpoint_{}.pth.tar'.format(self.epoch)
+            if self.epoch % self.checkpoint_backup == 0:
+                name = 'checkpoint_{04d}.pth.tar'.format(self.epoch)
                 checkpoint_name = os.path.join(
                     self.model.logdir, name)
                 torch.save(state, checkpoint_name)

@@ -16,7 +16,7 @@
         "idx_offset": 1,
         "num_classes": null,
 
-        "label_encoding": "dense",
+        "label_encoding": "spatial_2d",
 
         "transform": {
             "presize": 0.5,
@@ -85,6 +85,7 @@
         "eval_iter": 5,
         "max_val_examples": null,
         "max_train_examples": 300,
+        "checkpoint_backup": 25,
         "mayor_eval": 150
     },
 

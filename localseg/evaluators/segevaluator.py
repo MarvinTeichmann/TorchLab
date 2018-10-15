@@ -104,6 +104,10 @@ class MetaEvaluator(object):
             duration / 60))
         logging.info("")
 
+        if val_metric is None:
+            logging.info("Valmetric is None. Stopping evaluation.")
+            return
+
         self.model.train(True)
 
         if verbose:
@@ -213,6 +217,11 @@ class Evaluator():
             if not os.path.exists(epochdir):
                 os.mkdir(epochdir)
 
+            scatter_edir = os.path.join(self.imgdir, "scatter_e{}".format(
+                                        epoch))
+            if not os.path.exists(scatter_edir):
+                os.mkdir(scatter_edir)
+
         assert eval_fkt is None
         metric = IoU(self.num_classes + 1, self.names)
 
@@ -279,13 +288,47 @@ class Evaluator():
                                 dpi=199)
                     plt.close(fig=fig)
 
+                    if level == 'full' or epoch is None:
+                        fig = self.vis.scatter_plot(
+                            batch=sample, prediction=batched_pred, idx=d)
+                        filename = literal_eval(
+                            sample['load_dict'][d])['image_file']
+                        new_name = os.path.join(scatter_edir,
+                                                os.path.basename(filename))
+                        plt.tight_layout()
+                        plt.savefig(new_name, format='png',
+                                    bbox_inches='tight', dpi=199)
+                        plt.close(fig=fig)
+
             if level is not 'none' and step in self.minor_steps:
                 stepdir = os.path.join(self.imgdir, "step_{}".format(step))
                 if not os.path.exists(stepdir):
                     os.mkdir(stepdir)
 
                 fig = self.vis.plot_prediction(
-                    sample, batched_pred, trans=0.4, idx=0)
+                    sample, batched_pred, idx=0)
+                filename = literal_eval(
+                    sample['load_dict'][0])['image_file']
+                if epoch is None:
+                    newfile = filename.split(".")[0] + "_None.png"\
+                        .format(num=epoch)
+                else:
+                    newfile = filename.split(".")[0] + "_epoch_{num:05d}.png"\
+                        .format(num=epoch)
+
+                new_name = os.path.join(stepdir,
+                                        os.path.basename(newfile))
+                plt.tight_layout()
+                plt.savefig(new_name, format='png', bbox_inches='tight',
+                            dpi=199)
+                plt.close(fig=fig)
+
+                stepdir = os.path.join(self.imgdir, "scatter_s{}".format(step))
+                if not os.path.exists(stepdir):
+                    os.mkdir(stepdir)
+
+                fig = self.vis.scatter_plot(
+                    batch=sample, prediction=batched_pred, idx=0)
                 filename = literal_eval(
                     sample['load_dict'][0])['image_file']
                 if epoch is None:
