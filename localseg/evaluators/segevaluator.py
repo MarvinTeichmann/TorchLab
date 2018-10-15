@@ -214,7 +214,7 @@ class Evaluator():
                 os.mkdir(epochdir)
 
         assert eval_fkt is None
-        metric = IoU(self.num_classes, self.names)
+        metric = IoU(self.num_classes + 1, self.names)
 
         for step, sample in zip(self.count, self.loader):
 
@@ -288,8 +288,12 @@ class Evaluator():
                     sample, batched_pred, trans=0.4, idx=0)
                 filename = literal_eval(
                     sample['load_dict'][0])['image_file']
-                newfile = filename.split(".")[0] + "_epoch_{num:05d}.png"\
-                    .format(num=epoch)
+                if epoch is None:
+                    newfile = filename.split(".")[0] + "_None.png"\
+                        .format(num=epoch)
+                else:
+                    newfile = filename.split(".")[0] + "_epoch_{num:05d}.png"\
+                        .format(num=epoch)
 
                 new_name = os.path.join(stepdir,
                                         os.path.basename(newfile))
@@ -301,10 +305,27 @@ class Evaluator():
             # Analyze output
             for d in range(batched_np.shape[0]):
                 pred = batched_np[d]
-                hard_pred = np.argmax(pred, axis=0)
 
-                label = sample['label'][d].numpy()
-                mask = label != self.ignore_idx
+                if self.conf['dataset']['label_encoding'] == 'dense':
+                    hard_pred = np.argmax(pred, axis=0)
+
+                    label = sample['label'][d].numpy()
+                    mask = label != self.ignore_idx
+                elif self.conf['dataset']['label_encoding'] == 'spatial_2d':
+                    rclasses = self.conf['dataset']['root_classes']
+                    hard_pred = pred[0].astype(np.int) + \
+                        rclasses * pred[1].astype(np.int)
+                    false_pred = hard_pred < 0
+                    hard_pred[false_pred] = self.num_classes
+
+                    false_pred = hard_pred > self.num_classes
+                    hard_pred[false_pred] = self.num_classes
+                    label = sample['label'][d].numpy()
+                    mask = label[0] != self.ignore_idx
+                    label = label[0].astype(np.int) + \
+                        rclasses * label[1].astype(np.int)
+
+                    label[~mask] = 0
 
                 metric.add(label, mask, hard_pred, time=duration / self.bs,
                            ignore_idx=self.ignore_idx)

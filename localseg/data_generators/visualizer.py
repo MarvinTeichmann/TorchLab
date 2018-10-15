@@ -94,7 +94,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
             mask = self.getmask(label)
 
             pred = prediction[d].cpu().data.numpy().transpose(1, 2, 0)
-            pred_hard = np.argmax(pred, axis=2)
+            pred_hard = np.argmax(pred, axis=0)
 
             idx = eval(sample_batch['load_dict'][d])['idx']
 
@@ -150,12 +150,12 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
     def pred2color_hard(self, pred, mask):
         if self.label_type == 'dense':
-            pred_hard = np.argmax(pred, axis=2)
+            pred_hard = np.argmax(pred, axis=0)
             return self.id2color(id_image=pred_hard, mask=mask)
         elif self.label_type == 'spatial_2d':
             pred_id = pred[0].astype(np.int) + \
                 self.conf['root_classes'] * pred[1].astype(np.int)
-            self.id2color(id_image=pred_id, mask=mask)
+            return self.id2color(id_image=pred_id, mask=mask)
         else:
             raise NotImplementedError
 
@@ -164,7 +164,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
             true_colour = [0, 0, 255]
             false_colour = [255, 0, 0]
 
-            pred_hard = np.argmax(pred, axis=2)
+            pred_hard = np.argmax(pred, axis=0)
             diff_img = 1 * (pred_hard == label)
             diff_img = diff_img + (1 - mask)
 
@@ -180,28 +180,27 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
             false_ch2 = [255, 255, 0]
             false_both = [255, 0, 0]
 
-            tr_img = int(label[0]) == int(pred[0]) \
-                and int(label[1]) == int(pred[1])
+            cor1 = label[0].astype(np.int) == pred[0].astype(np.int)
+            cor2 = label[1].astype(np.int) == pred[1].astype(np.int)
+
+            tr_img = np.logical_and(cor1, cor2)
             tr_img = tr_img + (1 - mask)
 
-            ch1_img = int(label[0]) == int(pred[0]) \
-                and int(label[1]) != int(pred[1])
+            ch1_img = np.logical_and(cor1, ~cor2)
+            ch2_img = np.logical_and(~cor1, cor2)
+            fl_img = np.logical_and(~cor1, ~cor2)
 
-            ch2_img = int(label[0]) != int(pred[0]) \
-                and int(label[1]) == int(pred[1])
+            fl_img = fl_img - (1 - mask)
 
-            fl_img = int(label[0]) != int(pred[0]) \
-                and int(label[1]) != int(pred[1])
-
-            assert np.all(sum(tr_img, ch1_img, ch2_img, fl_img) == 1)
+            assert np.all(sum([tr_img, ch1_img, ch2_img, fl_img]) == 1)
 
             tr_img_col = true_colour * np.expand_dims(tr_img, axis=-1)
             ch1_img_col = false_ch1 * np.expand_dims(ch1_img, axis=-1)
             ch2_img_col = false_ch2 * np.expand_dims(ch2_img, axis=-1)
             fl_img_col = false_both * np.expand_dims(fl_img, axis=-1)
 
-            diff_img_col = sum(tr_img_col, ch1_img_col,
-                               ch2_img_col, fl_img_col)
+            diff_img_col = sum([tr_img_col, ch1_img_col,
+                               ch2_img_col, fl_img_col])
 
             return diff_img_col
         else:
@@ -221,11 +220,14 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         # image = sample_batch['image'][idx].numpy().transpose(1, 2, 0)
         label = sample_batch['label'][idx].numpy()
         image = imageio.imread(load_dict['image_file'])
-        image = scp.misc.imresize(image, size=label.shape[:2])
+        if self.label_type == 'dense':
+            image = scp.misc.imresize(image, size=label.shape[:2])
+        elif self.label_type == 'spatial_2d':
+            image = scp.misc.imresize(image, size=label.shape[1:])
 
         mask = self.getmask(label)
 
-        pred = prediction[idx].cpu().data.numpy().transpose(1, 2, 0)
+        pred = prediction[idx].cpu().data.numpy()
 
         idx = load_dict['idx']
 

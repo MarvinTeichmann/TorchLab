@@ -37,11 +37,17 @@ default_conf = {
 
 class FCN(nn.Module):
 
-    def __init__(self, num_classes, scale_dict,
+    def __init__(self, model, num_classes, scale_dict,
                  conf=default_conf):
         super().__init__()
 
         self.num_classes = num_classes
+
+        if model.label_encoding == 'dense':
+            self.num_classes = num_classes
+        elif model.label_encoding == 'spatial_2d':
+            self.num_classes = 2
+            num_classes = 2
 
         if conf['bottleneck'] is not None:
             num_classes = conf['bottleneck']
@@ -85,9 +91,14 @@ class FCN(nn.Module):
             self.upsample8 = nn.Upsample(scale_factor=8, mode='bilinear')
 
         if conf['bottleneck'] is not None:
-            self.bottle = nn.Conv2d(conf['bottleneck'], self.num_classes,
-                                    kernel_size=1, stride=1, padding=0,
-                                    bias=False)
+            self.relu = nn.ReLU(inplace=True)
+            self.bn = nn.BatchNorm2d(conf['bottleneck'])
+            self.bottle1 = nn.Conv2d(conf['bottleneck'], conf['bottleneck'],
+                                     kernel_size=1, stride=1, padding=0,
+                                     bias=True)
+            self.bottle2 = nn.Conv2d(conf['bottleneck'], self.num_classes,
+                                     kernel_size=1, stride=1, padding=0,
+                                     bias=False)
 
         if conf['scale_down'] == 1:
             self._initialize_all_weights() # NoQA
@@ -150,7 +161,10 @@ class FCN(nn.Module):
         up8 = self.upsample8(fuse8)
 
         if self.conf['bottleneck'] is not None:
-            up8 = self.bottle(up8)
+            bottle = self.bottle1(up8)
+            bottle = self.bn(bottle)
+            bottle = self.relu(bottle)
+            up8 = self.bottle2(bottle)
 
         return up8
 

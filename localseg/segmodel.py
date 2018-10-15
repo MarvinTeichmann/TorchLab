@@ -252,15 +252,24 @@ class SegModel(nn.Module):
         encoder = _get_encoder(conf)
         channel_dict = encoder.get_channel_dict()
 
-        decoder = segdecoder.fcn.FCN(num_classes=nclasses,
+        assert conf['dataset']['label_encoding'] in ['dense', 'spatial_2d']
+        self.label_encoding = conf['dataset']['label_encoding']
+
+        decoder = segdecoder.fcn.FCN(model=self, num_classes=nclasses,
                                      scale_dict=channel_dict,
                                      conf=conf['decoder']).cuda()
 
         self.model, device_ids = self._get_parallelized_model(
             conf, encoder, decoder)
 
-        self.loss = parallel.CriterionDataParallel(loss.CrossEntropyLoss2d(),
-                                                   device_ids=device_ids)
+        if self.label_encoding == 'dense':
+            self.loss = parallel.CriterionDataParallel(
+                loss.CrossEntropyLoss2d(), device_ids=device_ids)
+        elif self.label_encoding == 'spatial_2d':
+            self.loss = parallel.CriterionDataParallel(
+                loss.HingeLoss2d(), device_ids=device_ids)
+        else:
+            raise NotImplementedError
 
         self._load_pretrained_weights(conf)
 
