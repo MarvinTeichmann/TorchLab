@@ -23,6 +23,8 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 import loader2
 import time
 
+conf = loader2.default_conf
+
 
 def test_loading():
 
@@ -62,12 +64,45 @@ def test_warp_eq():
 
         warp_img_in = myloader._generate_warp_img(img.shape)
 
-        image, gt_image, warp_img, load_dict = myloader.transform(
+        image, image_orig, gt_image, warp_img, load_dict = myloader.transform(
             img, warp_img_in, load_dict)
 
         ignore = np.all(gt_image == 0, axis=2)
 
         assert np.all(gt_image[~ignore] == warp_img[~ignore])
+
+
+def test_unwarp():
+    conf = loader2.default_conf.copy()
+    conf['transform']['random_rotation'] = True
+    conf['transform']['random_resize'] = True
+
+    loader2.DEBUG = False
+
+    myloader = loader2.get_data_loader(
+        conf=conf, batch_size=1, pin_memory=False)
+
+    myloader = myloader.dataset
+
+    for i in range(10):
+        sample = myloader[1]
+
+        wimg = sample['warp_img']
+        img_var = sample['image_orig']
+
+        result = np.zeros(sample['image'].shape)
+
+        ign = np.all(wimg == 255, axis=2)
+
+        warp_ids = wimg[:, :, 0] + 256 * wimg[:, :, 1] \
+            + 256 * 256 * wimg[:, :, 2]
+
+        for i in range(3):
+            result[i][~ign] = img_var[i].flatten()[warp_ids[~ign]] # NOQA
+
+        scp.misc.imshow(result)
+
+    pass
 
 
 def speed_bench():
@@ -123,8 +158,9 @@ def speed_bench():
 
 
 if __name__ == '__main__':
-    test_warp_eq()
+    test_unwarp()
     exit(1)
+    test_warp_eq()
     test_loading()
     speed_bench()
     logging.info("Hello World.")

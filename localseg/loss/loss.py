@@ -31,18 +31,36 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 class HingeLoss2d(_WeightedLoss):
 
     def __init__(self, weight=None, ignore_index=-100,
-                 reduction='elementwise_mean', delta=0.35):
+                 reduction='elementwise_mean', margin=0.35):
         super(HingeLoss2d, self).__init__(
             weight, reduction='elementwise_mean')
         self.ignore_index = ignore_index
+        self.margin = margin
 
     def forward(self, input, target):
         # _assert_no_grad(target)
 
-        loss = torch.relu(torch.abs(target.float() - input) - 0.5)
+        loss = torch.relu(torch.abs(target.float() - input) - self.margin)
         mask = target != -100
 
         return torch.mean(mask.float() * loss)
+
+
+class TruncatedHingeLoss2d(_WeightedLoss):
+
+    def __init__(self, weight=None,
+                 reduction='elementwise_mean', margin=0.05):
+        super().__init__(weight, reduction='elementwise_mean')
+        self.margin = margin
+
+    def forward(self, input, target, ignore):
+        # _assert_no_grad(target)
+
+        loss = (torch.abs(target - input) - self.margin).clamp(0, 1)
+
+        mask = (1 - ignore.unsqueeze(1)).float()
+
+        return torch.mean(mask * loss)
 
 
 class CrossEntropyLoss2d(_WeightedLoss):

@@ -535,6 +535,10 @@ def random_resize(image, gt_image, lower_size, upper_size, sig):
             gt_ones, gt_shape, order=0, mode='reflect', anti_aliasing=False)
         gt_image2 = (gt_image3 * np.max(gt_image) + 0.5).astype(np.int32)
 
+    from IPython import embed
+    embed()
+    pass
+
     image2 = scipy.misc.imresize(image, size=factor, interp='cubic')
     gt_image2 = scipy.misc.imresize(gt_image, size=factor, interp='nearest')
 

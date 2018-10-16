@@ -37,7 +37,10 @@ from PIL import Image
 
 from torch.utils import data
 
-import loader
+try:
+    import loader
+except ImportError:
+    from localseg.data_generators import loader
 
 try:
     from fast_equi import extractEquirectangular_quick
@@ -102,14 +105,17 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
         load_dict['image_file'] = image_filename
         load_dict['label_file'] = ids_filename
 
-        image, ids_image, warp_img, load_dict = self.transform(
+        image, image_orig, ids_image, warp_img, load_dict = self.transform(
             image, ids_image, load_dict)
 
         label = self.decode_ids(ids_image)
 
-        sample = {'image': image, 'label': label,
-                  'warp_img': warp_img,
-                  'load_dict': str(load_dict)}
+        sample = {
+            'image': image,
+            'image_orig': image_orig,
+            'label': label,
+            'warp_img': warp_img,
+            'load_dict': str(load_dict)}
 
         return sample
 
@@ -117,16 +123,23 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
 
         w, h, c = shape
 
-        ids = np.arange(w * h)
+        ids = np.arange(w * h).astype(np.int32)
 
-        chan1 = ids % 255
-        chan2 = ids // 255 % 255
-        chan3 = ids // 255 // 255
+        chan1 = ids % 256
+        chan2 = ids // 256 % 256
+        chan3 = ids // 256 // 256
+
+        assert np.all(chan3 < 255)
+        # To many classes, [255, 255, 255] is reserved for mask
 
         if DEBUG:
-            assert np.all(255**2 * chan3 + 255 * chan2 + chan1 == ids)
+            assert np.all(256**2 * chan3 + 256 * chan2 + chan1 == ids)
 
         warp_img = np.stack([chan1, chan2, chan3], axis=1)
+
+        assert np.max(warp_img) == 255
+        assert np.min(warp_img) == 0
+
         return warp_img.reshape(shape)
 
     def transform(self, image, gt_image, load_dict):
@@ -141,6 +154,8 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
 
         warp_img = self._generate_warp_img(image.shape)
 
+        image_orig = 0
+
         if self.split == 'train':
 
             image, gt_image = self.color_transform(image, gt_image)
@@ -153,6 +168,8 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
                     warp_img = np.fliplr(warp_img).copy()
                 else:
                     load_dict['flipped'] = False
+
+            image_orig = image.copy()
 
             if transform['random_roll']:
                 if random.random() > 0.6:
@@ -194,6 +211,14 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
 
             assert(not (transform['fix_shape'] and transform['reseize_image']))
 
+            image_orig = image_orig.transpose((2, 0, 1))
+            image_orig = image_orig / 255
+            if transform['normalize']:
+                mean = np.array(transform['mean']).reshape(3, 1, 1)
+                std = np.array(transform['std']).reshape(3, 1, 1)
+                image_orig = (image_orig - mean) / std
+            image_orig = image_orig.astype(np.float32)
+
         if transform['fix_shape']:
             if image.shape[0] < transform['patch_size'][0] or \
                     image.shape[1] < transform['patch_size'][1]:
@@ -203,7 +228,7 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
                 new_gt = 0 * np.ones(shape=new_shape,
                                      dtype=gt_image.dtype)
                 new_warp = 255 * np.ones(shape=new_shape,
-                                         dtype=gt_image.dtype)
+                                         dtype=warp_img.dtype)
                 shape = image.shape
 
                 assert(new_shape[0] >= shape[0])
@@ -223,6 +248,8 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
             image, gt_image, warp_img = self.resize_label_image(
                 image, gt_image, warp_img)
 
+        warp_img = warp_img.astype(np.int)
+
         assert(image.shape == gt_image.shape)
         assert image.shape == warp_img.shape
         image = image.transpose((2, 0, 1))
@@ -232,7 +259,8 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
             std = np.array(transform['std']).reshape(3, 1, 1)
             image = (image - mean) / std
         image = image.astype(np.float32)
-        return image, gt_image, warp_img, load_dict
+
+        return image, image_orig, gt_image, warp_img, load_dict
 
 
 def roll_img(image, gt_image, warp_img):
@@ -361,6 +389,31 @@ def random_resize(image, gt_image, warp_img, lower_size, upper_size, sig):
     image2 = scipy.misc.imresize(image, size=factor, interp='cubic')
     gt_image2 = scipy.misc.imresize(gt_image, size=factor, interp='nearest')
     warp_img2 = scipy.misc.imresize(warp_img, size=factor, interp='nearest')
+
+    if DEBUG:
+
+        np.unique(warp_img.reshape([-1, 3]), axis=0)
+        np.unique(warp_img2.reshape([-1, 3]), axis=0)
+
+        np.unique(gt_image.reshape([-1, 3]), axis=0)
+        np.unique(gt_image2.reshape([-1, 3]), axis=0)
+
+        import matplotlib.pyplot as plt
+
+        figure = plt.figure()
+        figure.tight_layout()
+
+        ax = figure.add_subplot(1, 2, 1)
+        ax.set_title('Image #{}'.format(0))
+        ax.axis('off')
+        ax.imshow(warp_img)
+
+        ax = figure.add_subplot(1, 2, 2)
+        ax.set_title('Label')
+        ax.axis('off')
+        ax.imshow(warp_img2)
+
+    # warp_img2 = warp_img
 
     """
     new_shape = (image.shape * np.array([factor, factor, 1])).astype(np.uint32)
