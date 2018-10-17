@@ -39,6 +39,7 @@ import localseg
 from localseg.data_generators import loader2
 from localseg import encoder as segencoder
 from localseg.encoder import parallel as parallel
+from localseg.utils import warp
 
 
 from localseg import decoder as segdecoder
@@ -273,7 +274,12 @@ class SegModel(nn.Module):
         else:
             raise NotImplementedError
 
-        self.const_loss = loss.TruncatedHingeLoss2d()
+        assert self.conf['loss']['type'] in ['const', 'triplet']
+
+        if self.conf['loss']['type'] == 'triplet':
+            self.triplet_loss = loss.TripletLossWithMask(margin=0.1)
+        elif self.conf['loss']['type'] == 'const':
+            self.const_loss = loss.TruncatedHingeLoss2d()
 
         self._load_pretrained_weights(conf)
 
@@ -283,6 +289,8 @@ class SegModel(nn.Module):
         self.trainer = Trainer(conf, self, self.trainloader)
 
         self.evaluator = evaluator.MetaEvaluator(conf, self)
+
+        self.warper = warp.PredictionWarper(distance=conf['loss']['warp_dist'])
 
         if not self.conf['encoder']['simple_norm']:
             mean = np.array(self.conf['encoder']['mean'])
@@ -649,10 +657,20 @@ class Trainer():
                 pred = self.model(img_var)
 
                 # Compute and print loss.
-                loss = self.model.loss(pred, Variable(sample['label']).cuda())
-                const_loss = self.model.const_loss(pred, warped, ign)
+                label = Variable(sample['label']).cuda()
+                loss = self.model.loss(pred, label)
 
-                total_loss = const_loss + loss
+                if self.conf['loss']['type'] == 'triplet':
+                    positive = warped
+                    negative, mask = self.model.warper.warp(label, pred)
+                    triplet_loss = self.model.triplet_loss(
+                        pred, positive, negative, mask)
+                elif self.conf['loss']['type'] == 'const':
+                    triplet_loss = self.model.const_loss(pred, warped, ign)
+                else:
+                    raise NotImplementedError
+
+                total_loss = triplet_loss + loss
 
                 # Do backward and weight update
                 self.update_lr()
@@ -674,7 +692,7 @@ class Trainer():
                     imgs_per_sec = self.bs / duration
 
                     log_str = ("Epoch [{:3d}/{:3d}][{:4d}/{:4d}] "
-                               " HingeLoss: {:.2f} ConstLoss: {:.2f}"
+                               " HingeLoss: {:.2f} TripletLoss: {:.2f}"
                                "  LR: {:.3E}  TotalNorm: {:2.1f} Speed: {:.1f}"
                                " imgs/sec ({:.3f} sec/batch)")
 
@@ -684,7 +702,7 @@ class Trainer():
 
                     for_str = log_str.format(
                         epoch + 1, max_epochs, step, epoch_steps, loss.item(),
-                        const_loss.item(), lr, totalnorm, imgs_per_sec,
+                        triplet_loss.item(), lr, totalnorm, imgs_per_sec,
                         duration)
 
                     logging.info(for_str)

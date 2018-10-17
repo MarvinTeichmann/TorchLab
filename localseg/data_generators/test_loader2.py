@@ -123,6 +123,10 @@ def test_tripledwarp():
     grid = np.meshgrid(
         np.arange(shape[0]), np.arange(shape[1]))
 
+    from IPython import embed
+    embed()
+    pass
+
     listgrid = np.meshgrid(
         np.arange(label.shape[0]), np.arange(label.shape[1]))
 
@@ -164,7 +168,7 @@ def speed_bench():
     conf['num_worker'] = 8
 
     myloader = loader2.get_data_loader(
-        conf=conf, batch_size=1, pin_memory=False)
+        conf=conf, batch_size=4, pin_memory=False)
 
     start_time = time.time()
 

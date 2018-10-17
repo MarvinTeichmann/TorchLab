@@ -20,8 +20,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.modules.loss import _WeightedLoss
+from torch.nn.modules.loss import _Loss
 # from torch.nn.modules.loss import _assert_no_grad
 from torch.nn.modules.loss import NLLLoss
+from torch.nn.modules.loss import TripletMarginLoss
+
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -61,6 +64,27 @@ class TruncatedHingeLoss2d(_WeightedLoss):
         mask = (1 - ignore.unsqueeze(1)).float()
 
         return torch.mean(mask * loss)
+
+
+class TripletLossWithMask(_Loss):
+    """docstring for TripletLossWithMask"""
+
+    def __init__(self, margin=1.0, p=2, eps=1e-6, swap=False,
+                 reduction='elementwise_mean'):
+        super(TripletLossWithMask, self).__init__()
+
+        assert reduction == 'elementwise_mean'
+
+        self.TripletLoss = TripletMarginLoss(margin, p, eps, swap,
+                                             reduction='none')
+
+    def forward(self, anchor, positive, negative, mask):
+
+        loss = self.TripletLoss(anchor, positive, negative)
+
+        total_mask = (mask[:, 0] * mask[:, 1]).float()
+
+        return torch.mean(total_mask * loss)
 
 
 class CrossEntropyLoss2d(_WeightedLoss):
