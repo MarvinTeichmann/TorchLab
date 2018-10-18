@@ -31,6 +31,9 @@ data_file2 = "datasets/camvid360_prop_train2.lst"
 data_file = "datasets/scenecity_small_train.lst"
 data_file2 = "datasets/scenecity_small_test.lst"
 
+data_file = "datasets/blender_small.lst"
+data_file2 = "datasets/blender_small.lst"
+
 outdirname = 'ids_labels2'
 
 datadir = os.environ['TV_DIR_DATA']
