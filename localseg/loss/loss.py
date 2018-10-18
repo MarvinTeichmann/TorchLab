@@ -82,9 +82,7 @@ class TripletLossWithMask(_Loss):
 
         loss = self.TripletLoss(anchor, positive, negative)
 
-        total_mask = (mask[:, 0] * mask[:, 1]).float()
-
-        return torch.mean(total_mask * loss)
+        return torch.mean(mask.float() * loss.clamp(max=1))
 
 
 class CrossEntropyLoss2d(_WeightedLoss):

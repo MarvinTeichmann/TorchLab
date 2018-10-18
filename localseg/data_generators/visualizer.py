@@ -232,9 +232,9 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
         ignore = label[0, :] == -100
         label_filtered = label[:, ~ignore]
-        label_filtered = label_filtered[:, ::71]
+        label_filtered = label_filtered[:, ::13]
         prediction_filtered = prediction[:, ~ignore]
-        prediction_filtered = prediction_filtered[:, ::71]
+        prediction_filtered = prediction_filtered[:, ::13]
 
         assert -100 not in unique_labels
         label_colours = self.vec2d_2_colour(unique_labels) / 255
@@ -243,9 +243,9 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
         fig, ax = plt.subplots()
         ax.scatter(x=prediction_filtered[0], y=prediction_filtered[1],
-                   c=prediction_colours, marker='x', alpha=0.35, s=12)
+                   c=prediction_colours, marker='.', alpha=0.35, s=4)
         ax.scatter(x=unique_labels[0], y=unique_labels[1], c=label_colours,
-                   s=60, edgecolor='white', linewidth=0.5)
+                   s=60, edgecolor='white', marker='s', linewidth=0.5)
 
         plt.xlim(-2, self.conf['root_classes'] + 2)
         plt.ylim(-2, self.conf['root_classes'] + 2)

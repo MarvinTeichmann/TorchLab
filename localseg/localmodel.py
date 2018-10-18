@@ -290,7 +290,9 @@ class SegModel(nn.Module):
 
         self.evaluator = evaluator.MetaEvaluator(conf, self)
 
-        self.warper = warp.PredictionWarper(distance=conf['loss']['warp_dist'])
+        self.warper = warp.PredictionWarper(
+            distance=conf['loss']['warp_dist'],
+            root_classes=conf['dataset']['root_classes'])
 
         if not self.conf['encoder']['simple_norm']:
             mean = np.array(self.conf['encoder']['mean'])
@@ -662,7 +664,11 @@ class Trainer():
 
                 if self.conf['loss']['type'] == 'triplet':
                     positive = warped
-                    negative, mask = self.model.warper.warp(label, pred)
+                    negative, mask = self.model.warper.warp2(label, pred)
+
+                    mask = self.model.warper.mask_warps(
+                        label, pred, positive, negative, mask)
+
                     triplet_loss = self.model.triplet_loss(
                         pred, positive, negative, mask)
                 elif self.conf['loss']['type'] == 'const':
@@ -693,6 +699,7 @@ class Trainer():
 
                     log_str = ("Epoch [{:3d}/{:3d}][{:4d}/{:4d}] "
                                " HingeLoss: {:.2f} TripletLoss: {:.2f}"
+                               " MaskMean: {:.2f}"
                                "  LR: {:.3E}  TotalNorm: {:2.1f} Speed: {:.1f}"
                                " imgs/sec ({:.3f} sec/batch)")
 
@@ -700,10 +707,12 @@ class Trainer():
 
                     lr = self.get_lr()
 
+                    mmean = torch.mean(mask.float()).item()
+
                     for_str = log_str.format(
                         epoch + 1, max_epochs, step, epoch_steps, loss.item(),
-                        triplet_loss.item(), lr, totalnorm, imgs_per_sec,
-                        duration)
+                        triplet_loss.item(), mmean, lr, totalnorm,
+                        imgs_per_sec, duration)
 
                     logging.info(for_str)
 

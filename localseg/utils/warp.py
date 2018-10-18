@@ -77,7 +77,21 @@ class PredictionWarper(object):
 
         warped_prediction = prediction.flatten(2)[:, :, auggrid_ids]
 
+        raise NotImplementedError
+
         return warped_prediction, mask
+
+    def mask_warps(self, label, anchor, positive, negative, mask):
+
+        label = label.float()
+
+        mask1 = torch.all(torch.abs((label - anchor)) < 0.5, dim=1)
+        mask2 = torch.all(torch.abs((label - positive)) < 0.5, dim=1)
+        mask3 = torch.all(torch.abs((label - negative)) < 0.5, dim=1)
+
+        total_mask = torch.all(torch.stack([mask1, mask2, mask3, mask]), dim=0)
+
+        return total_mask
 
     def warp2(self, label, prediction):
 
@@ -120,7 +134,7 @@ class PredictionWarper(object):
         dist = stacked_grids - torch.unsqueeze(self.grid, dim=0)
         dist2 = dist[:, :, :, 0]**2 + dist[:, :, :, 1]**2
 
-        mask = dist2 < self.distance**2
+        mask = dist2 > self.distance**2
 
         if self.debug:
             self.warped_grids = stacked_grids

@@ -64,7 +64,8 @@
     "loss":{
         "type": "triplet",
         "margin": 0.1,
-        "warp_dist": 16
+        "warp_dist": 32,
+        "warp_dist_max": 32
     },
 
     "training": {
