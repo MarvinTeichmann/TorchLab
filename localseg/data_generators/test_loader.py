@@ -22,6 +22,9 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 
 import loader
 import time
+import visualizer
+
+import matplotlib.pyplot as plt
 
 
 def test_loading():
@@ -44,6 +47,32 @@ def test_loading():
     duration = time.time() - start_time
 
     logging.info("Loading 10 examples took: {}".format(duration))
+
+
+def test_loading_blender(verbose=False):
+
+    conf = loader.default_conf.copy()
+    conf["dataset"] = "blender_mini"
+    conf['num_worker'] = 8
+
+    conf['transform'] = loader.mytransform
+
+    myloader = loader.get_data_loader(
+        conf=conf, batch_size=8, pin_memory=False)
+
+    for step, sample in enumerate(myloader):
+
+        myvis = visualizer.LocalSegVisualizer(
+            class_file=conf["vis_file"], conf=conf)
+        start_time = time.time()
+        myvis.plot_batch(sample)
+        duration = time.time() - start_time
+
+        if step == 5:
+            break
+
+        if verbose:
+            plt.show()
 
 
 def test_loading_2d():
@@ -122,6 +151,8 @@ def speed_bench():
 
 
 if __name__ == '__main__':
+    test_loading_blender(verbose=True)
+    exit(1)
     test_loading_2d()
     speed_bench()
     logging.info("Hello World.")

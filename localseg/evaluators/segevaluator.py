@@ -98,7 +98,7 @@ class MetaEvaluator(object):
 
         logging.info("Evaluating Model on the Training Dataset.")
         start_time = time.time()
-        train_metric = self.train_evaluator.evaluate(epoch=epoch, level='none')
+        train_metric = self.train_evaluator.evaluate(epoch=epoch, level=level)
         duration = time.time() - start_time
         logging.info("Finished Training run in {} minutes.".format(
             duration / 60))
@@ -175,7 +175,9 @@ class Evaluator():
         self.name = name
         self.imgdir = imgdir
 
-        self.minor_steps = [1, 15, 30]
+        self.split = split
+
+        self.imgs_minor = conf['evaluation']['imgs_minor']
 
         if split is None:
             split = 'val'
@@ -212,13 +214,14 @@ class Evaluator():
 
     def evaluate(self, epoch=None, eval_fkt=None, level='minor'):
 
-        if level == 'mayor' or level == 'full':
-            epochdir = os.path.join(self.imgdir, "epoch_{}".format(epoch))
+        if level == 'mayor' or level == 'full' or True:
+            epochdir = os.path.join(self.imgdir, "epoch{}_{}".format(
+                epoch, self.split))
             if not os.path.exists(epochdir):
                 os.mkdir(epochdir)
 
-            scatter_edir = os.path.join(self.imgdir, "scatter_e{}".format(
-                                        epoch))
+            scatter_edir = os.path.join(self.imgdir, "scatter{}_{}".format(
+                                        epoch, self.split))
             if not os.path.exists(scatter_edir):
                 os.mkdir(scatter_edir)
 
@@ -274,7 +277,7 @@ class Evaluator():
             batched_np = batched_pred.data.cpu().numpy()
             duration = (time.time() - start_time)
 
-            if level == 'mayor' and step * real_bs < 300 or level == 'full':
+            if level == 'mayor' and step * real_bs < 300 or level == 'full' or True:
 
                 for d in range(cur_bs):
                     fig = self.vis.plot_prediction(
@@ -286,6 +289,9 @@ class Evaluator():
                     plt.tight_layout()
                     plt.savefig(new_name, format='png', bbox_inches='tight',
                                 dpi=199)
+                    if self.split == 'train':
+                        # plt.show()
+                        pass
                     plt.close(fig=fig)
 
                     if level == 'full' or epoch is None:
@@ -301,8 +307,9 @@ class Evaluator():
                         plt.close(fig=fig)
                         logging.info("Finished: {}".format(new_name))
 
-            if level is not 'none' and step in self.minor_steps:
-                stepdir = os.path.join(self.imgdir, "step_{}".format(step))
+            if level is not 'none' and step in self.imgs_minor:
+                stepdir = os.path.join(self.imgdir, "image{}_{}".format(
+                    step, self.split))
                 if not os.path.exists(stepdir):
                     os.mkdir(stepdir)
 
@@ -324,7 +331,8 @@ class Evaluator():
                             dpi=199)
                 plt.close(fig=fig)
 
-                stepdir = os.path.join(self.imgdir, "scatter_s{}".format(step))
+                stepdir = os.path.join(self.imgdir, "image{}_plt_{}".format(
+                    step, self.split))
                 if not os.path.exists(stepdir):
                     os.mkdir(stepdir)
 

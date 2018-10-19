@@ -209,10 +209,10 @@ def speed_bench():
 
 
 if __name__ == '__main__':
-    test_tripledwarp()
+    test_loading()
     exit(1)
     test_unwarp()
     test_warp_eq()
-    test_loading()
+    test_tripledwarp()
     speed_bench()
     logging.info("Hello World.")

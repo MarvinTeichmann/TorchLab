@@ -40,9 +40,11 @@ def test_plot_sample():
 
 def test_plot_batch():
     conf = loader.default_conf.copy()
+    conf['dataset'] = 'blender_mini'
 
-    myloader = loader.get_data_loader(batch_size=6, pin_memory=False,
-                                      split='val')
+    myloader = loader.get_data_loader(conf=conf, batch_size=6,
+                                      pin_memory=False,
+                                      split='train')
     batch = next(myloader.__iter__())
 
     myvis = visualizer.LocalSegVisualizer(class_file=class_file, conf=conf)
@@ -98,10 +100,11 @@ def test_scatter_plot_2d():
     myvis.scatter_plot(label=label, prediction=prediction)
 
 if __name__ == '__main__':
+    test_plot_batch()
+    plt.show()
+    exit(1)
     test_scatter_plot_2d()
     plt.show()
-
-    exit(1)
 
     test_plot_sample_2d()
     plt.show()
@@ -112,6 +115,4 @@ if __name__ == '__main__':
     test_plot_sample()
     plt.show()
 
-    test_plot_batch()
-    plt.show()
     logging.info("Hello World.")

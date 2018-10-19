@@ -190,6 +190,15 @@ class LocalSegmentationLoader(data.Dataset):
             conf['idx_offset'] = 1
             conf['num_classes'] = 838
 
+        if conf['dataset'] == 'blender_mini':
+            conf['train_file'] = 'datasets/blender_mini.lst'
+            conf['val_file'] = 'datasets/blender_mini.lst'
+            conf['vis_file'] = 'datasets/blender_small_classes.lst'
+
+            # conf['ignore_label'] = 0
+            # conf['idx_offset'] = 1
+            conf['num_classes'] = 5
+
         return
 
     def __len__(self):
@@ -305,7 +314,7 @@ class LocalSegmentationLoader(data.Dataset):
                 if random.random() > 0.6:
                     image, gt_image = roll_img(image, gt_image)
 
-            shape_distorted = False
+            shape_distorted = True
 
             if transform['equirectangular']:
                 image, gt_image = random_equi_rotation(image, gt_image)
@@ -534,10 +543,6 @@ def random_resize(image, gt_image, lower_size, upper_size, sig):
         gt_image3 = skimage.transform.resize(
             gt_ones, gt_shape, order=0, mode='reflect', anti_aliasing=False)
         gt_image2 = (gt_image3 * np.max(gt_image) + 0.5).astype(np.int32)
-
-    from IPython import embed
-    embed()
-    pass
 
     image2 = scipy.misc.imresize(image, size=factor, interp='cubic')
     gt_image2 = scipy.misc.imresize(gt_image, size=factor, interp='nearest')
@@ -769,12 +774,16 @@ class RandomRotation(object):
 
         return img, gt_img
 
-
 if __name__ == '__main__':  # NOQA
-    loader = LocalSegmentationLoader()
+    conf = default_conf.copy()
+    conf["dataset"] = "blender_mini"
+    loader = LocalSegmentationLoader(conf=conf)
     test = loader[1]
 
     mylabel = test['label']
+    from IPython import embed
+    embed()
+    pass
     '''
     ignore = mylabel == -100
     mylabel[ignore] = 0

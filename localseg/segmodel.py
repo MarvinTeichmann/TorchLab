@@ -674,19 +674,23 @@ class Trainer():
                 self.logger.init_step(epoch)
                 self.logger.add_value(losses, 'loss', epoch)
                 self.model.evaluate(epoch, level=level)
-                logging.info("Saving checkpoint to: {}".format(
-                    self.model.logdir))
-                # Save Checkpoint
-                self.logger.save(filename=self.log_file)
-                state = {
-                    'epoch': epoch + 1,
-                    'step': self.step,
-                    'conf': self.conf,
-                    'state_dict': self.model.state_dict(),
-                    'optimizer': self.optimizer.state_dict()}
+                if self.conf['logging']['log']:
+                    logging.info("Saving checkpoint to: {}".format(
+                        self.model.logdir))
+                    # Save Checkpoint
+                    self.logger.save(filename=self.log_file)
+                    state = {
+                        'epoch': epoch + 1,
+                        'step': self.step,
+                        'conf': self.conf,
+                        'state_dict': self.model.state_dict(),
+                        'optimizer': self.optimizer.state_dict()}
 
-                torch.save(state, self.checkpoint_name)
-                logging.info("Checkpoint saved sucessfully.")
+                    torch.save(state, self.checkpoint_name)
+                    logging.info("Checkpoint saved sucessfully.")
+                else:
+                    logging.info("Output can be found: {}".format(
+                        self.model.logdir))
 
             if self.epoch % self.checkpoint_backup == 0:
                 name = 'checkpoint_{:04d}.pth.tar'.format(self.epoch)

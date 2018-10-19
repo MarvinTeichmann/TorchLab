@@ -36,7 +36,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
         color_list = self._read_class_file(class_file)
         mask_color = color_list[0]
-        color_list = color_list[1:]
+        color_list = color_list[conf['idx_offset']:]
 
         self.conf = conf
 
@@ -214,6 +214,10 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
     def scatter_plot(self, prediction, batch=None, label=None, idx=0):
 
+        if self.label_type != 'spatial_2d':
+            fig, ax = plt.subplots()
+            return fig
+
         if batch is not None:
             label = batch['label'][idx].numpy()
             prediction = prediction[idx].cpu().data.numpy()
@@ -266,9 +270,10 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
         load_dict = make_tuple(sample_batch['load_dict'][idx])
 
-        # image = sample_batch['image'][idx].numpy().transpose(1, 2, 0)
         label = sample_batch['label'][idx].numpy()
-        image = imageio.imread(load_dict['image_file'])
+        image = sample_batch['image'][idx].numpy().transpose(1, 2, 0)
+
+        image = 255 * image
         if self.label_type == 'dense':
             image = scp.misc.imresize(image, size=label.shape[:2])
         elif self.label_type == 'spatial_2d':
@@ -277,10 +282,10 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         mask = self.getmask(label)
 
         pred = prediction[idx].cpu().data.numpy()
-
         idx = load_dict['idx']
 
         coloured_label = self.label2color(label=label, mask=mask)
+
         coloured_label = trans * image + (1 - trans) * coloured_label
 
         diff_colour = self.coloured_diff(label, pred, mask)
@@ -311,7 +316,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
         return figure
 
-    def plot_batch(self, sample_batch):
+    def plot_batch(self, sample_batch, trans=0.3):
 
         figure = plt.figure()
         figure.tight_layout()
@@ -328,6 +333,8 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
             coloured_label = self.label2color(label=label,
                                               mask=mask)
+
+            coloured_label = trans * image + (1 - trans) * coloured_label
 
             ax = figure.add_subplot(2, batch_size, d + 1)
             ax.set_title('Image #{}'.format(idx))
