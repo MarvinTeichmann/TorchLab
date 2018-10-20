@@ -212,23 +212,31 @@ class Evaluator():
 
         self.smoother = pyvision.utils.MedianSmoother(20)
 
+        self.img_fig = plt.figure()
+        self.img_fig.tight_layout()
+
+        self.scatter_fig = plt.figure()
+
     def evaluate(self, epoch=None, eval_fkt=None, level='minor'):
 
-        if level == 'mayor' or level == 'full':
-            epochdir = os.path.join(self.imgdir, "epoch{}_{}".format(
-                epoch, self.split))
-            if not os.path.exists(epochdir):
-                os.mkdir(epochdir)
+        level = "one_image"
 
-            scatter_edir = os.path.join(self.imgdir, "escatter{}_{}".format(
-                                        epoch, self.split))
-            if not os.path.exists(scatter_edir):
-                os.mkdir(scatter_edir)
+        if level == 'mayor' or level == 'full':
+            self.epochdir = os.path.join(self.imgdir, "epoch{}_{}".format(
+                epoch, self.split))
+            if not os.path.exists(self.epochdir):
+                os.mkdir(self.epochdir)
+
+            self.scatter_edir = os.path.join(
+                self.imgdir, "escatter{}_{}".format(
+                    epoch, self.split))
+            if not os.path.exists(self.scatter_edir):
+                os.mkdir(self.scatter_edir)
 
         assert eval_fkt is None
         metric = IoU(self.num_classes + 1, self.names)
 
-        trans = self.conf['evaluation']['transparency']
+        self.trans = self.conf['evaluation']['transparency']
 
         for step, sample in zip(self.count, self.loader):
 
@@ -280,84 +288,15 @@ class Evaluator():
             duration = (time.time() - start_time)
 
             if level == 'mayor' and step * real_bs < 300 or level == 'full':
+                self._do_plotting_mayor(cur_bs, sample, batched_pred,
+                                        epoch, level)
 
-                for d in range(cur_bs):
-                    fig = self.vis.plot_prediction(
-                        sample, batched_pred, trans=trans, idx=d)
-                    filename = literal_eval(
-                        sample['load_dict'][d])['image_file']
-                    new_name = os.path.join(epochdir,
-                                            os.path.basename(filename))
-                    plt.tight_layout()
-                    plt.savefig(new_name, format='png', bbox_inches='tight',
-                                dpi=199)
-                    if self.split == 'train':
-                        # plt.show()
-                        pass
-                    plt.close(fig=fig)
-
-                    if level == 'full' or epoch is None:
-                        fig = self.vis.scatter_plot(
-                            batch=sample, prediction=batched_pred, idx=d)
-                        filename = literal_eval(
-                            sample['load_dict'][d])['image_file']
-                        new_name = os.path.join(scatter_edir,
-                                                os.path.basename(filename))
-                        plt.tight_layout()
-                        plt.savefig(new_name, format='png',
-                                    bbox_inches='tight', dpi=199)
-                        plt.close(fig=fig)
-                        logging.info("Finished: {}".format(new_name))
-
-            if level is not 'none' and step in self.imgs_minor\
-                    or level is 'one_image':
-                stepdir = os.path.join(self.imgdir, "image{}_{}".format(
-                    step, self.split))
-                if not os.path.exists(stepdir):
-                    os.mkdir(stepdir)
-
-                fig = self.vis.plot_prediction(
-                    sample, batched_pred, trans=trans, idx=0)
-                filename = literal_eval(
-                    sample['load_dict'][0])['image_file']
-                if epoch is None:
-                    newfile = filename.split(".")[0] + "_None.png"\
-                        .format(num=epoch)
-                else:
-                    newfile = filename.split(".")[0] + "_epoch_{num:05d}.png"\
-                        .format(num=epoch)
-
-                new_name = os.path.join(stepdir,
-                                        os.path.basename(newfile))
-                plt.tight_layout()
-                plt.savefig(new_name, format='png', bbox_inches='tight',
-                            dpi=199)
-                plt.close(fig=fig)
-
-                stepdir = os.path.join(self.imgdir, "scatter{}_{}".format(
-                    step, self.split))
-                if not os.path.exists(stepdir):
-                    os.mkdir(stepdir)
-
-                fig = self.vis.scatter_plot(
-                    batch=sample, prediction=batched_pred, idx=0)
-                filename = literal_eval(
-                    sample['load_dict'][0])['image_file']
-                if epoch is None:
-                    newfile = filename.split(".")[0] + "_None.png"\
-                        .format(num=epoch)
-                else:
-                    newfile = filename.split(".")[0] + "_epoch_{num:05d}.png"\
-                        .format(num=epoch)
-
-                new_name = os.path.join(stepdir,
-                                        os.path.basename(newfile))
-                plt.tight_layout()
-                plt.savefig(new_name, format='png', bbox_inches='tight',
-                            dpi=199)
-                plt.close(fig=fig)
-
-                if level is 'one_image':
+            if level != 'none' and step in self.imgs_minor\
+                    or level == 'one_image':
+                self._do_plotting_minor(step, batched_pred, sample, epoch)
+                if level == "one_image":
+                    # plt.show(block=False)
+                    # plt.pause(0.01)
                     return None
 
             # Analyze output
@@ -402,3 +341,84 @@ class Evaluator():
                 logging.info(for_str)
 
         return metric
+
+    def _do_plotting_mayor(self, cur_bs, sample, batched_pred, epoch, level):
+        for d in range(cur_bs):
+            fig = self.vis.plot_prediction(
+                sample, batched_pred, trans=self.trans, idx=d)
+            filename = literal_eval(
+                sample['load_dict'][d])['image_file']
+            new_name = os.path.join(self.epochdir,
+                                    os.path.basename(filename))
+            plt.tight_layout()
+            plt.savefig(new_name, format='png', bbox_inches='tight',
+                        dpi=199)
+            if self.split == 'train':
+                # plt.show()
+                pass
+            plt.close(fig=fig)
+
+            if level == 'full' or epoch is None:
+                fig = self.vis.scatter_plot(
+                    batch=sample, prediction=batched_pred, idx=d)
+                filename = literal_eval(
+                    sample['load_dict'][d])['image_file']
+                new_name = os.path.join(self.scatter_edir,
+                                        os.path.basename(filename))
+                plt.tight_layout()
+                plt.savefig(new_name, format='png',
+                            bbox_inches='tight', dpi=199)
+                plt.close(fig=fig)
+                logging.info("Finished: {}".format(new_name))
+
+    def _do_plotting_minor(self, step, batched_pred, sample, epoch):
+        stepdir = os.path.join(self.imgdir, "image{}_{}".format(
+            step, self.split))
+        if not os.path.exists(stepdir):
+            os.mkdir(stepdir)
+
+        fig = self.vis.plot_prediction(
+            sample, batched_pred, trans=self.trans, idx=0,
+            figure=None)
+        filename = literal_eval(
+            sample['load_dict'][0])['image_file']
+        if epoch is None:
+            newfile = filename.split(".")[0] + "_None.png"\
+                .format(num=epoch)
+        else:
+            newfile = filename.split(".")[0] + "_epoch_{num:05d}.png"\
+                .format(num=epoch)
+
+        new_name = os.path.join(stepdir,
+                                os.path.basename(newfile))
+        plt.savefig(new_name, format='png', bbox_inches='tight',
+                    dpi=199)
+        plt.close(fig)
+
+        stepdir = os.path.join(self.imgdir, "scatter{}_{}".format(
+            step, self.split))
+        if not os.path.exists(stepdir):
+            os.mkdir(stepdir)
+
+        fig = self.vis.scatter_plot(
+            batch=sample, prediction=batched_pred, idx=0,
+            figure=None)
+        filename = literal_eval(
+            sample['load_dict'][0])['image_file']
+        if epoch is None:
+            newfile = filename.split(".")[0] + "_None.png"\
+                .format(num=epoch)
+        else:
+            newfile = filename.split(".")[0] + "_epoch_{num:05d}.png"\
+                .format(num=epoch)
+
+        new_name = os.path.join(stepdir,
+                                os.path.basename(newfile))
+        plt.tight_layout()
+        plt.savefig(new_name, format='png', bbox_inches='tight',
+                    dpi=199)
+        plt.close(fig)
+
+        # if self.split == "train":
+        #     self.img_fig.close()
+        #     self.scatter_fig.close()

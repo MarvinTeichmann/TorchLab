@@ -229,11 +229,13 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
         return np.take(self.new_color_list, id_list, axis=0)
 
-    def scatter_plot(self, prediction, batch=None, label=None, idx=0):
+    def scatter_plot(self, prediction, batch=None, label=None, idx=0,
+                     figure=None):
 
-        if self.label_type != 'spatial_2d':
-            fig, ax = plt.subplots()
-            return fig
+        if figure is None:
+            figure = plt.figure()
+
+        ax = figure.subplots()
 
         if batch is not None:
             label = batch['label'][idx].numpy()
@@ -265,11 +267,12 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         # id_list1 = unique_labels[0].astype(np.int) + \
         #     self.conf['root_classes'] * unique_labels[1].astype(np.int)
 
-        fig, ax = plt.subplots()
         ax.scatter(x=prediction_filtered[0], y=prediction_filtered[1],
                    c=prediction_colours, marker='.', alpha=1, s=1)
         ax.scatter(x=unique_labels[0], y=unique_labels[1], c=label_colours,
                    s=20, edgecolor='white', marker='s', linewidth=0.5)
+
+        """
 
         plt.xlim(-2, self.conf['root_classes'] + 2)
         plt.ylim(-2, self.conf['root_classes'] + 2)
@@ -277,11 +280,16 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         plt.xticks(np.arange(-2, self.conf['root_classes'] + 2, step=1))
         plt.yticks(np.arange(-2, self.conf['root_classes'] + 2, step=1))
 
-        return fig
+        """
 
-    def plot_prediction(self, sample_batch, prediction, idx=0, trans=0.5):
-        figure = plt.figure()
-        figure.tight_layout()
+        return figure
+
+    def plot_prediction(self, sample_batch, prediction, idx=0, trans=0.5,
+                        figure=None):
+
+        if figure is None:
+            figure = plt.figure()
+            figure.tight_layout()
 
         batch_size = len(sample_batch['load_dict'])
         assert(idx < batch_size)

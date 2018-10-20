@@ -89,12 +89,13 @@
 
     "evaluation": {
         "imgs_minor": [1, 2, 3, 4, 5],
-        "transparency": 0
+        "transparency": 0,
+        "default_level": "one_image"
     },
 
     "logging": {
         "display_iter": 1,
-        "eval_iter": 20,
+        "eval_iter": 5,
         "max_val_examples": null,
         "max_train_examples": 300,
         "log": false,
