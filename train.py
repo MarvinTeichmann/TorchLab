@@ -61,6 +61,10 @@ def handle_args():
     parser.add_argument('--debug', action='store_true',
                         help="Run in Debug mode.")
 
+    parser.add_argument('--notimestamp', action='store_false',
+                        dest='timestamp', help="Run in Debug mode.",
+                        default=True)
+
     parser.add_argument('--train', action='store_true',
                         help="Do training. \n"
                              " Default: False; Only Initialize dir.")
@@ -97,7 +101,8 @@ if __name__ == '__main__':
 
     logdir = pvorg.get_logdir_name(
         project=config['pyvision']['project_name'],
-        bench=args.bench, cfg_file=args.config, prefix=args.name)
+        bench=args.bench, cfg_file=args.config, prefix=args.name,
+        timestamp=args.timestamp)
 
     pvorg.init_logdir(config, args.config, logdir)
 
