@@ -81,7 +81,7 @@ class PredictionWarper(object):
 
         return warped_prediction, mask
 
-    def mask_warps(self, label, anchor, positive, negative, mask):
+    def mask_warps(self, label, anchor, positive, negative, mask, ign):
 
         label = label.float()
 
@@ -89,7 +89,8 @@ class PredictionWarper(object):
         mask2 = torch.all(torch.abs((label - positive)) < 0.5, dim=1)
         mask3 = torch.all(torch.abs((label - negative)) < 0.5, dim=1)
 
-        total_mask = torch.all(torch.stack([mask1, mask2, mask3, mask]), dim=0)
+        total_mask = torch.all(
+            torch.stack([mask1, mask2, mask3, mask, 1 - ign]), dim=0)
 
         return total_mask
 

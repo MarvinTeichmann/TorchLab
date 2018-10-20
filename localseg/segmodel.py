@@ -196,7 +196,7 @@ def _get_encoder(conf):
         if conf['encoder']['source'] == "simple":
             resnet = segencoder.resnet
         elif conf['encoder']['source'] == "encoding":
-            from torchsegkit.encoder import encoding_resnet
+            from localseg.encoder import encoding_resnet
             resnet = segencoder.encoding_resnet
         else:
             raise NotImplementedError
@@ -591,7 +591,9 @@ class Trainer():
             max_epochs = self.max_epochs
 
         if self.max_epoch_steps is None:
-            epoch_steps = len(self.loader) - 1
+            epoch_steps = len(self.loader)
+            if epoch_steps > 1:
+                epoch_steps = epoch_steps - 1
             count_steps = range(1, epoch_steps + 1)
         else:
             count_steps = range(1, self.max_epoch_steps + 1)
@@ -612,6 +614,7 @@ class Trainer():
             start_time = time.time()
             epoche_time = time.time()
             losses = []
+
             for step, sample in zip(count_steps, self.loader):
 
                 # Do forward pass
@@ -667,7 +670,7 @@ class Trainer():
 
             if self.epoch % self.eval_iter == 0 or self.epoch == max_epochs:
 
-                level = 'minor'
+                level = self.conf['evaluation']['default_level']
                 if self.epoch % self.mayor_eval == 0 or \
                         self.epoch == max_epochs:
                     level = 'mayor'

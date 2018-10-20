@@ -199,7 +199,7 @@ def _get_encoder(conf):
         if conf['encoder']['source'] == "simple":
             resnet = segencoder.resnet
         elif conf['encoder']['source'] == "encoding":
-            from torchsegkit.encoder import encoding_resnet
+            from localseg.encoder import encoding_resnet
             resnet = segencoder.encoding_resnet
         else:
             raise NotImplementedError
@@ -274,12 +274,12 @@ class SegModel(nn.Module):
         else:
             raise NotImplementedError
 
-        assert self.conf['loss']['type'] in ['const', 'triplet']
+        assert self.conf['loss']['type'] in ['squeeze', 'triplet']
 
         if self.conf['loss']['type'] == 'triplet':
             self.triplet_loss = loss.TripletLossWithMask(margin=0.1)
-        elif self.conf['loss']['type'] == 'const':
-            self.const_loss = loss.TruncatedHingeLoss2d()
+        elif self.conf['loss']['type'] == 'squeeze':
+            self.squeeze_loss = loss.TruncatedHingeLoss2dMask()
 
         self._load_pretrained_weights(conf)
 
@@ -348,10 +348,6 @@ class SegModel(nn.Module):
         # Expect input to be in range [0, 1]
         # and of type float
         if self.conf['encoder']['normalize']:
-
-            from IPython import embed
-            embed()
-            pass
 
             assert not self.conf['dataset']['transform']['normalize'], \
                 'Are you sure you want to normalize twice?'
@@ -609,7 +605,9 @@ class Trainer():
             max_epochs = self.max_epochs
 
         if self.max_epoch_steps is None:
-            epoch_steps = len(self.loader) - 1
+            epoch_steps = len(self.loader)
+            if epoch_steps > 1:
+                epoch_steps = epoch_steps - 1
             count_steps = range(1, epoch_steps + 1)
         else:
             count_steps = range(1, self.max_epoch_steps + 1)
@@ -667,16 +665,23 @@ class Trainer():
                 loss = self.model.loss(pred, label)
 
                 if self.conf['loss']['type'] == 'triplet':
+                    loss_name = 'TripletLoss'
                     positive = warped
                     negative, mask = self.model.warper.warp2(label, pred)
 
                     mask = self.model.warper.mask_warps(
-                        label, pred, positive, negative, mask)
+                        label, pred, positive, negative, mask, ign)
 
                     triplet_loss = self.model.triplet_loss(
                         pred, positive, negative, mask)
-                elif self.conf['loss']['type'] == 'const':
-                    triplet_loss = self.model.const_loss(pred, warped, ign)
+                elif self.conf['loss']['type'] == 'squeeze':
+                    loss_name = 'SqueezeLoss'
+                    positive = warped
+                    mask = (1 - ign)
+                    mask = self.model.warper.mask_warps(
+                        label, pred, positive, positive, mask, ign)
+                    triplet_loss = self.model.squeeze_loss(pred, warped, mask)
+                    # triplet_loss = self.model.squeeze_loss(pred, warped, ign)
                 else:
                     raise NotImplementedError
 
@@ -702,7 +707,7 @@ class Trainer():
                     imgs_per_sec = self.bs / duration
 
                     log_str = ("Epoch [{:3d}/{:3d}][{:4d}/{:4d}] "
-                               " HingeLoss: {:.2f} TripletLoss: {:.2f}"
+                               " HingeLoss: {:.2f} {}: {:.2f}"
                                " MaskMean: {:.2f}"
                                "  LR: {:.3E}  TotalNorm: {:2.1f} Speed: {:.1f}"
                                " imgs/sec ({:.3f} sec/batch)")
@@ -715,7 +720,7 @@ class Trainer():
 
                     for_str = log_str.format(
                         epoch + 1, max_epochs, step, epoch_steps, loss.item(),
-                        triplet_loss.item(), mmean, lr, totalnorm,
+                        loss_name, triplet_loss.item(), mmean, lr, totalnorm,
                         imgs_per_sec, duration)
 
                     logging.info(for_str)
@@ -733,7 +738,7 @@ class Trainer():
 
             if self.epoch % self.eval_iter == 0 or self.epoch == max_epochs:
 
-                level = 'minor'
+                level = self.conf['evaluation']['default_level']
                 if self.epoch % self.mayor_eval == 0 or \
                         self.epoch == max_epochs:
                     level = 'mayor'

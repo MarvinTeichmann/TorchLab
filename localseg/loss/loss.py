@@ -34,7 +34,7 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 class HingeLoss2d(_WeightedLoss):
 
     def __init__(self, weight=None, ignore_index=-100,
-                 reduction='elementwise_mean', margin=0.35):
+                 reduction='elementwise_mean', margin=0.5):
         super(HingeLoss2d, self).__init__(
             weight, reduction='elementwise_mean')
         self.ignore_index = ignore_index
@@ -43,7 +43,9 @@ class HingeLoss2d(_WeightedLoss):
     def forward(self, input, target):
         # _assert_no_grad(target)
 
-        loss = torch.relu(torch.abs(target.float() - input) - self.margin)
+        assert self.margin == 0.5
+
+        loss = (torch.abs(target.float() - input) - self.margin).clamp(min=0)
         mask = target != -100
 
         return torch.mean(mask.float() * loss)
@@ -59,11 +61,42 @@ class TruncatedHingeLoss2d(_WeightedLoss):
     def forward(self, input, target, ignore):
         # _assert_no_grad(target)
 
+        assert self.margin == 0.05
+
         loss = (torch.abs(target - input) - self.margin).clamp(0, 1)
 
         mask = (1 - ignore.unsqueeze(1)).float()
 
         return torch.mean(mask * loss)
+
+
+class TruncatedHingeLoss2dMask(_WeightedLoss):
+
+    def __init__(self, weight=None,
+                 reduction='elementwise_mean', margin=0.05):
+        super().__init__(weight, reduction='elementwise_mean')
+        self.margin = margin
+
+    def forward(self, input, target, mask):
+        # _assert_no_grad(target)
+
+        assert self.margin == 0.05
+
+        loss = (torch.abs(target - input) - self.margin).clamp(0)
+        loss = torch.mean(loss, dim=1)
+
+        masked_loss = mask.unsqueeze(1).float() * loss
+
+        assert torch.all(masked_loss < 1.0001)  # Function of square size
+        assert torch.all(masked_loss >= 0.0)
+
+        masked_sum = (torch.sum(mask.unsqueeze(1).float()) + 0.001)
+
+        final_loss = torch.sum(masked_loss) / masked_sum
+
+        assert torch.all(final_loss < 1.00001)  # Function of square size
+
+        return final_loss
 
 
 class TripletLossWithMask(_Loss):
