@@ -1,4 +1,4 @@
-from encoding import nn
+from torch import nn
 import math
 from torch.autograd import Variable
 import torch.utils.model_zoo as model_zoo
@@ -7,7 +7,10 @@ import logging
 
 from collections import OrderedDict
 
-from torchsegkit.layer.dilated import space2batch, batch2space
+try:
+    from torchsegkit.layer.dilated import space2batch, batch2space
+except:
+    pass
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
            'resnet152', 'BasicBlock', 'Bottleneck']

@@ -82,7 +82,8 @@
 
     "evaluation": {
         "imgs_minor": [1, 2, 3, 4, 5],
-        "transparency": 0
+        "transparency": 0,
+        "default_level": "one_image"
     },
 
     "logging": {

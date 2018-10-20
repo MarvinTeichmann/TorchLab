@@ -79,7 +79,7 @@ class MetaEvaluator(object):
         # if not self.conf['crf']['use_crf']:
         #    return super().evaluate(epoch=epoch, verbose=verbose)
 
-        if level not in ['minor', 'mayor', 'full', 'none']:
+        if level not in ['minor', 'mayor', 'full', 'none', 'one_image']:
             logging.error("Unknown evaluation level.")
             assert False
 
@@ -214,19 +214,21 @@ class Evaluator():
 
     def evaluate(self, epoch=None, eval_fkt=None, level='minor'):
 
-        if level == 'mayor' or level == 'full' or True:
+        if level == 'mayor' or level == 'full':
             epochdir = os.path.join(self.imgdir, "epoch{}_{}".format(
                 epoch, self.split))
             if not os.path.exists(epochdir):
                 os.mkdir(epochdir)
 
-            scatter_edir = os.path.join(self.imgdir, "scatter{}_{}".format(
+            scatter_edir = os.path.join(self.imgdir, "escatter{}_{}".format(
                                         epoch, self.split))
             if not os.path.exists(scatter_edir):
                 os.mkdir(scatter_edir)
 
         assert eval_fkt is None
         metric = IoU(self.num_classes + 1, self.names)
+
+        trans = self.conf['evaluation']['transparency']
 
         for step, sample in zip(self.count, self.loader):
 
@@ -277,11 +279,11 @@ class Evaluator():
             batched_np = batched_pred.data.cpu().numpy()
             duration = (time.time() - start_time)
 
-            if level == 'mayor' and step * real_bs < 300 or level == 'full' or True:
+            if level == 'mayor' and step * real_bs < 300 or level == 'full':
 
                 for d in range(cur_bs):
                     fig = self.vis.plot_prediction(
-                        sample, batched_pred, trans=0.4, idx=d)
+                        sample, batched_pred, trans=trans, idx=d)
                     filename = literal_eval(
                         sample['load_dict'][d])['image_file']
                     new_name = os.path.join(epochdir,
@@ -307,14 +309,15 @@ class Evaluator():
                         plt.close(fig=fig)
                         logging.info("Finished: {}".format(new_name))
 
-            if level is not 'none' and step in self.imgs_minor:
+            if level is not 'none' and step in self.imgs_minor\
+                    or level is 'one_image':
                 stepdir = os.path.join(self.imgdir, "image{}_{}".format(
                     step, self.split))
                 if not os.path.exists(stepdir):
                     os.mkdir(stepdir)
 
                 fig = self.vis.plot_prediction(
-                    sample, batched_pred, idx=0)
+                    sample, batched_pred, trans=trans, idx=0)
                 filename = literal_eval(
                     sample['load_dict'][0])['image_file']
                 if epoch is None:
@@ -331,7 +334,7 @@ class Evaluator():
                             dpi=199)
                 plt.close(fig=fig)
 
-                stepdir = os.path.join(self.imgdir, "image{}_plt_{}".format(
+                stepdir = os.path.join(self.imgdir, "scatter{}_{}".format(
                     step, self.split))
                 if not os.path.exists(stepdir):
                     os.mkdir(stepdir)
@@ -353,6 +356,9 @@ class Evaluator():
                 plt.savefig(new_name, format='png', bbox_inches='tight',
                             dpi=199)
                 plt.close(fig=fig)
+
+                if level is 'one_image':
+                    return None
 
             # Analyze output
             for d in range(batched_np.shape[0]):
