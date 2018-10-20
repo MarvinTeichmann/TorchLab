@@ -35,6 +35,16 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
     def __init__(self, class_file, conf=None):
 
         color_list = self._read_class_file(class_file)
+
+        self.new_color_list = []
+        prime1 = 22801762019
+        for i in range(len(color_list)):
+            hash_color = (i + 1) * prime1
+            color = [hash_color %
+                     256, (hash_color // 256) % 256,
+                     (hash_color // (256 * 256)) % 256]
+            self.new_color_list.append(color)
+
         mask_color = color_list[0]
         color_list = color_list[conf['idx_offset']:]
 
@@ -153,6 +163,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
             pred_hard = np.argmax(pred, axis=0)
             return self.id2color(id_image=pred_hard, mask=mask)
         elif self.label_type == 'spatial_2d':
+            # TODO: Does not work with larger scale.
             pred_id = pred[0].astype(np.int) + \
                 self.conf['root_classes'] * pred[1].astype(np.int)
             return self.id2color(id_image=pred_id, mask=mask)
@@ -200,7 +211,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
             fl_img_col = false_both * np.expand_dims(fl_img, axis=-1)
 
             diff_img_col = sum([tr_img_col, ch1_img_col,
-                               ch2_img_col, fl_img_col])
+                                ch2_img_col, fl_img_col])
 
             return diff_img_col
         else:
@@ -211,6 +222,12 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
             self.conf['root_classes'] * vector[1].astype(np.int)
 
         return np.take(self.color_list, id_list, axis=0)
+
+    def vec2d_2_colour2(self, vector):
+        id_list = vector[0].astype(np.int) + \
+            self.conf['root_classes'] * vector[1].astype(np.int)
+
+        return np.take(self.new_color_list, id_list, axis=0)
 
     def scatter_plot(self, prediction, batch=None, label=None, idx=0):
 
@@ -241,15 +258,18 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         prediction_filtered = prediction_filtered[:, ::13]
 
         assert -100 not in unique_labels
-        label_colours = self.vec2d_2_colour(unique_labels) / 255
-        prediction_colours = self.vec2d_2_colour(label_filtered) / 255
+        label_colours = self.vec2d_2_colour2(unique_labels) / 255
+        prediction_colours = self.vec2d_2_colour2(label_filtered) / 255
         # prediction_colours_f = prediction_colours[:, ::41]
+
+        # id_list1 = unique_labels[0].astype(np.int) + \
+        #     self.conf['root_classes'] * unique_labels[1].astype(np.int)
 
         fig, ax = plt.subplots()
         ax.scatter(x=prediction_filtered[0], y=prediction_filtered[1],
-                   c=prediction_colours, marker='.', alpha=0.35, s=4)
+                   c=prediction_colours, marker='.', alpha=1, s=1)
         ax.scatter(x=unique_labels[0], y=unique_labels[1], c=label_colours,
-                   s=60, edgecolor='white', marker='s', linewidth=0.5)
+                   s=20, edgecolor='white', marker='s', linewidth=0.5)
 
         plt.xlim(-2, self.conf['root_classes'] + 2)
         plt.ylim(-2, self.conf['root_classes'] + 2)
@@ -282,6 +302,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         mask = self.getmask(label)
 
         pred = prediction[idx].cpu().data.numpy()
+        # logging.info(pred)
         idx = load_dict['idx']
 
         coloured_label = self.label2color(label=label, mask=mask)

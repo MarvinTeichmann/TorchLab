@@ -8,31 +8,31 @@
     },
 
     "dataset" : {
-        "dataset": "blender_mini",
+        "dataset": "sincity_one",
         "train_file": null,
         "val_file": null,
 
-        "ignore_label": -100,
-        "idx_offset": 0,
+        "ignore_label": 0,
+        "idx_offset": 1,
         "num_classes": null,
 
-        "label_encoding": "dense",
+        "label_encoding": "spatial_2d",
 
         "transform": {
             "presize": null,
             "color_augmentation_level": 1,
-            "fix_shape": true,
+            "fix_shape": false,
             "reseize_image": false,
-            "patch_size": [480, 480],
+            "patch_size": [1024, 2048],
             "random_crop": false,
-            "random_roll": true,
+            "random_roll": false,
             "max_crop": 8,
             "crop_chance": 0.6,
-            "random_resize": true,
-            "lower_fac": 0.5,
-            "upper_fac": 2,
+            "random_resize": false,
+            "lower_fac": 0.83,
+            "upper_fac": 1.2,
             "resize_sig": 0.4,
-            "random_flip": true,
+            "random_flip": false,
             "random_rotation": false,
             "equirectangular": false,
             "normalize": false,
@@ -43,10 +43,10 @@
     },
 
     "encoder": {
-        "source": "simple",
-        "dilated": false,
+        "source": "encoding",
+        "dilated": true,
         "normalize": true,
-        "batched_dilation": null,
+        "batched_dilation": false,
         "num_layer": 50,
         "load_pretrained": true,
         "mean": [0.485, 0.456, 0.406],
@@ -55,15 +55,15 @@
     },
 
     "decoder": {
-        "skip_connections": true,
+        "skip_connections": false,
         "scale_down": 0.01,
         "dropout": true,
         "bottleneck": null
     },
 
     "training": {
-        "batch_size": 8,
-        "learning_rate": 2e-5,
+        "batch_size": 1,
+        "learning_rate": 2e-4,
         "lr_schedule": "constant",
         "exp": 1.5,
         "base": 0.9,
@@ -71,8 +71,8 @@
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": null,
-        "max_epochs": 600,
-        "pre_eval": true,
+        "max_epochs": 60000000000,
+        "pre_eval": false,
         "cnn_gpus": null,
         "max_epoch_steps": null,
         "init_weights_from_checkpoint": false,
@@ -81,17 +81,18 @@
     },
 
     "evaluation": {
-        "imgs_minor": [1, 2, 3, 4, 5]
+        "imgs_minor": [1, 2, 3, 4, 5],
+        "transparency": 0
     },
 
     "logging": {
         "display_iter": 1,
-        "eval_iter": 1,
+        "eval_iter": 20,
         "max_val_examples": null,
         "max_train_examples": 300,
         "log": false,
         "checkpoint_backup": 10000000,
-        "mayor_eval": 150
+        "mayor_eval": 200
     },
 
     "plotting": {
@@ -103,7 +104,7 @@
     },
 
     "pyvision": {
-        "project_name": "localseg",
+        "project_name": "blenderseg",
         "entry_point": "../localseg/segmodel.py",
         "plotter": "../localseg/plotting/segplotter.py",
         "required_packages": ["../localseg"],

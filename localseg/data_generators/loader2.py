@@ -158,6 +158,7 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
 
         if self.split == 'train':
 
+            image_orig = image.copy()
             image, gt_image = self.color_transform(image, gt_image)
 
             if transform['random_flip']:
@@ -168,8 +169,6 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
                     warp_img = np.fliplr(warp_img).copy()
                 else:
                     load_dict['flipped'] = False
-
-            image_orig = image.copy()
 
             if transform['random_roll']:
                 if random.random() > 0.6:
