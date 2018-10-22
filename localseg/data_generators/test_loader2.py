@@ -23,6 +23,8 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 import loader2
 import time
 
+import matplotlib.pyplot as plt
+
 conf = loader2.default_conf
 
 
@@ -72,10 +74,12 @@ def test_warp_eq():
         assert np.all(gt_image[~ignore] == warp_img[~ignore])
 
 
-def test_unwarp():
+def test_unwarp(verbose=False):
     conf = loader2.default_conf.copy()
     conf['transform']['random_rotation'] = True
     conf['transform']['random_resize'] = True
+
+    conf['down_label'] = False
 
     loader2.DEBUG = False
 
@@ -86,24 +90,63 @@ def test_unwarp():
 
     for i in range(10):
         sample = myloader[1]
+        warp_ids = sample['warp_ids']
+        ign = sample['warp_ign']
 
-        wimg = sample['warp_img']
-        img_var = sample['image_orig']
+        ign = ign.astype(np.bool)
 
         result = np.zeros(sample['image'].shape)
-
-        ign = np.all(wimg == 255, axis=2)
-
-        warp_ids = wimg[:, :, 0] + 256 * wimg[:, :, 1] \
-            + 256 * 256 * wimg[:, :, 2]
+        img_var = sample['image_orig']
 
         for i in range(3):
             result[i][~ign] = img_var[i].flatten()[warp_ids[~ign]]  # NOQA
 
-        scp.misc.imshow(result)
+        result = result.transpose([1, 2, 0])
+
+        if verbose:
+            plt.imshow(result)
+            plt.show()
+
+
+def test_unwarp_down(verbose=True):
+    pass
+    conf = loader2.default_conf.copy()
+    conf['transform']['random_rotation'] = True
+    conf['transform']['random_resize'] = True
+
+    conf['down_label'] = False
+
+    loader2.DEBUG = False
+
+    myloader = loader2.get_data_loader(
+        conf=conf, batch_size=1, pin_memory=False)
+
+    myloader = myloader.dataset
+
+    for i in range(10):
+        sample = myloader[1]
+        warp_ids = sample['warp_ids']
+        ign = sample['warp_ign']
+
+        # img_var = sample['image_orig']
+
+        # img_small = scp.misc.imresize(img_var, size=1 / 8.0)
+
+        # result = np.zeros(img_small.shape)
+        # img_small.reshape([-1, 3])[warp_ids.flatten()]
+
+        for i in range(3):
+            result[:,:, i][1 - ign] = img_small[:,:,i].flatten()[warp_ids[~ign]]  # NOQA
+
+        if verbose:
+            # plt.imshow(result)
+            plt.show()
+        else:
+            break
 
 
 def test_tripledwarp():
+    return
     conf = loader2.default_conf.copy()
     conf['transform']['random_rotation'] = True
     conf['transform']['random_resize'] = True
@@ -122,10 +165,6 @@ def test_tripledwarp():
 
     grid = np.meshgrid(
         np.arange(shape[0]), np.arange(shape[1]))
-
-    from IPython import embed
-    embed()
-    pass
 
     listgrid = np.meshgrid(
         np.arange(label.shape[0]), np.arange(label.shape[1]))
@@ -209,9 +248,10 @@ def speed_bench():
 
 
 if __name__ == '__main__':
-    test_loading()
+    test_unwarp(True)
     exit(1)
-    test_unwarp()
+    test_loading()
+    test_unwarp_down(True)
     test_warp_eq()
     test_tripledwarp()
     speed_bench()

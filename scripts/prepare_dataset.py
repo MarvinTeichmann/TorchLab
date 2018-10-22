@@ -21,6 +21,8 @@ import imageio
 
 import time
 
+import scipy.misc
+
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
@@ -28,13 +30,13 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 data_file = "datasets/camvid360_noprop_train.lst"
 data_file2 = "datasets/camvid360_prop_train2.lst"
 
-data_file = "datasets/scenecity_small_train.lst"
-data_file2 = "datasets/scenecity_small_test.lst"
-
 data_file = "datasets/blender_small.lst"
 data_file2 = "datasets/blender_small.lst"
 
-outdirname = 'ids_labels2'
+data_file = "datasets/scenecity_small_train.lst"
+data_file2 = "datasets/scenecity_small_test.lst"
+
+outdirname = 'ids_labels3'
 
 datadir = os.environ['TV_DIR_DATA']
 files = [line.rstrip() for line in open(data_file)]
@@ -45,6 +47,12 @@ realfiles2 = [os.path.join(datadir, file) for file in files2]
 
 debug_num_images = -1
 
+thick = 4
+
+min_pixels = 100
+
+void2 = 10000
+
 outdir = os.path.join(os.path.dirname((realfiles2[0])), outdirname)
 outfile = data_file2.split('.')[0] + "_out.lst"
 
@@ -52,6 +60,10 @@ logging.info("Results will be written to {}".format(outdir))
 
 if not os.path.exists(outdir):
     os.mkdir(outdir)
+
+colour_out = os.path.join(outdir, 'colour')
+if not os.path.exists(colour_out):
+    os.mkdir(colour_out)
 
 
 def id_to_colour(id):
@@ -108,7 +120,10 @@ def image_to_id(image, table):
         gt_label = gt_label.reshape(
             shape[0], shape[1], 1)
 
-        idcolor = id_to_colour(myid)
+        if np.sum(gt_label) > min_pixels * min_pixels:
+            idcolor = id_to_colour(myid)
+        else:
+            idcolor = id_to_colour(void2)
 
         gt_reshaped = gt_reshaped + gt_label * idcolor
 
@@ -138,7 +153,40 @@ def id2color(id_image, unique_classes):
 
 unique_classes = get_unique_classes(realfiles)
 
+assert len(unique_classes) < void2
+
 table = dict(zip(unique_classes, range(len(unique_classes))))
+
+
+def void_img(id_image):
+    super_mask = np.all(id_image == id_to_colour(0), axis=2)
+
+    total_mask = np.ones(id_image.shape)
+
+    def neg(idx):
+        if idx == 0:
+            return None
+        else:
+            return -idx
+
+    for i in range(0, thick):
+        for j in range(0, thick):
+            mask1 = np.all(
+                id_image[i:, j:] == id_image[:neg(i), :neg(j)], axis=2)
+            void_mask1 = np.logical_or(super_mask[i:, j:],
+                                       super_mask[:neg(i), :neg(j)])
+            mask1 = np.logical_or(void_mask1, mask1)
+            total_mask[i:, j:][~mask1] = 0
+            total_mask[:neg(i), :neg(j)][~mask1] = 0
+
+    total_mask = total_mask.astype(np.bool)
+
+    id_image[~total_mask] = 0
+
+    void2_mask = np.all(id_image == id_to_colour(void2), axis=2)
+    id_image[void2_mask] = 0
+
+    return id_image
 
 with open(os.path.join(outdir, "table.p"), "wb") as f:
     pickle.dump(table, f)
@@ -161,19 +209,24 @@ for i, filename in enumerate(realfiles2):
     duration = time.time() - start_time
     logging.debug("Converting an images took {} seconds".format(duration))
 
+    id_image = void_img(id_image)
+
     start_time = time.time()
     color_image = id2color(id_image, unique_classes)
     duration = time.time() - start_time
     logging.debug("UnConverting an images took {} seconds".format(duration))
 
-    assert(np.all(image == color_image))
+    # assert(np.all(image == color_image))
 
     output_name = os.path.join(outdir, os.path.basename(filename))
+    output_name2 = os.path.join(colour_out, os.path.basename(filename))
 
     assert(np.max(id_image) == 255)
     assert(np.min(id_image) == 0)
     id_image = id_image.astype(np.uint8)
+
     imageio.imwrite(output_name, id_image)
+    imageio.imwrite(output_name2, color_image)
 
     rel_outdir = os.path.join(os.path.dirname((files2[0])),
                               outdirname)

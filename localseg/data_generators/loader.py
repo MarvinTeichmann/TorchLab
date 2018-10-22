@@ -596,7 +596,7 @@ def random_rotation(image, gt_image,
 
     angle = truncated_normal(mean=0, std=std, lower=lower,
                              upper=upper)
-    angle = -5
+
     image_r = scipy.ndimage.rotate(image, angle, order=3, cval=127)
     gt_image_r = scipy.ndimage.rotate(gt_image, angle, order=0, cval=255)
 

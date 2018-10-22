@@ -41,6 +41,8 @@ from localseg import encoder as segencoder
 from localseg.encoder import parallel as parallel
 from localseg.utils import warp
 
+import matplotlib.pyplot as plt
+
 
 from localseg import decoder as segdecoder
 from localseg import loss
@@ -648,13 +650,28 @@ class Trainer():
 
                     warped = warped.detach()
 
-                    if DEBUG:
-                        warped_img = torch.zeros_like(sample['image']).cuda()
+                    if DEBUG and step == 1:
 
+                        if not self.conf['decoder']['upsample']:
+                            new_shape = (img_var.shape[2] // 8,
+                                         img_var.shape[3] // 8)
+                            img_in = nn.functional.interpolate(
+                                img_var, new_shape, mode='bilinear')
+                        else:
+                            img_in = img_var
+
+                        bs = img_var.shape[0]
+
+                        wshape = torch.Size([bs, 3]) + sample['label'].shape[2:] # NOQA
+
+                        warped_img = torch.zeros(wshape).float().cuda()
                         for i in range(3):
-                            warped_img[:, i][~ign] = img_var[:, i].flatten()[warp_ids[~ign]]  # NOQA
+                            warped_img[:, i][~ign] = img_in[:, i].flatten()[warp_ids[~ign]]  # NOQA
 
-                        scp.misc.imshow(warped_img)
+                        img = np.transpose(warped_img[0], [1, 2, 0])
+
+                        plt.imshow(img)
+                        plt.show()
 
                 # Do forward pass
                 img_var = Variable(sample['image']).cuda()

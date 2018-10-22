@@ -33,13 +33,13 @@
             "upper_fac": 1.2,
             "resize_sig": 0.4,
             "random_flip": false,
-            "random_rotation": true,
+            "random_rotation": false,
             "equirectangular": false,
             "normalize": false,
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 0
+        "num_worker": 8
     },
 
     "encoder": {
