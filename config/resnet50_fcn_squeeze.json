@@ -8,7 +8,7 @@
     },
 
     "dataset" : {
-        "dataset": "sincity_one",
+        "dataset": "sincity_small",
         "train_file": null,
         "val_file": null,
 
@@ -19,7 +19,7 @@
         "label_encoding": "spatial_2d",
 
         "transform": {
-            "presize": null,
+            "presize": 0.5,
             "color_augmentation_level": 1,
             "fix_shape": false,
             "reseize_image": false,
@@ -58,13 +58,19 @@
         "skip_connections": false,
         "scale_down": 0.01,
         "dropout": true,
-        "bottleneck": null,
-        "upsample": false
+        "bottleneck": null
+    },
+
+    "loss":{
+        "type": "squeeze",
+        "margin": 0.1,
+        "warp_dist": 32,
+        "warp_dist_max": 32
     },
 
     "training": {
-        "batch_size": 1,
-        "learning_rate": 2e-4,
+        "batch_size": 4,
+        "learning_rate": 3e-5,
         "lr_schedule": "constant",
         "exp": 1.5,
         "base": 0.9,
@@ -72,7 +78,7 @@
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": null,
-        "max_epochs": 2000,
+        "max_epochs": 600,
         "pre_eval": false,
         "cnn_gpus": null,
         "max_epoch_steps": null,
@@ -84,17 +90,17 @@
     "evaluation": {
         "imgs_minor": [1, 2, 3, 4, 5],
         "transparency": 0,
-        "default_level": "one_image"
+        "default_level": "minor"
     },
 
     "logging": {
-        "display_iter": 1,
-        "eval_iter": 20,
+        "display_iter": 20,
+        "eval_iter": 5,
         "max_val_examples": null,
         "max_train_examples": 300,
-        "log": false,
-        "checkpoint_backup": 1000,
-        "mayor_eval": 2000000000000
+        "log": true,
+        "checkpoint_backup": 10000000,
+        "mayor_eval": 200
     },
 
     "plotting": {
@@ -107,7 +113,7 @@
 
     "pyvision": {
         "project_name": "blenderseg",
-        "entry_point": "../localseg/segmodel.py",
+        "entry_point": "../localseg/localmodel.py",
         "plotter": "../localseg/plotting/segplotter.py",
         "required_packages": ["../localseg"],
         "optional_packages": ["../pyvision/pyvision"],

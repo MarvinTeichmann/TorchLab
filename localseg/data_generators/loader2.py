@@ -108,16 +108,77 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
         image, image_orig, ids_image, warp_img, load_dict = self.transform(
             image, ids_image, load_dict)
 
+        if self.conf['down_label']:
+
+            warp_ids, warp_ign = self._downsample_warp_img(warp_img, image)
+
+        else:
+            warp_ign = np.all(warp_img == 255, axis=2)
+            warp_ids = warp_img[:, :, 0] +\
+                256 * warp_img[:, :, 1] \
+                + 256 * 256 * warp_img[:, :, 2]
+
+        warp_ign = warp_ign.astype(np.uint8)
+
         label = self.decode_ids(ids_image)
 
         sample = {
             'image': image,
             'image_orig': image_orig,
             'label': label,
-            'warp_img': warp_img,
+            'warp_ids': warp_ids,
+            'warp_ign': warp_ign,
             'load_dict': str(load_dict)}
 
         return sample
+
+    def _downsample_warp_img(self, warp_img, image):
+        warp_img_down = scipy.misc.imresize(
+            warp_img, size=1 / 8.0, interp='nearest')
+
+        w, h, c = warp_img.shape
+
+        ign_down = np.all(warp_img_down == 255, axis=2)
+
+        warp_img_down
+
+        warp_img_down = warp_img_down.astype(np.int64)
+
+        warp_img_ids = warp_img_down[:, :, 0] +\
+            256 * warp_img_down[:, :, 1] \
+            + 256 * 256 * warp_img_down[:, :, 2]
+
+        chan1 = warp_img_ids % h
+        chan2 = warp_img_ids // h
+
+        chan1 = chan1 / 8.0
+        chan2 = chan2 / 8.0
+
+        chan1 = (chan1).astype(np.int)
+        chan2 = (chan2).astype(np.int)
+
+        image_small = scipy.misc.imresize( # NOQA
+            image, size=1 / 8.0)
+
+        new_h = h // 8
+        warp_ids_new = chan1 + chan2 * new_h
+
+        """
+
+        image_small.reshape([-1, 3])[warp_ids_new]
+
+        chan1 = warp_ids_new % 256
+        chan2 = warp_ids_new // 256 % 256
+        chan3 = warp_ids_new // 256 // 256
+
+        from IPython import embed
+        embed()
+        pass
+
+        warp_img_new = np.stack([chan1, chan2, chan3], axis=1)
+        """
+
+        return warp_ids_new, ign_down
 
     def _generate_warp_img(self, shape):
 
@@ -175,7 +236,7 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
                     image, gt_image, warp_img = roll_img(
                         image, gt_image, warp_img)
 
-            shape_distorted = False
+            shape_distorted = True
 
             if transform['equirectangular']:
                 raise NotImplementedError

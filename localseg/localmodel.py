@@ -244,6 +244,9 @@ class SegModel(nn.Module):
 
         self._assert_num_gpus(conf)
 
+        self.conf['dataset']['down_label'] \
+            = not self.conf['decoder']['upsample']
+
         # Load Dataset
         bs = conf['training']['batch_size']
         self.loader = loader2
@@ -635,12 +638,9 @@ class Trainer():
                     img_var = Variable(sample['image_orig']).cuda()
                     pred_orig = self.model(img_var)
 
-                    wimg = sample['warp_img'].cuda()
+                    warp_ids = sample['warp_ids'].cuda()
                     warped = torch.zeros_like(sample['label']).cuda().float()
-                    ign = torch.all(wimg == 255, dim=3)
-
-                    warp_ids = wimg[:, :, :, 0] + 256 * wimg[:, :, :, 1] \
-                        + 256 * 256 * wimg[:, :, :, 2]
+                    ign = sample['warp_ign'].cuda()
 
                     for i in range(2):
                         warped[:, i][~ign] = pred_orig[:, i].flatten()[
@@ -745,10 +745,10 @@ class Trainer():
                 self.logger.init_step(epoch)
                 self.logger.add_value(losses, 'loss', epoch)
                 self.model.evaluate(epoch, level=level)
+                logging.info("Output will be saved to to: {}".format(
+                    self.model.logdir))
 
                 if self.conf['logging']['log']:
-                    logging.info("Saving checkpoint to: {}".format(
-                        self.model.logdir))
                     # Save Checkpoint
                     self.logger.save(filename=self.log_file)
                     state = {
