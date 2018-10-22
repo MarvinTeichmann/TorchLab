@@ -241,6 +241,9 @@ class SegModel(nn.Module):
 
         self._assert_num_gpus(conf)
 
+        self.conf['dataset']['down_label'] \
+            = not self.conf['decoder']['upsample']
+
         # Load Dataset
         bs = conf['training']['batch_size']
         self.loader = loader
@@ -699,7 +702,18 @@ class Trainer():
                 name = 'checkpoint_{:04d}.pth.tar'.format(self.epoch)
                 checkpoint_name = os.path.join(
                     self.model.logdir, name)
+
+                self.logger.save(filename=self.log_file)
+                state = {
+                    'epoch': epoch + 1,
+                    'step': self.step,
+                    'conf': self.conf,
+                    'state_dict': self.model.state_dict(),
+                    'optimizer': self.optimizer.state_dict()}
                 torch.save(state, checkpoint_name)
+
+                torch.save(state, self.checkpoint_name)
+                logging.info("Checkpoint saved sucessfully.")
 
 
 if __name__ == '__main__':

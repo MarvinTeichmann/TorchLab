@@ -83,16 +83,17 @@ class TruncatedHingeLoss2dMask(_WeightedLoss):
         assert self.margin == 0.05
 
         loss = (torch.abs(target - input) - self.margin).clamp(0)
-        loss = torch.mean(loss, dim=1)
+        # loss = torch.mean(loss, dim=1)
 
         masked_loss = mask.unsqueeze(1).float() * loss
 
-        assert torch.all(masked_loss < 1.0001)  # Function of square size
+        assert torch.all(masked_loss < 2.0001)  # Function of square size
         assert torch.all(masked_loss >= 0.0)
 
-        masked_sum = (torch.sum(mask.unsqueeze(1).float()) + 0.001)
+        masked_sum = (torch.sum(mask.unsqueeze(1).float()) + 0.001) # NOQA
 
-        final_loss = torch.sum(masked_loss) / masked_sum
+        # final_loss = torch.sum(masked_loss) / masked_sum
+        final_loss = torch.mean(masked_loss) / 2
 
         assert torch.all(final_loss < 1.00001)  # Function of square size
 

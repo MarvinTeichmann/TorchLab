@@ -47,6 +47,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
         mask_color = color_list[0]
         color_list = color_list[conf['idx_offset']:]
+        self.new_color_list = self.new_color_list[conf['idx_offset']:]
 
         self.conf = conf
 
@@ -54,6 +55,8 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         self.label_type = conf['label_encoding']
 
         super().__init__(color_list=color_list)
+
+        assert len(self.color_list) == len(self.new_color_list)
 
         self.mask_color = mask_color
 
@@ -158,6 +161,25 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         else:
             raise NotImplementedError
 
+    def label2color_2(self, label, mask):
+        if self.label_type == 'dense':
+            return self.id2color(id_image=label, mask=mask)
+        elif self.label_type == 'spatial_2d':
+
+            tmp_list = self.color_list
+            self.color_list = self.new_color_list
+
+            id_label = label[0].astype(np.int) + \
+                self.conf['root_classes'] * label[1].astype(np.int)
+
+            output = self.id2color(id_image=id_label, mask=mask)
+
+            self.color_list = tmp_list
+
+            return output
+        else:
+            raise NotImplementedError
+
     def pred2color_hard(self, pred, mask):
         if self.label_type == 'dense':
             pred_hard = np.argmax(pred, axis=0)
@@ -255,9 +277,9 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
         ignore = label[0, :] == -100
         label_filtered = label[:, ~ignore]
-        label_filtered = label_filtered[:, ::13]
+        label_filtered = label_filtered[:, ::1]
         prediction_filtered = prediction[:, ~ignore]
-        prediction_filtered = prediction_filtered[:, ::13]
+        prediction_filtered = prediction_filtered[:, ::1]
 
         assert -100 not in unique_labels
         label_colours = self.vec2d_2_colour2(unique_labels) / 255
@@ -284,6 +306,136 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
         return figure
 
+    def dense_plot(self, prediction, batch=None, label=None, idx=0,
+                   figure=None):
+
+        if figure is None:
+            figure = plt.figure()
+
+        figure.set_size_inches(10, 10)
+
+        if batch is not None:
+            label = batch['label'][idx].numpy()
+            prediction = prediction[idx].cpu().data.numpy()
+        else:
+            assert label is not None
+
+        mask = self.getmask(label)
+        coloured_label = self.label2color_2(label, mask)
+
+        label = label.reshape([2, -1])
+        prediction = prediction.reshape([2, -1])
+
+        correct = np.all(np.abs((label - prediction)) < 0.5, axis=0)
+
+        assert label.shape == prediction.shape
+
+        unique_labels = np.unique(label, axis=1)
+
+        if unique_labels[0, 0] == -100:
+            unique_labels = unique_labels[:, 1:]
+
+        true_pred = prediction[:, correct]
+        true_label = label[:, correct]
+
+        dist = np.mean(np.sqrt(np.sum((true_label - true_pred)**2, axis=0)))
+
+        logging.info("Mean distance of correct labels: {}".format(dist))
+
+        ignore = true_label[0, :] == -100
+        label_filtered = true_label[:, ~ignore]
+        label_filtered = label_filtered
+        prediction_filtered = true_pred[:, ~ignore]
+        prediction_filtered = prediction_filtered
+
+        assert -100 not in unique_labels
+        label_colours = self.vec2d_2_colour2(unique_labels) / 255
+        prediction_colours = self.vec2d_2_colour2(label_filtered) / 255
+        # prediction_colours_f = prediction_colours[:, ::41]
+
+        # id_list1 = unique_labels[0].astype(np.int) + \
+        #     self.conf['root_classes'] * unique_labels[1].astype(np.int)
+
+        ax = figure.add_subplot(2, 2, 1)
+        ax.scatter(x=unique_labels[0], y=unique_labels[1], c=label_colours,
+                   s=8, edgecolor='white', marker='s', linewidth=0.5)
+        ax.scatter(x=prediction_filtered[0], y=prediction_filtered[1],
+                   c=prediction_colours, marker='s', alpha=0.01, s=1)
+
+        ax.set_xlim(0, self.conf['root_classes'])
+        ax.set_ylim(0, self.conf['root_classes'])
+
+        ax.invert_yaxis()
+
+        dims = self.conf['root_classes']
+        pixels = int(100 * dims)
+        dense_img = np.zeros([pixels, pixels])
+
+        pos = (prediction_filtered * 100).astype(int)
+
+        if pos.shape[1] > 0:
+            unique, counts = np.unique(pos, return_counts=True, axis=1)
+
+            dense_img[unique[0], unique[1]] = counts
+
+        for i in range(dims):
+            for j in range(dims):
+                max_val = np.max(dense_img[i * 100:(i + 1) * 100,
+                                 j * 100:(j + 1) * 100])
+                dense_img[i * 100:(i + 1) * 100, j * 100:(j + 1) * 100] = \
+                    dense_img[i * 100:(i + 1) * 100, j * 100:(j + 1) * 100] \
+                    / (max_val + 0.000001)
+
+        ax = figure.add_subplot(2, 2, 2)
+        ax.set_title('Dense img'.format(idx))
+        ax.axis('off')
+        ax.imshow(np.transpose(dense_img))
+
+        assert label.shape == prediction.shape
+
+        unique_labels = np.unique(label, axis=1)
+
+        if unique_labels[0, 0] == -100:
+            unique_labels = unique_labels[:, 1:]
+
+        ignore = label[0, :] == -100
+        label_filtered = label[:, ~ignore]
+        label_filtered = label_filtered[:, ::13]
+        prediction_filtered = prediction[:, ~ignore]
+        prediction_filtered = prediction_filtered[:, ::13]
+
+        assert -100 not in unique_labels
+        label_colours = self.vec2d_2_colour2(unique_labels) / 255
+        prediction_colours = self.vec2d_2_colour2(label_filtered) / 255
+        # prediction_colours_f = prediction_colours[:, ::41]
+
+        # id_list1 = unique_labels[0].astype(np.int) + \
+        #     self.conf['root_classes'] * unique_labels[1].astype(np.int)
+
+        ax = figure.add_subplot(2, 2, 3)
+        ax.scatter(x=prediction_filtered[0], y=prediction_filtered[1],
+                   c=prediction_colours, marker='.', alpha=1, s=1)
+        ax.scatter(x=unique_labels[0], y=unique_labels[1], c=label_colours,
+                   s=20, edgecolor='white', marker='s', linewidth=0.5)
+
+        ax.invert_yaxis()
+
+        ax = figure.add_subplot(2, 2, 4)
+        ax.set_title('Label')
+        ax.axis('off')
+        ax.imshow(coloured_label.astype(np.uint8))
+
+        """
+
+        plt.xlim(-2, self.conf['root_classes'] + 2)
+        plt.ylim(-2, self.conf['root_classes'] + 2)
+
+        plt.xticks(np.arange(-2, self.conf['root_classes'] + 2, step=1))
+        plt.yticks(np.arange(-2, self.conf['root_classes'] + 2, step=1))
+        """
+
+        return figure
+
     def plot_prediction(self, sample_batch, prediction, idx=0, trans=0.5,
                         figure=None):
 
@@ -302,6 +454,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         image = sample_batch['image'][idx].numpy().transpose(1, 2, 0)
 
         image = 255 * image
+        image_orig = image.astype(np.uint8)
         if self.label_type == 'dense':
             image = scp.misc.imresize(image, size=label.shape[:2])
         elif self.label_type == 'spatial_2d':
@@ -326,7 +479,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         ax = figure.add_subplot(2, 2, 1)
         ax.set_title('Image #{}'.format(idx))
         ax.axis('off')
-        ax.imshow(image)
+        ax.imshow(image_orig)
 
         ax = figure.add_subplot(2, 2, 2)
         ax.set_title('Label')

@@ -264,6 +264,10 @@ class LocalSegmentationLoader(data.Dataset):
             Contains numbers 0 to 20, each corresponding to a class
         """
 
+        if self.conf['down_label']:
+            ids_image = scipy.misc.imresize(
+                ids_image, size=1 / 8.0, interp='nearest')
+
         ign = np.all(ids_image == 255, axis=2)
         ids_image = ids_image.astype(np.int32)
         decoded = ids_image[:, :, 0] + 255 * ids_image[:, :, 1]

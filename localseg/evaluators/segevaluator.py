@@ -219,8 +219,6 @@ class Evaluator():
 
     def evaluate(self, epoch=None, eval_fkt=None, level='minor'):
 
-        level = "one_image"
-
         if level == 'mayor' or level == 'full':
             self.epochdir = os.path.join(self.imgdir, "epoch{}_{}".format(
                 epoch, self.split))
@@ -401,6 +399,30 @@ class Evaluator():
             os.mkdir(stepdir)
 
         fig = self.vis.scatter_plot(
+            batch=sample, prediction=batched_pred, idx=0,
+            figure=None)
+        filename = literal_eval(
+            sample['load_dict'][0])['image_file']
+        if epoch is None:
+            newfile = filename.split(".")[0] + "_None.png"\
+                .format(num=epoch)
+        else:
+            newfile = filename.split(".")[0] + "_epoch_{num:05d}.png"\
+                .format(num=epoch)
+
+        new_name = os.path.join(stepdir,
+                                os.path.basename(newfile))
+        plt.tight_layout()
+        plt.savefig(new_name, format='png', bbox_inches='tight',
+                    dpi=199)
+        plt.close(fig)
+
+        stepdir = os.path.join(self.imgdir, "dense{}_{}".format(
+            step, self.split))
+        if not os.path.exists(stepdir):
+            os.mkdir(stepdir)
+
+        fig = self.vis.dense_plot(
             batch=sample, prediction=batched_pred, idx=0,
             figure=None)
         filename = literal_eval(

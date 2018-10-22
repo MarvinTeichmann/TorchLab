@@ -137,6 +137,12 @@ class FCN(nn.Module):
 
         score32 = self.conv32(input)
 
+        if not self.conf['upsample']:
+            assert in_dict['image'].shape[2] // score32.shape[2] == 8
+            assert in_dict['image'].shape[3] // score32.shape[3] == 8
+
+            return score32
+
         up32 = self.upsample32(score32)
 
         if not self.conf['skip_connections']:
