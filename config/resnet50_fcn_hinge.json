@@ -71,7 +71,7 @@
         "base2": 2,
         "momentum": 0.9,
         "weight_decay": 5e-4,
-        "clip_norm": null,
+        "clip_norm": 1.0,
         "max_epochs": 600,
         "pre_eval": false,
         "cnn_gpus": null,

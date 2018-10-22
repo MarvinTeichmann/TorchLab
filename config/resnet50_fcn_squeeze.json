@@ -58,7 +58,8 @@
         "skip_connections": false,
         "scale_down": 0.01,
         "dropout": true,
-        "bottleneck": null
+        "bottleneck": null,
+        "upsample": false
     },
 
     "loss":{
@@ -70,14 +71,14 @@
 
     "training": {
         "batch_size": 4,
-        "learning_rate": 3e-5,
+        "learning_rate": 2e-5,
         "lr_schedule": "constant",
         "exp": 1.5,
         "base": 0.9,
         "base2": 2,
         "momentum": 0.9,
         "weight_decay": 5e-4,
-        "clip_norm": null,
+        "clip_norm": 1.0,
         "max_epochs": 600,
         "pre_eval": false,
         "cnn_gpus": null,
