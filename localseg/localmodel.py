@@ -270,21 +270,25 @@ class SegModel(nn.Module):
         self.model, device_ids = self._get_parallelized_model(
             conf, encoder, decoder)
 
+        border = self.conf['loss']['border']
+        grid_size = self.conf['dataset']['grid_size']
         if self.label_encoding == 'dense':
             self.loss = parallel.CriterionDataParallel(
                 loss.CrossEntropyLoss2d(), device_ids=device_ids)
         elif self.label_encoding == 'spatial_2d':
+            myloss = loss.HingeLoss2d(border=border, grid_size=grid_size)
             self.loss = parallel.CriterionDataParallel(
-                loss.HingeLoss2d(), device_ids=device_ids)
+                myloss, device_ids=device_ids)
         else:
             raise NotImplementedError
 
         assert self.conf['loss']['type'] in ['squeeze', 'triplet']
 
         if self.conf['loss']['type'] == 'triplet':
-            self.triplet_loss = loss.TripletLossWithMask(margin=0.1)
+            self.triplet_loss = loss.TripletLossWithMask(grid_size=grid_size)
         elif self.conf['loss']['type'] == 'squeeze':
-            self.squeeze_loss = loss.TruncatedHingeLoss2dMask()
+            self.squeeze_loss = loss.TruncatedHingeLoss2dMask(
+                grid_size=grid_size)
 
         self._load_pretrained_weights(conf)
 
@@ -297,7 +301,8 @@ class SegModel(nn.Module):
 
         self.warper = warp.PredictionWarper(
             distance=conf['loss']['warp_dist'],
-            root_classes=conf['dataset']['root_classes'])
+            root_classes=conf['dataset']['root_classes'],
+            grid_size=conf['dataset']['grid_size'])
 
         if not self.conf['encoder']['simple_norm']:
             mean = np.array(self.conf['encoder']['mean'])
@@ -779,6 +784,17 @@ class Trainer():
                     logging.info("Checkpoint saved sucessfully.")
 
             if self.epoch % self.checkpoint_backup == 0:
+                self.logger.save(filename=self.log_file)
+                state = {
+                    'epoch': epoch + 1,
+                    'step': self.step,
+                    'conf': self.conf,
+                    'state_dict': self.model.state_dict(),
+                    'optimizer': self.optimizer.state_dict()}
+
+                torch.save(state, self.checkpoint_name)
+                logging.info("Checkpoint saved sucessfully.")
+
                 name = 'checkpoint_{:04d}.pth.tar'.format(self.epoch)
                 checkpoint_name = os.path.join(
                     self.model.logdir, name)

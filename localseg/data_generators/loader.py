@@ -134,7 +134,13 @@ class LocalSegmentationLoader(data.Dataset):
         assert self.conf['label_encoding'] in ['dense', 'spatial_2d']
 
         if self.conf['label_encoding'] == 'spatial_2d':
-            self.root_classes = int(np.ceil(np.sqrt(self.num_classes)))
+
+            assert self.conf['grid_dims'] in [2, 3]
+
+            if self.conf['grid_dims'] == 2:
+                self.root_classes = int(np.ceil(np.sqrt(self.num_classes)))
+            else:
+                self.root_classes = int(np.ceil(np.cbrt(self.num_classes)))
             self.conf['root_classes'] = self.root_classes
 
         self._init_transformations(conf)
@@ -293,13 +299,27 @@ class LocalSegmentationLoader(data.Dataset):
 
         if self.conf['label_encoding'] == 'spatial_2d':
             # labels[ignore] = -1
+            rclasses = self.root_classes
+            if self.conf['grid_dims'] == 2:
+                d1 = (labels % rclasses + 0.5) * self.conf['grid_size']
+                d2 = (labels // rclasses + 0.5) * self.conf['grid_size']
+                d1[ignore] = -100
+                d2[ignore] = -100
+                label = np.stack([d1, d2])
+            elif self.conf['grid_dims'] == 3:
+                gs = self.conf['grid_size']
+                d1 = (labels % rclasses + 0.5) * gs
+                d2 = (labels // rclasses % rclasses + 0.5) * gs
+                d3 = (labels // rclasses // rclasses + 0.5) * gs
+                assert np.max(d3 < rclasses + 0.5)
+                d1[ignore] = -100
+                d2[ignore] = -100
+                d3[ignore] = -100
+                label = np.stack([d1, d2, d3])
+            else:
+                raise NotImplementedError
 
-            d1 = labels % self.root_classes + 0.5
-            d2 = labels // self.root_classes + 0.5
-            d1[ignore] = -100
-            d2[ignore] = -100
-
-            return np.stack([d1, d2])
+            return label
 
     def transform(self, image, gt_image, load_dict):
 

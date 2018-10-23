@@ -34,9 +34,9 @@ data_file = "datasets/blender_small.lst"
 data_file2 = "datasets/blender_small.lst"
 
 data_file = "datasets/scenecity_small_train.lst"
-data_file2 = "datasets/scenecity_small_test.lst"
+data_file2 = "datasets/scenecity_small_train.lst"
 
-outdirname = 'ids_labels3'
+outdirname = 'ids_labels4'
 
 datadir = os.environ['TV_DIR_DATA']
 files = [line.rstrip() for line in open(data_file)]
@@ -49,7 +49,7 @@ debug_num_images = -1
 
 thick = 4
 
-min_pixels = 100
+min_pixels = 24
 
 void2 = 10000
 

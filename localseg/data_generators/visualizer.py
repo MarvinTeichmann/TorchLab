@@ -25,6 +25,8 @@ from pyvision import visualization as vis
 
 from ast import literal_eval as make_tuple
 
+from mpl_toolkits.mplot3d import Axes3D
+
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
@@ -32,7 +34,7 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 
 class LocalSegVisualizer(vis.SegmentationVisualizer):
 
-    def __init__(self, class_file, conf=None):
+    def __init__(self, class_file, label_coder, conf=None):
 
         color_list = self._read_class_file(class_file)
 
@@ -48,6 +50,8 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         mask_color = color_list[0]
         color_list = color_list[conf['idx_offset']:]
         self.new_color_list = self.new_color_list[conf['idx_offset']:]
+
+        self.label_coder = label_coder
 
         self.conf = conf
 
@@ -71,7 +75,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
         image = sample['image'].transpose(1, 2, 0)
         label = sample['label']
-        mask = self.getmask(label)
+        mask = self.label_coder.getmask(label)
 
         idx = eval(sample['load_dict'])['idx']
 
@@ -104,7 +108,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
             image = sample_batch['image'][d].numpy().transpose(1, 2, 0)
             label = sample_batch['label'][d].numpy()
 
-            mask = self.getmask(label)
+            mask = self.label_coder.getmask(label)
 
             pred = prediction[d].cpu().data.numpy().transpose(1, 2, 0)
             pred_hard = np.argmax(pred, axis=0)
@@ -143,20 +147,11 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
         return figure
 
-    def getmask(self, label):
-        if self.label_type == 'dense':
-            return label != -100
-        elif self.label_type == 'spatial_2d':
-            return label[0] != -100
-        else:
-            raise NotImplementedError
-
     def label2color(self, label, mask):
         if self.label_type == 'dense':
             return self.id2color(id_image=label, mask=mask)
         elif self.label_type == 'spatial_2d':
-            id_label = label[0].astype(np.int) + \
-                self.conf['root_classes'] * label[1].astype(np.int)
+            id_label = self.label_coder.space2id(label)
             return self.id2color(id_image=id_label, mask=mask)
         else:
             raise NotImplementedError
@@ -169,8 +164,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
             tmp_list = self.color_list
             self.color_list = self.new_color_list
 
-            id_label = label[0].astype(np.int) + \
-                self.conf['root_classes'] * label[1].astype(np.int)
+            id_label = self.label_coder.space2id(label)
 
             output = self.id2color(id_image=id_label, mask=mask)
 
@@ -185,9 +179,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
             pred_hard = np.argmax(pred, axis=0)
             return self.id2color(id_image=pred_hard, mask=mask)
         elif self.label_type == 'spatial_2d':
-            # TODO: Does not work with larger scale.
-            pred_id = pred[0].astype(np.int) + \
-                self.conf['root_classes'] * pred[1].astype(np.int)
+            pred_id = self.label_coder.space2id(pred)
             return self.id2color(id_image=pred_id, mask=mask)
         else:
             raise NotImplementedError
@@ -213,8 +205,8 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
             false_ch2 = [255, 255, 0]
             false_both = [255, 0, 0]
 
-            cor1 = label[0].astype(np.int) == pred[0].astype(np.int)
-            cor2 = label[1].astype(np.int) == pred[1].astype(np.int)
+            cor1 = np.abs(label[0] - pred[0]) < self.conf['grid_size'] / 2
+            cor2 = np.abs(label[0] - pred[0]) < self.conf['grid_size'] / 2
 
             tr_img = np.logical_and(cor1, cor2)
             tr_img = tr_img + (1 - mask)
@@ -240,12 +232,14 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
             raise NotImplementedError
 
     def vec2d_2_colour(self, vector):
+        vector = vector / self.conf['grid_size']
         id_list = vector[0].astype(np.int) + \
             self.conf['root_classes'] * vector[1].astype(np.int)
 
         return np.take(self.color_list, id_list, axis=0)
 
     def vec2d_2_colour2(self, vector):
+        vector = vector / self.conf['grid_size']
         id_list = vector[0].astype(np.int) + \
             self.conf['root_classes'] * vector[1].astype(np.int)
 
@@ -257,7 +251,9 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         if figure is None:
             figure = plt.figure()
 
-        ax = figure.subplots()
+        # ax = figure.subplots(projection='3d')
+
+        dims = self.conf['grid_dims']
 
         if batch is not None:
             label = batch['label'][idx].numpy()
@@ -265,8 +261,17 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         else:
             assert label is not None
 
-        label = label.reshape([2, -1])
-        prediction = prediction.reshape([2, -1])
+        if dims == 3:
+            figure.set_size_inches(5, 5)
+            ax = figure.add_subplot(121)
+            ax.imshow(label[0])
+            ax = figure.add_subplot(122, projection='3d')
+        elif dims == 2:
+            ax = figure.add_subplot(111)
+        else:
+            raise NotImplementedError
+        label = label.reshape([dims, -1])
+        prediction = prediction.reshape([dims, -1])
 
         assert label.shape == prediction.shape
 
@@ -289,10 +294,31 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         # id_list1 = unique_labels[0].astype(np.int) + \
         #     self.conf['root_classes'] * unique_labels[1].astype(np.int)
 
-        ax.scatter(x=prediction_filtered[0], y=prediction_filtered[1],
-                   c=prediction_colours, marker='.', alpha=1, s=1)
-        ax.scatter(x=unique_labels[0], y=unique_labels[1], c=label_colours,
-                   s=20, edgecolor='white', marker='s', linewidth=0.5)
+        max_val = self.conf['grid_size'] * self.conf['root_classes']
+
+        if dims == 2:
+            ax.scatter(x=prediction_filtered[0], y=prediction_filtered[1],
+                       c=prediction_colours, marker='.', alpha=1, s=1)
+            ax.scatter(x=unique_labels[0], y=unique_labels[1],
+                       c=label_colours, s=20,
+                       edgecolor='white', marker='s', linewidth=0.5)
+        else:
+            ax.scatter(xs=prediction_filtered[0], ys=prediction_filtered[1],
+                       zs=prediction_filtered[2],
+                       c=prediction_colours, marker='.', alpha=1, s=1)
+            ax.scatter(xs=unique_labels[0], ys=unique_labels[1],
+                       zs=unique_labels[2], c=label_colours, s=20,
+                       edgecolor='white', marker='s', linewidth=0.5)
+            ax.set_zlim(0, max_val)
+            ax.set_zticks(np.arange(0, max_val, self.conf['grid_size']))
+
+        ax.set_xlim(0, max_val)
+        ax.set_ylim(0, max_val)
+
+        ax.set_xticks(np.arange(0, max_val, self.conf['grid_size']))
+        ax.set_yticks(np.arange(0, max_val, self.conf['grid_size']))
+
+        plt.grid()
 
         """
 
@@ -312,6 +338,8 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         if figure is None:
             figure = plt.figure()
 
+        dims = self.conf['grid_dims']
+
         figure.set_size_inches(10, 10)
 
         if batch is not None:
@@ -320,13 +348,14 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         else:
             assert label is not None
 
-        mask = self.getmask(label)
+        mask = self.label_coder.getmask(label)
         coloured_label = self.label2color_2(label, mask)
 
-        label = label.reshape([2, -1])
-        prediction = prediction.reshape([2, -1])
+        label = label.reshape([dims, -1])
+        prediction = prediction.reshape([dims, -1])
 
-        correct = np.all(np.abs((label - prediction)) < 0.5, axis=0)
+        correct = np.all(np.abs((label - prediction)) <
+                         self.conf['grid_size'] / 2, axis=0)
 
         assert label.shape == prediction.shape
 
@@ -356,26 +385,46 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         # id_list1 = unique_labels[0].astype(np.int) + \
         #     self.conf['root_classes'] * unique_labels[1].astype(np.int)
 
-        ax = figure.add_subplot(2, 2, 1)
-        ax.scatter(x=unique_labels[0], y=unique_labels[1], c=label_colours,
-                   s=8, edgecolor='white', marker='s', linewidth=0.5)
-        ax.scatter(x=prediction_filtered[0], y=prediction_filtered[1],
-                   c=prediction_colours, marker='s', alpha=0.01, s=1)
+        if dims == 3:
+            ax = figure.add_subplot(223, projection='3d')
+        elif dims == 2:
+            ax = figure.add_subplot(223)
+        else:
+            raise NotImplementedError
 
-        ax.set_xlim(0, self.conf['root_classes'])
-        ax.set_ylim(0, self.conf['root_classes'])
+        if dims == 2:
 
-        ax.invert_yaxis()
+            ax.scatter(x=unique_labels[0], y=unique_labels[1], c=label_colours,
+                       s=8, edgecolor='white', marker='s', linewidth=0.5)
+            ax.scatter(x=prediction_filtered[0], y=prediction_filtered[1],
+                       c=prediction_colours, marker='s', alpha=0.01, s=1)
+        else:
+            ax.scatter(xs=unique_labels[0], ys=unique_labels[1],
+                       zs=unique_labels[2], c=label_colours,
+                       s=8, edgecolor='white', marker='s', linewidth=0.5)
+            ax.scatter(xs=prediction_filtered[0], ys=prediction_filtered[1],
+                       zs=prediction_filtered[2], c=prediction_colours,
+                       marker='s', alpha=0.01, s=1)
+
+        max_val = self.conf['grid_size'] * self.conf['root_classes']
+        ax.set_xlim(0, max_val)
+        ax.set_ylim(0, max_val)
+
+        ax.set_xticks(np.arange(0, max_val, self.conf['grid_size']))
+        ax.set_yticks(np.arange(0, max_val, self.conf['grid_size']))
+
+        ax.grid(True)
+
+        # ax.invert_yaxis()
 
         dims = self.conf['root_classes']
         pixels = int(100 * dims)
         dense_img = np.zeros([pixels, pixels])
 
-        pos = (prediction_filtered * 100).astype(int)
+        pos = (prediction_filtered * 100 / self.conf['grid_size']).astype(int)
 
         if pos.shape[1] > 0:
             unique, counts = np.unique(pos, return_counts=True, axis=1)
-
             dense_img[unique[0], unique[1]] = counts
 
         for i in range(dims):
@@ -389,7 +438,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         ax = figure.add_subplot(2, 2, 2)
         ax.set_title('Dense img'.format(idx))
         ax.axis('off')
-        ax.imshow(np.transpose(dense_img))
+        ax.imshow(np.flipud(np.transpose(dense_img)))
 
         assert label.shape == prediction.shape
 
@@ -412,14 +461,39 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         # id_list1 = unique_labels[0].astype(np.int) + \
         #     self.conf['root_classes'] * unique_labels[1].astype(np.int)
 
-        ax = figure.add_subplot(2, 2, 3)
-        ax.scatter(x=prediction_filtered[0], y=prediction_filtered[1],
-                   c=prediction_colours, marker='.', alpha=1, s=1)
-        ax.scatter(x=unique_labels[0], y=unique_labels[1], c=label_colours,
-                   s=20, edgecolor='white', marker='s', linewidth=0.5)
+        dims = self.conf['grid_dims']
+        if dims == 3:
+            ax = figure.add_subplot(221, projection='3d')
+        elif dims == 2:
+            ax = figure.add_subplot(221)
+        else:
+            raise NotImplementedError
 
-        ax.invert_yaxis()
+        max_val = self.conf['grid_size'] * self.conf['root_classes']
+        if dims == 2:
 
+            ax.scatter(x=prediction_filtered[0], y=prediction_filtered[1],
+                       c=prediction_colours, marker='.', alpha=1, s=1)
+            ax.scatter(x=unique_labels[0], y=unique_labels[1], c=label_colours,
+                       s=20, edgecolor='white', marker='s', linewidth=0.5)
+        else:
+            ax.scatter(xs=prediction_filtered[0], ys=prediction_filtered[1],
+                       zs=prediction_filtered[2], c=prediction_colours,
+                       marker='.', alpha=1, s=1)
+            ax.scatter(xs=unique_labels[0], ys=unique_labels[1],
+                       zs=unique_labels[2], c=label_colours,
+                       s=20, edgecolor='white', marker='s', linewidth=0.5)
+            ax.set_zlim(0, max_val)
+            ax.set_zticks(np.arange(0, max_val, self.conf['grid_size']))
+
+        ax.set_xlim(0, max_val)
+        ax.set_ylim(0, max_val)
+
+        ax.set_xticks(np.arange(0, max_val, self.conf['grid_size']))
+        ax.set_yticks(np.arange(0, max_val, self.conf['grid_size']))
+
+        ax.grid(True)
+        # ax.invert_yaxis()
         ax = figure.add_subplot(2, 2, 4)
         ax.set_title('Label')
         ax.axis('off')
@@ -460,7 +534,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         elif self.label_type == 'spatial_2d':
             image = scp.misc.imresize(image, size=label.shape[1:])
 
-        mask = self.getmask(label)
+        mask = self.label_coder.getmask(label)
 
         pred = prediction[idx].cpu().data.numpy()
         # logging.info(pred)
@@ -509,7 +583,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
             image = sample_batch['image'][d].numpy().transpose(1, 2, 0)
             label = sample_batch['label'][d].numpy()
-            mask = self.getmask(label)
+            mask = self.label_coder.getmask(label)
 
             idx = eval(sample_batch['load_dict'][d])['idx']
 

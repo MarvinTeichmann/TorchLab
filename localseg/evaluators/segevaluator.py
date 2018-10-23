@@ -179,6 +179,8 @@ class Evaluator():
 
         self.imgs_minor = conf['evaluation']['imgs_minor']
 
+        self.label_coder = self.model.label_coder
+
         if split is None:
             split = 'val'
 
@@ -193,7 +195,7 @@ class Evaluator():
 
         class_file = conf['dataset']['vis_file']
         self.vis = visualizer.LocalSegVisualizer(
-            class_file, conf=conf['dataset'])
+            class_file, conf=conf['dataset'], label_coder=self.label_coder)
         self.bs = batch_size
 
         if max_examples is None:
@@ -307,9 +309,9 @@ class Evaluator():
                     label = sample['label'][d].numpy()
                     mask = label != self.ignore_idx
                 elif self.conf['dataset']['label_encoding'] == 'spatial_2d':
-                    rclasses = self.conf['dataset']['root_classes']
-                    hard_pred = pred[0].astype(np.int) + \
-                        rclasses * pred[1].astype(np.int)
+
+                    hard_pred = self.label_coder.space2id(pred)
+
                     false_pred = hard_pred < 0
                     hard_pred[false_pred] = self.num_classes
 
@@ -317,8 +319,8 @@ class Evaluator():
                     hard_pred[false_pred] = self.num_classes
                     label = sample['label'][d].numpy()
                     mask = label[0] != self.ignore_idx
-                    label = label[0].astype(np.int) + \
-                        rclasses * label[1].astype(np.int)
+
+                    label = self.label_coder.space2id(label)
 
                     label[~mask] = 0
 

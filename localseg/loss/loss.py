@@ -33,17 +33,19 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 
 class HingeLoss2d(_WeightedLoss):
 
-    def __init__(self, weight=None, ignore_index=-100,
-                 reduction='elementwise_mean', margin=0.5):
+    def __init__(self, weight=None,
+                 reduction='elementwise_mean',
+                 border=0.1, grid_size=1):
         super(HingeLoss2d, self).__init__(
             weight, reduction='elementwise_mean')
-        self.ignore_index = ignore_index
-        self.margin = margin
+
+        self.grid_size = grid_size
+        self.margin = grid_size / 2 - border * grid_size
 
     def forward(self, input, target):
         # _assert_no_grad(target)
 
-        assert self.margin == 0.5
+        assert self.margin < self.grid_size / 2
 
         loss = (torch.abs(target.float() - input) - self.margin).clamp(min=0)
         mask = target != -100
@@ -73,26 +75,23 @@ class TruncatedHingeLoss2d(_WeightedLoss):
 class TruncatedHingeLoss2dMask(_WeightedLoss):
 
     def __init__(self, weight=None,
-                 reduction='elementwise_mean', margin=0.05):
+                 reduction='elementwise_mean', grid_size=1):
         super().__init__(weight, reduction='elementwise_mean')
-        self.margin = margin
+        self.grid_size = grid_size
+        self.margin = grid_size / 10
 
     def forward(self, input, target, mask):
         # _assert_no_grad(target)
-
-        assert self.margin == 0.05
 
         loss = (torch.abs(target - input) - self.margin).clamp(0)
         # loss = torch.mean(loss, dim=1)
 
         masked_loss = mask.unsqueeze(1).float() * loss
 
-        assert torch.all(masked_loss < 2.0001)  # Function of square size
+        assert torch.all(masked_loss < 2.0001 * self.grid_size)
         assert torch.all(masked_loss >= 0.0)
 
         masked_sum = (torch.sum(mask.unsqueeze(1).float()) + 0.001) # NOQA
-
-        # final_loss = torch.sum(masked_loss) / masked_sum
         final_loss = torch.mean(masked_loss) / 2
 
         assert torch.all(final_loss < 1.00001)  # Function of square size
@@ -103,9 +102,11 @@ class TruncatedHingeLoss2dMask(_WeightedLoss):
 class TripletLossWithMask(_Loss):
     """docstring for TripletLossWithMask"""
 
-    def __init__(self, margin=1.0, p=2, eps=1e-6, swap=False,
+    def __init__(self, grid_size=1, p=2, eps=1e-6, swap=False,
                  reduction='elementwise_mean'):
         super(TripletLossWithMask, self).__init__()
+
+        margin = grid_size / 10
 
         assert reduction == 'elementwise_mean'
 

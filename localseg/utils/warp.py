@@ -26,11 +26,13 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 class PredictionWarper(object):
     """docstring for PredictionWarper"""
 
-    def __init__(self, shape=None, distance=8, root_classes=None):
+    def __init__(self, shape=None, distance=8, root_classes=None,
+                 grid_size=1):
         super(PredictionWarper, self).__init__()
         self.shape = shape
         self.distance = distance
         self.root_classes = root_classes
+        self.gs = grid_size
 
         self.debug = False
 
@@ -85,9 +87,9 @@ class PredictionWarper(object):
 
         label = label.float()
 
-        mask1 = torch.all(torch.abs((label - anchor)) < 0.5, dim=1)
-        mask2 = torch.all(torch.abs((label - positive)) < 0.5, dim=1)
-        mask3 = torch.all(torch.abs((label - negative)) < 0.5, dim=1)
+        mask1 = torch.all(torch.abs((label - anchor)) < self.gs / 2, dim=1)
+        mask2 = torch.all(torch.abs((label - positive)) < self.gs / 2, dim=1)
+        mask3 = torch.all(torch.abs((label - negative)) < self.gs / 2, dim=1)
 
         total_mask = torch.all(
             torch.stack([mask1, mask2, mask3, mask, 1 - ign]), dim=0)

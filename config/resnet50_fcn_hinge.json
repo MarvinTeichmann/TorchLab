@@ -18,13 +18,15 @@
 
         "label_encoding": "spatial_2d",
 
+        "grid_size": 10,
+
         "transform": {
             "presize": 0.5,
             "color_augmentation_level": 1,
             "fix_shape": true,
             "reseize_image": false,
             "patch_size": [480, 480],
-            "random_crop": true,
+            "random_crop": false,
             "random_roll": true,
             "max_crop": 8,
             "crop_chance": 0.6,
@@ -62,17 +64,22 @@
         "upsample": false
     },
 
+    "loss": {
+        "border": 0.25
+    },
+
     "training": {
         "batch_size": 4,
-        "learning_rate": 2e-5,
+        "learning_rate": 3e-5,
         "lr_schedule": "constant",
         "exp": 1.5,
         "base": 0.9,
         "base2": 2,
+        "lr_offset_epochs": 100,
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": 1.0,
-        "max_epochs": 600,
+        "max_epochs": 480,
         "pre_eval": false,
         "cnn_gpus": null,
         "max_epoch_steps": null,
@@ -89,7 +96,7 @@
 
     "logging": {
         "display_iter": 20,
-        "eval_iter": 5,
+        "eval_iter": 2,
         "max_val_examples": null,
         "max_train_examples": 300,
         "log": true,

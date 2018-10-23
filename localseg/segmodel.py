@@ -46,6 +46,8 @@ from localseg import loss
 
 from localseg.evaluators import segevaluator as evaluator
 
+from localseg.utils.labels import LabelCoding
+
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -265,12 +267,17 @@ class SegModel(nn.Module):
         self.model, device_ids = self._get_parallelized_model(
             conf, encoder, decoder)
 
+        self.label_coder = LabelCoding(conf['dataset'])
+
         if self.label_encoding == 'dense':
             self.loss = parallel.CriterionDataParallel(
                 loss.CrossEntropyLoss2d(), device_ids=device_ids)
         elif self.label_encoding == 'spatial_2d':
+            border = self.conf['loss']['border']
+            grid_size = self.conf['dataset']['grid_size']
+            myloss = loss.HingeLoss2d(border=border, grid_size=grid_size)
             self.loss = parallel.CriterionDataParallel(
-                loss.HingeLoss2d(), device_ids=device_ids)
+                myloss, device_ids=device_ids)
         else:
             raise NotImplementedError
 
@@ -603,6 +610,8 @@ class Trainer():
             epoch_steps = self.max_epoch_steps
 
         self.max_steps = epoch_steps * max_epochs
+        self.max_steps_lr = epoch_steps * \
+            (max_epochs + self.conf['training']['lr_offset_epochs'])
 
         assert(self.step >= self.epoch)
 

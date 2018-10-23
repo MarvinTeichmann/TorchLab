@@ -97,7 +97,7 @@ if __name__ == '__main__':
 
         config['training']['max_epoch_steps'] = 50
         config['training']['max_epochs'] = 5
-        config['training']['batch_size'] = 5
+        config['training']['batch_size'] = 2
 
     logdir = pvorg.get_logdir_name(
         project=config['pyvision']['project_name'],

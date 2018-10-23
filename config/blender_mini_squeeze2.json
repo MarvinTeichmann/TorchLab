@@ -18,6 +18,8 @@
 
         "label_encoding": "spatial_2d",
 
+        "grid_size": 10,
+
         "transform": {
             "presize": 0.5,
             "color_augmentation_level": 1,
@@ -65,8 +67,8 @@
     "loss":{
         "type": "squeeze",
         "margin": 0.1,
-        "warp_dist": 32,
-        "warp_dist_max": 32
+        "warp_dist": 24,
+        "border": 0.1
     },
 
     "training": {
@@ -101,7 +103,7 @@
         "max_train_examples": 300,
         "log": false,
         "checkpoint_backup": 1000,
-        "mayor_eval": 200
+        "mayor_eval": 20000
     },
 
     "plotting": {

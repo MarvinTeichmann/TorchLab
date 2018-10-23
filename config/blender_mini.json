@@ -18,8 +18,11 @@
 
         "label_encoding": "spatial_2d",
 
+        "grid_size": 10,
+        "grid_dims": 2,
+
         "transform": {
-            "presize": null,
+            "presize": 0.5,
             "color_augmentation_level": 1,
             "fix_shape": false,
             "reseize_image": false,
@@ -39,7 +42,7 @@
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 8
+        "num_worker": 0
     },
 
     "encoder": {
@@ -62,6 +65,10 @@
         "upsample": false
     },
 
+    "loss": {
+        "border": 0.1
+    },
+
     "training": {
         "batch_size": 1,
         "learning_rate": 2e-4,
@@ -69,6 +76,7 @@
         "exp": 1.5,
         "base": 0.9,
         "base2": 2,
+        "lr_offset_epochs": 0,
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": null,

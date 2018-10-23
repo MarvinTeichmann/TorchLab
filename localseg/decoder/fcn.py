@@ -46,8 +46,8 @@ class FCN(nn.Module):
         if model.label_encoding == 'dense':
             self.num_classes = num_classes
         elif model.label_encoding == 'spatial_2d':
-            self.num_classes = 2
-            num_classes = 2
+            self.num_classes = model.conf['dataset']['grid_dims']
+            num_classes = model.conf['dataset']['grid_dims']
 
         if conf['bottleneck'] is not None:
             num_classes = conf['bottleneck']
