@@ -782,6 +782,9 @@ class Trainer():
 
                     torch.save(state, self.checkpoint_name)
                     logging.info("Checkpoint saved sucessfully.")
+                else:
+                    logging.info("Output can be found: {}".format(
+                        self.model.logdir))
 
             if self.epoch % self.checkpoint_backup == 0:
                 self.logger.save(filename=self.log_file)

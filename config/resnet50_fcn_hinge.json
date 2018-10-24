@@ -27,7 +27,7 @@
             "color_augmentation_level": 1,
             "fix_shape": true,
             "reseize_image": false,
-            "patch_size": [480, 960],
+            "patch_size": [960, 1920],
             "random_crop": false,
             "random_roll": true,
             "max_crop": 8,
@@ -81,7 +81,7 @@
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": 1.0,
-        "max_epochs": 800,
+        "max_epochs": 400,
         "pre_eval": false,
         "cnn_gpus": null,
         "max_epoch_steps": null,
@@ -97,13 +97,13 @@
     },
 
     "logging": {
-        "display_iter": 20,
+        "display_iter": 200,
         "eval_iter": 1,
         "max_val_examples": null,
         "max_train_examples": 300,
         "log": true,
         "checkpoint_backup": 10000000,
-        "mayor_eval": 100
+        "mayor_eval": 50
     },
 
     "plotting": {
@@ -115,7 +115,7 @@
     },
 
     "pyvision": {
-        "project_name": "blenderseg",
+        "project_name": "localseg",
         "entry_point": "../localseg/segmodel.py",
         "plotter": "../localseg/plotting/segplotter.py",
         "required_packages": ["../localseg"],
