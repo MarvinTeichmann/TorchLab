@@ -25,13 +25,15 @@ matrix2 = [[0.5, -0.5, 0], [
 
 theta = 0.1
 
-rotation_matrix = [[cos(theta), -sin(theta), 0],
-                   [sin(theta), cos(theta), 0],
-                   [0, 0, 1]]
 
 rotation_matrix = [[0, 0, 1],
                    [0, cos(theta), -sin(theta)],
                    [0, sin(theta), cos(theta)]]
+
+
+rotation_matrix = [[cos(theta), -sin(theta), 0],
+                   [sin(theta), cos(theta), 0],
+                   [0, 0, 1]]
 
 rotation_matrix = [[cos(theta), 0, sin(theta)],
                    [0, 1, 0],
@@ -40,13 +42,14 @@ rotation_matrix = [[cos(theta), 0, sin(theta)],
 matrix = np.array(rotation_matrix)
 
 afine_tf = tf.AffineTransform(matrix=matrix)
-projective_tf = tf.ProjectiveTransform(matrix=matrix)
+projective_tf = tf.EssentialMatrixTransform(
+    rotation=matrix, translation=np.array([0, 1, 0]))
 modified = tf.warp(image, inverse_map=afine_tf)
 modified2 = tf.warp(image, inverse_map=projective_tf)
 
 # Display the result
-io.imshow(modified)
-io.show()
+# io.imshow(modified)
+# io.show()
 
 # Display the result
 io.imshow(modified2)
