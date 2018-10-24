@@ -18,7 +18,7 @@
 
         "label_encoding": "spatial_2d",
 
-        "grid_size": 100,
+        "grid_size": 10,
 
         "grid_dims": 2,
 
@@ -72,7 +72,7 @@
 
     "training": {
         "batch_size": 1,
-        "learning_rate": 1e-5,
+        "learning_rate": 3e-5,
         "lr_schedule": "constant",
         "exp": 1.5,
         "base": 0.9,
@@ -81,7 +81,7 @@
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": 1.0,
-        "max_epochs": 800,
+        "max_epochs": 400,
         "pre_eval": false,
         "cnn_gpus": null,
         "max_epoch_steps": null,
@@ -115,7 +115,7 @@
     },
 
     "pyvision": {
-        "project_name": "blenderseg",
+        "project_name": "localseg",
         "entry_point": "../localseg/segmodel.py",
         "plotter": "../localseg/plotting/segplotter.py",
         "required_packages": ["../localseg"],

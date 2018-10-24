@@ -163,7 +163,7 @@ class LocalSegmentationLoader(data.Dataset):
 
         if conf['dataset'] == 'camvid360_noprop':
             conf['train_file'] = 'datasets/camvid360_noprop_train.lst'
-            conf['val_file'] = 'datasets/camvid360_noprop_train.lst'
+            conf['val_file'] = 'datasets/camvid360_noprop_val.lst'
             conf['vis_file'] = 'datasets/camvid360_classes.lst'
 
             conf['ignore_label'] = 0
