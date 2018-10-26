@@ -37,7 +37,7 @@ gpus = '0'
 
 names = ['lr_5e4', 'lr_1e4', 'lr_7e5', 'lr_3e5', 'lr_1e5', 'lr_5e6', 'lr_1e6']
 
-bench_name = "lrbench10"
+bench_name = "lrbench1"
 
 values = [5e-4, 1e-4, 7e-5, 3e-5, 1e-5, 5e-6, 1e-6]
 key = 'training.learning_rate'

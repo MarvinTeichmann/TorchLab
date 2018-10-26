@@ -28,6 +28,7 @@ import deepdish as dd
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
+import torch.nn.functional as functional
 
 import pyvision.utils
 from pyvision.metric import SegmentationMetric as IoU
@@ -37,8 +38,6 @@ import pyvision.logger
 
 import localseg
 from localseg.data_generators import loader
-from localseg import encoder as segencoder
-from localseg.encoder import parallel as parallel
 
 
 from localseg import decoder as segdecoder
@@ -47,6 +46,7 @@ from localseg import loss
 from localseg.evaluators import segevaluator as evaluator
 
 from localseg.utils.labels import LabelCoding
+from localseg.encoder import parallel as parallel
 
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
@@ -146,93 +146,6 @@ def create_pyvision_model(conf, logdir):
     return model
 
 
-class EncoderDecoder(nn.Module):
-
-    def __init__(self, encoder, decoder,
-                 self_parallel=False, ngpus=None):
-        super().__init__()
-
-        self.self_parallel = self_parallel
-
-        self.verbose = False
-
-        if not self.self_parallel:
-            self.encoder = encoder
-            self.decoder = decoder
-        else:
-            if ngpus is None:
-                self.ids = list(range(torch.cuda.device_count()))
-            else:
-                self.ids = list(range(ngpus))
-            self.encoder = parallel.SelfDataParallel(
-                encoder, device_ids=self.ids)
-            self.decoder = decoder
-
-    def forward(self, normalized_imgs):
-        # Expect input to be in range [0, 1]
-        # and of type float
-
-        feats32 = self.encoder(normalized_imgs,
-                               verbose=self.verbose, return_dict=True)
-
-        self.verbose = False
-
-        if not self.self_parallel:
-            prediction = self.decoder(feats32)
-        else:
-            prediction = parallel.my_data_parallel(
-                self.decoder, feats32, device_ids=self.ids)
-
-        return prediction
-
-
-def _get_encoder(conf):
-
-    dilated = conf['encoder']['dilated']
-
-    batched_dilation = conf['encoder']['batched_dilation']
-    pretrained = conf['encoder']['load_pretrained']
-
-    if conf['modules']['encoder'] == 'resnet':
-
-        if conf['encoder']['source'] == "simple":
-            resnet = segencoder.resnet
-        elif conf['encoder']['source'] == "encoding":
-            from localseg.encoder import encoding_resnet
-            resnet = segencoder.encoding_resnet
-        else:
-            raise NotImplementedError
-
-        if conf['encoder']['num_layer'] == 50:
-            encoder = resnet.resnet50(
-                pretrained=pretrained, dilated=dilated,
-                batched_dilation=batched_dilation).cuda()
-        elif conf['encoder']['num_layer'] == 101:
-            encoder = resnet.resnet101(
-                pretrained=pretrained, dilated=dilated,
-                batched_dilation=batched_dilation).cuda()
-        elif conf['encoder']['num_layer'] == 152:
-            encoder = resnet.resnet152(
-                pretrained=pretrained, dilated=dilated,
-                batched_dilation=batched_dilation).cuda()
-        else:
-            raise NotImplementedError
-            # further implementation are available; see encoder.resnet
-
-    if conf['modules']['encoder'] == 'densenet':
-
-        densenet = segencoder.densenet
-
-        if conf['encoder']['num_layer'] == 201:
-            encoder = densenet.densenet201(
-                pretrained=True, dilated=dilated).cuda()
-        else:
-            raise NotImplementedError
-            # further implementation are available; see encoder.resnet
-
-    return encoder
-
-
 class SegModel(nn.Module):
 
     def __init__(self, conf, logdir='tmp'):
@@ -251,21 +164,21 @@ class SegModel(nn.Module):
         self.loader = loader
         self.trainloader = loader.get_data_loader(
             conf['dataset'], split='train', batch_size=bs)
-        nclasses = self.conf['dataset']['num_classes']
-
-        # Build Encoder and Decoder
-        encoder = _get_encoder(conf)
-        channel_dict = encoder.get_channel_dict()
 
         assert conf['dataset']['label_encoding'] in ['dense', 'spatial_2d']
         self.label_encoding = conf['dataset']['label_encoding']
 
-        decoder = segdecoder.fcn.FCN(model=self, num_classes=nclasses,
-                                     scale_dict=channel_dict,
-                                     conf=conf['decoder']).cuda()
+        assert conf['modules']['model'] in ['mapillary', 'end_dec']
 
-        self.model, device_ids = self._get_parallelized_model(
-            conf, encoder, decoder)
+        if conf['modules']['model'] == 'mapillary':
+            conf['encoder']['num_classes'] = conf['dataset']['num_classes']
+            from localseg.mapillary import model
+            self.model = model.get_network(conf=conf['encoder']).cuda()
+            device_ids = None
+        else:
+            from localseg import enc_dec_model
+            self.model, device_ids = enc_dec_model.get_network(conf=conf)
+            self.model.cuda()
 
         self.label_coder = LabelCoding(conf['dataset'])
 
@@ -290,13 +203,6 @@ class SegModel(nn.Module):
 
         self.evaluator = evaluator.MetaEvaluator(conf, self)
 
-        if not self.conf['encoder']['simple_norm']:
-            mean = np.array(self.conf['encoder']['mean'])
-            self.mean = Variable(torch.Tensor(mean).view(1, 3, 1, 1).cuda())
-
-            std = np.array(self.conf['encoder']['std'])
-            self.std = Variable(torch.Tensor(std).view(1, 3, 1, 1).cuda())
-
     def _assert_num_gpus(self, conf):
         torch.cuda.device_count()
         if conf['training']['num_gpus']:
@@ -304,30 +210,6 @@ class SegModel(nn.Module):
                 ('Requested: {0} GPUs   Visible: {1} GPUs.'
                  ' Please set visible GPUs to {0}'.format(
                      conf['training']['num_gpus'], torch.cuda.device_count()))
-
-    def _get_parallelized_model(self, conf, encoder, decoder):
-        # Self parallel has not been used for a while. TODO test
-        # TODO: use new device assignment
-
-        ngpus = conf['training']['cnn_gpus']
-        self_parallel = conf['encoder']['source'] == "encoding"
-
-        if self_parallel:
-            model = EncoderDecoder(encoder=encoder, decoder=decoder,
-                                   self_parallel=True, ngpus=ngpus)
-            return model.cuda(), None
-
-        if not self_parallel:
-            model = EncoderDecoder(encoder=encoder, decoder=decoder)
-
-            if ngpus is None:
-                device_ids = None
-            else:
-                device_ids = list(range(ngpus))
-
-            model = parallel.ModelDataParallel(
-                model, device_ids=device_ids).cuda()
-            return model, device_ids
 
     def _load_pretrained_weights(self, conf):
 
@@ -343,26 +225,20 @@ class SegModel(nn.Module):
     def forward(self, imgs):
         # Expect input to be in range [0, 1]
         # and of type float
-        if self.conf['encoder']['normalize']:
 
-            assert not self.conf['dataset']['transform']['normalize'], \
-                'Are you sure you want to normalize twice?'
-
-            if self.conf['encoder']['simple_norm']:
-                imgs = (imgs - 0.5) / 0.225
-            else:
-                imgs = (imgs - self.mean) / self.std
-            # assert(False)
-            # TODO: Bench for better normalization.
-
-        prediction = self.model(imgs)
-        return prediction
+        return self.model(imgs)
 
     def get_loader(self):
         return self.loader
 
     def predict(self, img):
-        return
+
+        sem_logits = self.model(img)
+
+        probs = functional.softmax(sem_logits, dim=1)
+
+        probs, pred = probs.max(1)
+        return probs, pred
 
     def debug(self):
         return

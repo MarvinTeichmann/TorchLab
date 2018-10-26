@@ -27,8 +27,6 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
 
-data_file = "datasets/camvid360_noprop_train.lst"
-data_file2 = "datasets/camvid360_prop_train2.lst"
 
 data_file = "datasets/blender_small.lst"
 data_file2 = "datasets/blender_small.lst"
@@ -36,7 +34,9 @@ data_file2 = "datasets/blender_small.lst"
 data_file = "datasets/scenecity_small_train.lst"
 data_file2 = "datasets/scenecity_small_train.lst"
 
-outdirname = 'ids_labels4'
+data_file = "datasets/camvid360_noprop_train.lst"
+data_file2 = "datasets/camvid360_prop4.lst"
+outdirname = 'ids_labels3'
 
 datadir = os.environ['TV_DIR_DATA']
 files = [line.rstrip() for line in open(data_file)]
@@ -49,9 +49,11 @@ debug_num_images = -1
 
 thick = 4
 
-min_pixels = 24
+min_pixels = 0
 
 void2 = 10000
+
+use_void_imd = False
 
 outdir = os.path.join(os.path.dirname((realfiles2[0])), outdirname)
 outfile = data_file2.split('.')[0] + "_out.lst"
@@ -209,7 +211,11 @@ for i, filename in enumerate(realfiles2):
     duration = time.time() - start_time
     logging.debug("Converting an images took {} seconds".format(duration))
 
-    id_image = void_img(id_image)
+    if use_void_imd:
+
+        id_image = void_img(id_image)
+
+    assert not np.any(np.all(id_image == id_to_colour(void2), axis=2))
 
     start_time = time.time()
     color_image = id2color(id_image, unique_classes)

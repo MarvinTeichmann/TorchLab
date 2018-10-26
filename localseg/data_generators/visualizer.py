@@ -49,7 +49,6 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
         mask_color = color_list[0]
         color_list = color_list[conf['idx_offset']:]
-        self.new_color_list = self.new_color_list[conf['idx_offset']:]
 
         self.label_coder = label_coder
 
@@ -59,8 +58,6 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         self.label_type = conf['label_encoding']
 
         super().__init__(color_list=color_list)
-
-        assert len(self.color_list) == len(self.new_color_list)
 
         self.mask_color = mask_color
 
@@ -97,65 +94,6 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
         return figure
 
-    def plot_batched_prediction(self, sample_batch, prediction):
-        figure = plt.figure()
-        figure.tight_layout()
-
-        batch_size = len(sample_batch['load_dict'])
-        figure.set_size_inches(12, 3 * batch_size)
-
-        for d in range(batch_size):
-            image = sample_batch['image'][d].numpy().transpose(1, 2, 0)
-            label = sample_batch['label'][d].numpy()
-
-            mask = self.label_coder.getmask(label)
-
-            pred = prediction[d].cpu().data.numpy().transpose(1, 2, 0)
-            pred_hard = np.argmax(pred, axis=0)
-
-            idx = eval(sample_batch['load_dict'][d])['idx']
-
-            coloured_label = self.label2color(id_image=label, mask=mask)
-
-            # coloured_prediction = self.pred2color(pred_image=pred,
-            #                                       mask=mask)
-
-            coloured_hard = self.id2color(id_image=pred_hard,
-                                          mask=mask)
-
-            coloured_prediction = coloured_hard
-
-            ax = figure.add_subplot(batch_size, 4, 4 * d + 1)
-            ax.set_title('Image #{}'.format(idx))
-            ax.axis('off')
-            ax.imshow(image)
-
-            ax = figure.add_subplot(batch_size, 4, 4 * d + 2)
-            ax.set_title('Label')
-            ax.axis('off')
-            ax.imshow(coloured_label.astype(np.uint8))
-
-            ax = figure.add_subplot(batch_size, 4, 4 * d + 3)
-            ax.set_title('Prediction (hard)')
-            ax.axis('off')
-            ax.imshow(coloured_hard.astype(np.uint8))
-
-            ax = figure.add_subplot(batch_size, 4, 4 * d + 4)
-            ax.set_title('Prediction (soft)')
-            ax.axis('off')
-            ax.imshow(coloured_prediction.astype(np.uint8))
-
-        return figure
-
-    def label2color(self, label, mask):
-        if self.label_type == 'dense':
-            return self.id2color(id_image=label, mask=mask)
-        elif self.label_type == 'spatial_2d':
-            id_label = self.label_coder.space2id(label)
-            return self.id2color(id_image=id_label, mask=mask)
-        else:
-            raise NotImplementedError
-
     def label2color_2(self, label, mask):
         if self.label_type == 'dense':
             return self.id2color(id_image=label, mask=mask)
@@ -171,16 +109,6 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
             self.color_list = tmp_list
 
             return output
-        else:
-            raise NotImplementedError
-
-    def pred2color_hard(self, pred, mask):
-        if self.label_type == 'dense':
-            pred_hard = np.argmax(pred, axis=0)
-            return self.id2color(id_image=pred_hard, mask=mask)
-        elif self.label_type == 'spatial_2d':
-            pred_id = self.label_coder.space2id(pred)
-            return self.id2color(id_image=pred_id, mask=mask)
         else:
             raise NotImplementedError
 
@@ -536,18 +464,18 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
         mask = self.label_coder.getmask(label)
 
-        pred = prediction[idx].cpu().data.numpy()
+        pred = prediction[idx]
         # logging.info(pred)
         idx = load_dict['idx']
 
-        coloured_label = self.label2color(label=label, mask=mask)
+        coloured_label = self.id2color(id_image=label, mask=mask)
 
         coloured_label = trans * image + (1 - trans) * coloured_label
 
         diff_colour = self.coloured_diff(label, pred, mask)
         diff_colour = 0.6 * image + 0.4 * diff_colour
 
-        coloured_hard = self.pred2color_hard(pred=pred, mask=mask)
+        coloured_hard = self.id2color(id_image=pred, mask=mask)
         coloured_hard = trans * image + (1 - trans) * coloured_hard
 
         ax = figure.add_subplot(2, 2, 1)

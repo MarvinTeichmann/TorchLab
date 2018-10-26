@@ -189,6 +189,9 @@ class Evaluator():
         if split == 'val' and batch_size > 8:
             batch_size = 8
 
+        if split == 'val' and conf['evaluation']['reduce_val_bs']:
+            batch_size = 1
+
         self.loader = loader.get_data_loader(
             conf['dataset'], split=split, batch_size=batch_size,
             lst_file=data_file, shuffle=False)
@@ -252,63 +255,47 @@ class Evaluator():
                 if cur_bs == real_bs:
 
                     if eval_fkt is None:
-                        batched_pred = self.model(img_var)
+                        bprop, bpred = self.model.predict(img_var)
                     else:
-                        batched_pred = eval_fkt(img_var)
+                        bprop, bpred = eval_fkt(img_var)
 
-                    if type(batched_pred) is list:
-                        batched_pred = torch.nn.parallel.gather(
-                            batched_pred, target_device=0)
+                    if type(bpred) is list:
+                        raise NotImplementedError
+                        batched_pred = torch.nn.parallel.gather( # NOQA
+                            bpred, target_device=0)
                 else:
                     # last batch makes troubles in parallel mode
+                    continue
 
-                    # Fill the input to equal batch_size
-                    cur_bs = sample['image'].size()[0]
-                    real_bs = self.conf['training']['batch_size']
-                    fake_img = sample['image'][0]
-                    fake_img = fake_img.view(tuple([1]) + fake_img.shape)
-                    num_copies = real_bs - cur_bs
+            bpred_np = bpred.cpu().numpy()
+            bprop_np = bprop.cpu().numpy()
 
-                    input = [sample['image']] + num_copies * [fake_img]
-
-                    gathered_in = Variable(torch.cat(input)).cuda()
-                    if eval_fkt is None:
-                        batched_pred = self.model(gathered_in)
-                    else:
-                        batched_pred = eval_fkt(gathered_in)
-
-                    if type(batched_pred) is list:
-                        batched_pred = torch.nn.parallel.gather(
-                            batched_pred, target_device=0)
-
-                    # Remove the fillers
-                    batched_pred = batched_pred[0:cur_bs]
-
-            batched_np = batched_pred.data.cpu().numpy()
             duration = (time.time() - start_time)
 
             if level == 'mayor' and step * real_bs < 300 or level == 'full':
-                self._do_plotting_mayor(cur_bs, sample, batched_pred,
-                                        epoch, level)
+                self._do_plotting_mayor(cur_bs, sample, bpred_np,
+                                        bprop_np, epoch, level)
 
             if level != 'none' and step in self.imgs_minor\
                     or level == 'one_image':
-                self._do_plotting_minor(step, batched_pred, sample, epoch)
+                self._do_plotting_minor(step, bpred_np, bprop_np,
+                                        sample, epoch)
                 if level == "one_image":
                     # plt.show(block=False)
                     # plt.pause(0.01)
                     return None
 
             # Analyze output
-            for d in range(batched_np.shape[0]):
-                pred = batched_np[d]
+            for d in range(bpred_np.shape[0]):
+                pred = bpred_np[d]
 
                 if self.conf['dataset']['label_encoding'] == 'dense':
-                    hard_pred = np.argmax(pred, axis=0)
+                    hard_pred = pred
 
                     label = sample['label'][d].numpy()
                     mask = label != self.ignore_idx
                 elif self.conf['dataset']['label_encoding'] == 'spatial_2d':
+                    raise NotImplementedError
 
                     hard_pred = self.label_coder.space2id(pred)
 
@@ -342,10 +329,11 @@ class Evaluator():
 
         return metric
 
-    def _do_plotting_mayor(self, cur_bs, sample, batched_pred, epoch, level):
+    def _do_plotting_mayor(self, cur_bs, sample, bpred_np, bprob_np,
+                           epoch, level):
         for d in range(cur_bs):
             fig = self.vis.plot_prediction(
-                sample, batched_pred, trans=self.trans, idx=d)
+                sample, bpred_np, trans=self.trans, idx=d)
             filename = literal_eval(
                 sample['load_dict'][d])['image_file']
             new_name = os.path.join(self.epochdir,
@@ -358,9 +346,12 @@ class Evaluator():
                 pass
             plt.close(fig=fig)
 
+            if not self.conf['dataset']['label_encoding'] == 'spatial_2d':
+                continue
+
             if level == 'full' or epoch is None:
                 fig = self.vis.scatter_plot(
-                    batch=sample, prediction=batched_pred, idx=d)
+                    batch=sample, prediction=bprob_np, idx=d)
                 filename = literal_eval(
                     sample['load_dict'][d])['image_file']
                 new_name = os.path.join(self.scatter_edir,
@@ -371,14 +362,14 @@ class Evaluator():
                 plt.close(fig=fig)
                 logging.info("Finished: {}".format(new_name))
 
-    def _do_plotting_minor(self, step, batched_pred, sample, epoch):
+    def _do_plotting_minor(self, step, bpred_np, bprob_np, sample, epoch):
         stepdir = os.path.join(self.imgdir, "image{}_{}".format(
             step, self.split))
         if not os.path.exists(stepdir):
             os.mkdir(stepdir)
 
         fig = self.vis.plot_prediction(
-            sample, batched_pred, trans=self.trans, idx=0,
+            sample, bpred_np, trans=self.trans, idx=0,
             figure=None)
         filename = literal_eval(
             sample['load_dict'][0])['image_file']
@@ -395,13 +386,18 @@ class Evaluator():
                     dpi=199)
         plt.close(fig)
 
+        if not self.conf['dataset']['label_encoding'] == 'spatial_2d':
+            return
+
+        raise NotImplementedError
+
         stepdir = os.path.join(self.imgdir, "scatter{}_{}".format(
             step, self.split))
         if not os.path.exists(stepdir):
             os.mkdir(stepdir)
 
         fig = self.vis.scatter_plot(
-            batch=sample, prediction=batched_pred, idx=0,
+            batch=sample, prediction=bprob_np, idx=0,
             figure=None)
         filename = literal_eval(
             sample['load_dict'][0])['image_file']
@@ -425,7 +421,7 @@ class Evaluator():
             os.mkdir(stepdir)
 
         fig = self.vis.dense_plot(
-            batch=sample, prediction=batched_pred, idx=0,
+            batch=sample, prediction=bprob_np, idx=0,
             figure=None)
         filename = literal_eval(
             sample['load_dict'][0])['image_file']

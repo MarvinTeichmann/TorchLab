@@ -27,6 +27,8 @@ import scipy.ndimage
 import scipy.misc
 import skimage
 
+from skimage import transform as tf
+
 # import skimage
 # import skimage.transform
 
@@ -331,6 +333,8 @@ class LocalSegmentationLoader(data.Dataset):
             gt_image = scipy.misc.imresize(
                 gt_image, size=transform['presize'], interp='nearest')
 
+        transform['random_shear'] = False
+
         if self.split == 'train':
 
             image, gt_image = self.color_transform(image, gt_image)
@@ -355,6 +359,10 @@ class LocalSegmentationLoader(data.Dataset):
             if transform['random_rotation']:
 
                 image, gt_image = random_rotation(image, gt_image)
+                shape_distorted = True
+
+            if transform['random_shear']:
+                image, gt_image = random_shear(image, gt_image)
                 shape_distorted = True
 
             if transform['random_resize']:
@@ -394,7 +402,7 @@ class LocalSegmentationLoader(data.Dataset):
                 pad_w = (new_shape[1] - shape[1]) // 2
 
                 new_img[pad_h:pad_h + shape[0], pad_w:pad_w + shape[1]] = image
-                new_gt[pad_h:pad_h + shape[0], pad_w:pad_w + shape[1]] = gt_image # NOQA
+                new_gt[pad_h:pad_h + shape[0], pad_w:pad_w + shape[1]] = gt_image  # NOQA
 
                 image = new_img
                 gt_image = new_gt
@@ -406,6 +414,7 @@ class LocalSegmentationLoader(data.Dataset):
         image = image.transpose((2, 0, 1))
         image = image / 255
         if transform['normalize']:
+            assert False  # normalization now happens in the encoder.
             mean = np.array(transform['mean']).reshape(3, 1, 1)
             std = np.array(transform['std']).reshape(3, 1, 1)
             image = (image - mean) / std
@@ -632,6 +641,38 @@ def random_rotation(image, gt_image,
     return image_r, gt_image_r
 
 
+def random_shear(image, gt_image, std=3.5,
+                 lower=-10, upper=10, expand=True):
+
+    assert lower < upper
+    assert std > 0
+
+    angle = truncated_normal(mean=0, std=std, lower=lower,
+                             upper=upper)
+
+    pi_angle = angle * np.pi / 360
+
+    afine_tf = tf.AffineTransform(shear=pi_angle)
+
+    image_r = (tf.warp(image / 255, inverse_map=afine_tf) * 255 + 0.4)\
+        .astype(np.int)
+    gt_image_r = tf.warp(gt_image / 255, inverse_map=afine_tf,
+                         order=0)
+
+    gt_image_r = ((255 * gt_image_r) + 0.4).astype(np.int)
+
+    gt_image[10, 10] = 255
+    if DEBUG:
+        if not np.all(np.unique(gt_image_r) == np.unique(gt_image)):
+            logging.info("np.unique(gt_image_r): {}".format(
+                np.unique(gt_image_r)))
+            logging.info("np.unique(gt_image): {}".format(np.unique(gt_image)))
+
+            assert(False)
+
+    return image_r, gt_image_r
+
+
 def skewed_normal(mean=1, std=0, lower=0.5, upper=2):
 
     while True:
@@ -656,7 +697,7 @@ def truncated_normal(mean=0, std=0, lower=-0.5, upper=0.5):
         factor = random.normalvariate(mean, std)
 
         if factor > lower and factor < upper:
-                    break
+            break
 
     return factor
 
@@ -806,6 +847,7 @@ class RandomRotation(object):
         gt_img = f.rotate(gt_image, angle, False, self.expand, self.center)
 
         return img, gt_img
+
 
 if __name__ == '__main__':  # NOQA
     conf = default_conf.copy()

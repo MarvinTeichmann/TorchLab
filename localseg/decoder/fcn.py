@@ -37,17 +37,17 @@ default_conf = {
 
 class FCN(nn.Module):
 
-    def __init__(self, model, num_classes, scale_dict,
+    def __init__(self, num_classes, scale_dict,
                  conf=default_conf):
         super().__init__()
 
         self.num_classes = num_classes
 
-        if model.label_encoding == 'dense':
+        if conf['label_encoding'] == 'dense':
             self.num_classes = num_classes
-        elif model.label_encoding == 'spatial_2d':
-            self.num_classes = model.conf['dataset']['grid_dims']
-            num_classes = model.conf['dataset']['grid_dims']
+        elif conf['label_encoding'] == 'spatial_2d':
+            self.num_classes = conf['dataset']['grid_dims']
+            num_classes = conf['dataset']['grid_dims']
 
         if conf['bottleneck'] is not None:
             num_classes = conf['bottleneck']
