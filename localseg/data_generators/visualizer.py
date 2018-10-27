@@ -117,8 +117,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
             true_colour = [0, 0, 255]
             false_colour = [255, 0, 0]
 
-            pred_hard = np.argmax(pred, axis=0)
-            diff_img = 1 * (pred_hard == label)
+            diff_img = 1 * (pred == label)
             diff_img = diff_img + (1 - mask)
 
             diff_img = np.expand_dims(diff_img, axis=-1)

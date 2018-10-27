@@ -248,11 +248,10 @@ class Evaluator():
             img_var = Variable(sample['image']).cuda()
 
             cur_bs = sample['image'].size()[0]
-            real_bs = self.conf['training']['batch_size']
 
             with torch.no_grad():
 
-                if cur_bs == real_bs:
+                if cur_bs == self.bs:
 
                     if eval_fkt is None:
                         bprop, bpred = self.model.predict(img_var)
@@ -272,7 +271,7 @@ class Evaluator():
 
             duration = (time.time() - start_time)
 
-            if level == 'mayor' and step * real_bs < 300 or level == 'full':
+            if level == 'mayor' and step * self.bs < 300 or level == 'full':
                 self._do_plotting_mayor(cur_bs, sample, bpred_np,
                                         bprop_np, epoch, level)
 
