@@ -25,14 +25,29 @@ if __name__ == '__main__':
     logging.info("Hello World.")
 
 
-in_file = "datasets/camvid360_prop_train3_out.lst"
+in_file = "datasets/camvid360_prop3_out.lst"
 
-outfile = "datasets/camvid360_prop_val.lst"
+outfile1 = "datasets/camvid360_prop3_train.lst"
+outfile2 = "datasets/camvid360_prop3_val.lst"
 
 files = [line.rstrip() for line in open(in_file)]
 
 valfiles = files[1::23]
 
-with open(outfile, 'w') as f:
-    for line in valfiles:
-        print(line, file=f)
+f_train = open(outfile1, 'w')
+f_val = open(outfile2, 'w')
+
+for i, line in enumerate(files):
+    if i < 3:
+        print(line, file=f_train)
+        continue
+    if i % 53 == 0:
+        print(line, file=f_val)
+        continue
+    if i % 53 in [1, 2, 52, 51]:
+        continue
+    else:
+        print(line, file=f_train)
+
+f_train.close()
+f_val.close()

@@ -69,7 +69,7 @@ class ABN(nn.Module):
         if self.freeze:
             super().train(False)
         else:
-            super().train(rain)
+            super().train(train)
 
     def forward(self, x):
         x = functional.batch_norm(x, self.running_mean, self.running_var, self.weight, self.bias,

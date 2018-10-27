@@ -172,6 +172,15 @@ class LocalSegmentationLoader(data.Dataset):
             conf['idx_offset'] = 1
             conf['num_classes'] = 308
 
+        if conf['dataset'] == 'camvid360':
+            conf['train_file'] = 'datasets/camvid360_prop3_train.lst'
+            conf['val_file'] = 'datasets/camvid360_prop3_val.lst'
+            conf['vis_file'] = 'datasets/camvid360_classes.lst'
+
+            conf['ignore_label'] = 0
+            conf['idx_offset'] = 1
+            conf['num_classes'] = 308
+
         if conf['dataset'] == 'sincity_small':
             conf['train_file'] = 'datasets/scenecity_small_train.lst'
             conf['val_file'] = 'datasets/scenecity_small_test.lst'
