@@ -1,14 +1,14 @@
 {
     "modules": {
+        "model": "end_dec",
         "encoder": "resnet",
-        "decoder": "fcn",
         "loss": "xentropy",
         "optimizer": "adam",
         "eval": "voc"
     },
 
     "dataset" : {
-        "dataset": "sincity_small",
+        "dataset": "camvid360",
         "train_file": null,
         "val_file": null,
 
@@ -16,26 +16,30 @@
         "idx_offset": 1,
         "num_classes": null,
 
-        "label_encoding": "spatial_2d",
+        "label_encoding": "dense",
+
+        "grid_size": 1,
+
+        "grid_dims": 2,
 
         "transform": {
             "presize": 0.5,
             "color_augmentation_level": 1,
             "fix_shape": true,
             "reseize_image": false,
-            "patch_size": [480, 480],
+            "patch_size": [448, 448],
             "random_crop": true,
             "random_roll": true,
-            "max_crop": 8,
+            "max_crop": 4,
             "crop_chance": 0.6,
             "random_resize": true,
             "lower_fac": 0.5,
             "upper_fac": 2,
             "resize_sig": 0.4,
             "random_flip": true,
-            "random_rotation": false,
+            "random_rotation": true,
             "equirectangular": false,
-            "normalize": true,
+            "normalize": false,
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
@@ -43,10 +47,10 @@
     },
 
     "encoder": {
-        "source": "simple",
-        "dilated": false,
-        "normalize": false,
-        "batched_dilation": null,
+        "source": "encoding",
+        "dilated": true,
+        "normalize": true,
+        "batched_dilation": false,
         "num_layer": 50,
         "load_pretrained": true,
         "mean": [0.485, 0.456, 0.406],
@@ -55,23 +59,29 @@
     },
 
     "decoder": {
-        "skip_connections": true,
+        "skip_connections": false,
         "scale_down": 0.01,
         "dropout": true,
-        "bottleneck": null
+        "bottleneck": null,
+        "upsample": true
+    },
+
+    "loss": {
+        "border": 0.05
     },
 
     "training": {
-        "batch_size": 8,
-        "learning_rate": 2e-5,
+        "batch_size": 4,
+        "learning_rate": 5e-5,
         "lr_schedule": "constant",
         "exp": 1.5,
         "base": 0.9,
         "base2": 2,
+        "lr_offset_epochs": 100,
         "momentum": 0.9,
         "weight_decay": 5e-4,
-        "clip_norm": null,
-        "max_epochs": 600,
+        "clip_norm": 1.0,
+        "max_epochs": 300,
         "pre_eval": false,
         "cnn_gpus": null,
         "max_epoch_steps": null,
@@ -80,13 +90,21 @@
         "num_gpus": 1
     },
 
+    "evaluation": {
+        "imgs_minor": [1, 20, 50],
+        "transparency": 0,
+        "default_level": "minor",
+        "reduce_val_bs": false
+    },
+
     "logging": {
-        "display_iter": 20,
-        "eval_iter": 5,
+        "display_iter": 200,
+        "eval_iter": 1,
         "max_val_examples": null,
-        "max_train_examples": 300,
-        "checkpoint_backup": 25,
-        "mayor_eval": 150
+        "max_train_examples": 150,
+        "log": true,
+        "checkpoint_backup": 10000000,
+        "mayor_eval": 50
     },
 
     "plotting": {

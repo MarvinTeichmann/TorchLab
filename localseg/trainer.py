@@ -143,9 +143,8 @@ class SegmentationTrainer():
     def get_lr(self):
         return self.optimizer.param_groups[0]['lr']
 
-    def do_training_step(self, step, sample):
+    def do_training_step(self, step, sample, start_time):
 
-        start_time = time.time()
         # Do forward pass
         img_var = Variable(sample['image']).cuda()
         pred = self.model(img_var)
@@ -221,8 +220,10 @@ class SegmentationTrainer():
             epoche_time = time.time()
             self.losses = []
 
+            start_time = time.time()
+
             for step, sample in zip(count_steps, self.loader):
-                self.do_training_step(step, sample)
+                self.do_training_step(step, sample, start_time)
 
             gc.collect()
 
@@ -290,9 +291,7 @@ class WarpingSegTrainer(SegmentationTrainer):
 
         self.DEBUG = False
 
-    def do_training_step(self, step, sample):
-
-        start_time = time.time()
+    def do_training_step(self, step, sample, start_time):
 
         with torch.no_grad():
 
