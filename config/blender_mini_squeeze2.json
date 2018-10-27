@@ -1,8 +1,8 @@
 {
     "modules": {
+        "model": "end_dec",
         "encoder": "resnet",
-        "decoder": "fcn",
-        "loss": "xentropy",
+        "loss": "warped",
         "optimizer": "adam",
         "eval": "voc"
     },
@@ -19,6 +19,7 @@
         "label_encoding": "spatial_2d",
 
         "grid_size": 10,
+        "grid_dims": 2,
 
         "transform": {
             "presize": 0.5,
@@ -78,6 +79,7 @@
         "exp": 1.5,
         "base": 0.9,
         "base2": 2,
+        "lr_offset_epochs": 0,
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": null,
@@ -93,7 +95,8 @@
     "evaluation": {
         "imgs_minor": [1, 2, 3, 4, 5],
         "transparency": 0,
-        "default_level": "one_image"
+        "default_level": "one_image",
+        "reduce_val_bs": false
     },
 
     "logging": {
@@ -116,7 +119,7 @@
 
     "pyvision": {
         "project_name": "blenderseg",
-        "entry_point": "../localseg/localmodel.py",
+        "entry_point": "../localseg/segmodel.py",
         "plotter": "../localseg/plotting/segplotter.py",
         "required_packages": ["../localseg"],
         "optional_packages": ["../pyvision/pyvision"],

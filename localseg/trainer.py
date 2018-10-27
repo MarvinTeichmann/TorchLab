@@ -343,9 +343,9 @@ class WarpingSegTrainer(SegmentationTrainer):
         if self.conf['loss']['type'] == 'triplet':
             loss_name = 'TripletLoss'
             positive = warped
-            negative, mask = self.model.warper.warp2(label, pred)
+            negative, mask = self.warper.warp2(label, pred)
 
-            mask = self.model.warper.mask_warps(
+            mask = self.warper.mask_warps(
                 label, pred, positive, negative, mask, ign)
 
             triplet_loss = self.model.triplet_loss(
@@ -354,7 +354,7 @@ class WarpingSegTrainer(SegmentationTrainer):
             loss_name = 'SqueezeLoss'
             positive = warped
             mask = (1 - ign)
-            mask = self.model.warper.mask_warps(
+            mask = self.warper.mask_warps(
                 label, pred, positive, positive, mask, ign)
             triplet_loss = self.model.squeeze_loss(pred, warped, mask)
             # triplet_loss = self.model.squeeze_loss(pred, warped, ign)
