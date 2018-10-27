@@ -94,6 +94,27 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
         return figure
 
+    def pred2color_hard(self, pred, mask):
+        if self.label_type == 'dense':
+            pred_hard = np.argmax(pred, axis=0)
+            return self.id2color(id_image=pred_hard, mask=mask)
+        elif self.label_type == 'spatial_2d':
+            # TODO: Does not work with larger scale.
+            pred_id = pred[0].astype(np.int) + \
+                self.conf['root_classes'] * pred[1].astype(np.int)
+            return self.id2color(id_image=pred_id, mask=mask)
+        else:
+            raise NotImplementedError
+
+    def label2color(self, label, mask):
+        if self.label_type == 'dense':
+            return self.id2color(id_image=label, mask=mask)
+        elif self.label_type == 'spatial_2d':
+            id_label = self.label_coder.space2id(label)
+            return self.id2color(id_image=id_label, mask=mask)
+        else:
+            raise NotImplementedError
+
     def label2color_2(self, label, mask):
         if self.label_type == 'dense':
             return self.id2color(id_image=label, mask=mask)
@@ -116,6 +137,8 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         if self.label_type == 'dense':
             true_colour = [0, 0, 255]
             false_colour = [255, 0, 0]
+
+            pred = np.argmax(pred, axis=0)
 
             diff_img = 1 * (pred == label)
             diff_img = diff_img + (1 - mask)
@@ -184,7 +207,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
         if batch is not None:
             label = batch['label'][idx].numpy()
-            prediction = prediction[idx].cpu().data.numpy()
+            prediction = prediction[idx]
         else:
             assert label is not None
 
@@ -271,7 +294,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
         if batch is not None:
             label = batch['label'][idx].numpy()
-            prediction = prediction[idx].cpu().data.numpy()
+            prediction = prediction[idx]
         else:
             assert label is not None
 
@@ -467,14 +490,14 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         # logging.info(pred)
         idx = load_dict['idx']
 
-        coloured_label = self.id2color(id_image=label, mask=mask)
+        coloured_label = self.label2color(label=label, mask=mask)
 
         coloured_label = trans * image + (1 - trans) * coloured_label
 
         diff_colour = self.coloured_diff(label, pred, mask)
         diff_colour = 0.6 * image + 0.4 * diff_colour
 
-        coloured_hard = self.id2color(id_image=pred, mask=mask)
+        coloured_hard = self.pred2color_hard(pred=pred, mask=mask)
         coloured_hard = trans * image + (1 - trans) * coloured_hard
 
         ax = figure.add_subplot(2, 2, 1)

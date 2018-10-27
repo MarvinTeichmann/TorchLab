@@ -332,7 +332,7 @@ class Evaluator():
                            epoch, level):
         for d in range(cur_bs):
             fig = self.vis.plot_prediction(
-                sample, bpred_np, trans=self.trans, idx=d)
+                sample, bprob_np, trans=self.trans, idx=d)
             filename = literal_eval(
                 sample['load_dict'][d])['image_file']
             new_name = os.path.join(self.epochdir,
@@ -368,7 +368,7 @@ class Evaluator():
             os.mkdir(stepdir)
 
         fig = self.vis.plot_prediction(
-            sample, bpred_np, trans=self.trans, idx=0,
+            sample, bprob_np, trans=self.trans, idx=0,
             figure=None)
         filename = literal_eval(
             sample['load_dict'][0])['image_file']
@@ -387,8 +387,6 @@ class Evaluator():
 
         if not self.conf['dataset']['label_encoding'] == 'spatial_2d':
             return
-
-        raise NotImplementedError
 
         stepdir = os.path.join(self.imgdir, "scatter{}_{}".format(
             step, self.split))

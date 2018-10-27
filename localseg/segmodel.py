@@ -9,7 +9,6 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-import gc
 import sys
 
 import numpy as np
@@ -24,7 +23,6 @@ import itertools as it
 
 import deepdish as dd
 
-
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -38,10 +36,13 @@ import pyvision.logger
 
 import localseg
 from localseg.data_generators import loader
+from localseg.data_generators import loader2
 
 
 from localseg import decoder as segdecoder
 from localseg import loss
+from localseg.trainer import SegmentationTrainer
+from localseg.trainer import WarpingSegTrainer
 
 from localseg.evaluators import segevaluator as evaluator
 
@@ -159,14 +160,27 @@ class SegModel(nn.Module):
         self.conf['dataset']['down_label'] \
             = not self.conf['decoder']['upsample']
 
+        self.logger = pyvision.logger.Logger()
+
         # Load Dataset
         bs = conf['training']['batch_size']
-        self.loader = loader
-        self.trainloader = loader.get_data_loader(
-            conf['dataset'], split='train', batch_size=bs)
+
+        if conf['modules']['loss'] == 'xentropy':
+            self.loader = loader
+            self.trainloader = loader.get_data_loader(
+                conf['dataset'], split='train', batch_size=bs)
+            Trainer = SegmentationTrainer # NOQA
+        elif conf['modules']['loss'] == 'warped':
+            self.loader = loader2
+            self.trainloader = loader2.get_data_loader(
+                conf['dataset'], split='train', batch_size=bs)
+            Trainer = WarpingSegTrainer # NOQA
+        else:
+            raise NotImplementedError
 
         assert conf['dataset']['label_encoding'] in ['dense', 'spatial_2d']
         self.label_encoding = conf['dataset']['label_encoding']
+        self.num_classes = self.trainloader.dataset.num_classes
 
         assert conf['modules']['model'] in ['mapillary', 'end_dec']
 
@@ -180,28 +194,40 @@ class SegModel(nn.Module):
             self.model, device_ids = enc_dec_model.get_network(conf=conf)
             self.model.cuda()
 
+        self.trainer = Trainer(conf, self, self.trainloader)
+
+        self.loss = self._make_loss(conf, device_ids)
+
         self.label_coder = LabelCoding(conf['dataset'])
 
+        self._load_pretrained_weights(conf)
+
+        # self.visualizer = pvis.PascalVisualizer()
+
+        self.evaluator = evaluator.MetaEvaluator(conf, self)
+
+    def _make_loss(self, conf, device_ids):
         if self.label_encoding == 'dense':
-            self.loss = parallel.CriterionDataParallel(
+            par_loss = parallel.CriterionDataParallel(
                 loss.CrossEntropyLoss2d(), device_ids=device_ids)
         elif self.label_encoding == 'spatial_2d':
             border = self.conf['loss']['border']
             grid_size = self.conf['dataset']['grid_size']
             myloss = loss.HingeLoss2d(border=border, grid_size=grid_size)
-            self.loss = parallel.CriterionDataParallel(
+            par_loss = parallel.CriterionDataParallel(
                 myloss, device_ids=device_ids)
         else:
             raise NotImplementedError
 
-        self._load_pretrained_weights(conf)
+        if conf['modules']['loss'] == 'warped':
+            if self.conf['loss']['type'] == 'triplet':
+                self.triplet_loss = loss.TripletLossWithMask(
+                    grid_size=grid_size)
+            elif self.conf['loss']['type'] == 'squeeze':
+                self.squeeze_loss = loss.TruncatedHingeLoss2dMask(
+                    grid_size=grid_size)
 
-        # self.visualizer = pvis.PascalVisualizer()
-        self.logger = pyvision.logger.Logger()
-
-        self.trainer = Trainer(conf, self, self.trainloader)
-
-        self.evaluator = evaluator.MetaEvaluator(conf, self)
+        return par_loss
 
     def _assert_num_gpus(self, conf):
         torch.cuda.device_count()
@@ -233,12 +259,36 @@ class SegModel(nn.Module):
 
     def predict(self, img):
 
-        sem_logits = self.model(img)
+        if self.label_encoding == 'dense':
 
-        probs = functional.softmax(sem_logits, dim=1)
+            sem_logits = self.model(img)
+            logits = functional.softmax(sem_logits, dim=1)
+            probs, pred = logits.max(1)
+            return logits, pred
 
-        probs, pred = probs.max(1)
-        return probs, pred
+        elif self.label_encoding == 'spatial_2d':
+            sem_logits = self.model(img)
+
+            norm_dims = sem_logits / self.conf['dataset']['grid_size']
+            rclasses = self.conf['dataset']['root_classes']
+
+            if self.conf['dataset']['grid_dims'] == 2:
+                hard_pred = norm_dims[:, 0].int() + \
+                    rclasses * norm_dims[:, 1].int()
+            elif self.conf['dataset']['grid_dims'] == 3:
+                hard_pred = norm_dims[:, 0].int() + \
+                    rclasses * norm_dims[:, 1].int() + \
+                    rclasses * rclasses * norm_dims[:, 2].int()
+            else:
+                raise NotImplementedError
+
+            false_pred = hard_pred < 0
+            hard_pred[false_pred] = self.num_classes
+
+            false_pred = hard_pred > self.num_classes
+            hard_pred[false_pred] = self.num_classes
+
+            return sem_logits, hard_pred
 
     def debug(self):
         return
@@ -353,252 +403,6 @@ class SegModel(nn.Module):
         self.evaluator.evaluate(epoch=epoch, verbose=verbose, level=level)
 
         return
-
-
-def _set_lr(optimizer, learning_rate):
-
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = learning_rate
-
-
-class Trainer():
-
-    def __init__(self, conf, model, data_loader, logger=None):
-        self.model = model
-        self.conf = conf
-        self.loader = data_loader
-
-        self.bs = conf['training']['batch_size']
-        self.lr = conf['training']['learning_rate']
-        self.wd = conf['training']['weight_decay']
-        self.clip_norm = conf['training']['clip_norm']
-        # TODO: implement clip norm
-
-        if logger is None:
-            self.logger = model.logger
-        else:
-            self.logger = logger
-
-        weight_dicts = self.model.get_weight_dicts()
-
-        if self.conf['modules']['optimizer'] == 'adam':
-
-            self.optimizer = torch.optim.Adam(weight_dicts, lr=self.lr)
-
-        elif self.conf['modules']['optimizer'] == 'SGD':
-            momentum = self.conf['training']['momentum']
-            self.optimizer = torch.optim.SGD(weight_dicts, lr=self.lr,
-                                             momentum=momentum)
-
-        else:
-            raise NotImplementedError
-
-        self.max_epochs = conf['training']['max_epochs']
-        self.display_iter = conf['logging']['display_iter']
-        self.eval_iter = conf['logging']['eval_iter']
-        self.mayor_eval = conf['logging']['mayor_eval']
-        self.checkpoint_backup = conf['logging']['checkpoint_backup']
-        self.max_epoch_steps = conf['training']['max_epoch_steps']
-
-        self.checkpoint_name = os.path.join(self.model.logdir,
-                                            'checkpoint.pth.tar')
-
-        self.log_file = os.path.join(self.model.logdir, 'summary.log.hdf5')
-
-        self.epoch = 0
-        self.step = 0
-
-    def measure_data_loading_speed(self):
-        start_time = time.time()
-
-        for step, sample in enumerate(self.loader):
-
-            if step == 100:
-                break
-
-            logging.info("Processed example: {}".format(step))
-
-        duration = time.time() - start_time
-        logging.info("Loading 100 examples took: {}".format(duration))
-
-        start_time = time.time()
-
-        for step, sample in enumerate(self.loader):
-
-            if step == 100:
-                break
-
-            logging.info("Processed example: {}".format(step))
-
-        duration = time.time() - start_time
-        logging.info("Loading 100 examples took: {}".format(duration))
-
-    def update_lr(self):
-
-        conf = self.conf['training']
-        lr_schedule = conf['lr_schedule']
-
-        if lr_schedule == "constant":
-            self.step = self.step + 1
-            return
-            pass
-        elif lr_schedule == "poly":
-            self.step = self.step + 1
-            base = conf['base']
-            base_lr = conf['learning_rate']
-            step = self.step
-            mstep = self.max_steps
-            if conf['base2'] is None:
-                lr = base_lr * (1 - step / mstep)**base
-            else:
-                lr = base_lr * ((1 - step / mstep)**base)**conf['base2']
-        elif lr_schedule == "exp":
-            self.step = self.step + 1
-            exp = conf['exp']
-            base_lr = conf['learning_rate']
-            step = self.step
-            mstep = self.max_steps
-
-            lr = base_lr * 10**(- exp * step / mstep)
-        else:
-            raise NotImplementedError
-
-        _set_lr(self.optimizer, lr)
-
-        return lr
-
-    def get_lr(self):
-        return self.optimizer.param_groups[0]['lr']
-
-    def train(self, max_epochs=None):
-        self.model.cuda()
-
-        if max_epochs is None:
-            max_epochs = self.max_epochs
-
-        if self.max_epoch_steps is None:
-            epoch_steps = len(self.loader)
-            if epoch_steps > 1:
-                epoch_steps = epoch_steps - 1
-            count_steps = range(1, epoch_steps + 1)
-        else:
-            count_steps = range(1, self.max_epoch_steps + 1)
-            epoch_steps = self.max_epoch_steps
-
-        self.max_steps = epoch_steps * max_epochs
-        self.max_steps_lr = epoch_steps * \
-            (max_epochs + self.conf['training']['lr_offset_epochs'])
-
-        assert(self.step >= self.epoch)
-
-        if self.epoch > 0:
-            logging.info('Continue Training from {}'.format(self.epoch))
-        else:
-            logging.info("Start Training")
-            if self.conf['training']['pre_eval']:
-                self.model.evaluate()
-
-        for epoch in range(self.epoch, max_epochs):
-            start_time = time.time()
-            epoche_time = time.time()
-            losses = []
-
-            for step, sample in zip(count_steps, self.loader):
-
-                # Do forward pass
-                img_var = Variable(sample['image']).cuda()
-                pred = self.model(img_var)
-
-                # Compute and print loss.
-                loss = self.model.loss(pred, Variable(sample['label']).cuda())
-
-                # Do backward and weight update
-                self.update_lr()
-                self.optimizer.zero_grad()
-                loss.backward()
-
-                clip_norm = self.conf['training']['clip_norm']
-                if clip_norm is not None:
-                    totalnorm = torch.nn.utils.clip_grad.clip_grad_norm(
-                        self.model.parameters(), clip_norm)
-                else:
-                    totalnorm = - 1.0  # Norm is not computed.
-
-                self.optimizer.step()
-
-                if step % self.display_iter == 0:
-                    # Printing logging information
-                    duration = (time.time() - start_time) / self.display_iter
-                    imgs_per_sec = self.bs / duration
-
-                    log_str = ("Epoch [{:3d}/{:3d}][{:4d}/{:4d}] "
-                               " Loss: {:.2f} LR: {:.3E}  TotalNorm: {:2.1f}"
-                               " Speed: {:.1f} imgs/sec ({:.3f} sec/batch)")
-
-                    losses.append(loss.data[0])
-
-                    lr = self.get_lr()
-
-                    for_str = log_str.format(
-                        epoch + 1, max_epochs, step, epoch_steps, loss.data[0],
-                        lr, totalnorm, imgs_per_sec, duration)
-
-                    logging.info(for_str)
-
-                    start_time = time.time()
-                    pass
-
-            gc.collect()
-
-            # Epoche Finished
-            duration = (time.time() - epoche_time) / 60
-            logging.info("Finished Epoch {} in {} minutes"
-                         .format(epoch, duration))
-            self.epoch = epoch + 1
-
-            if self.epoch % self.eval_iter == 0 or self.epoch == max_epochs:
-
-                level = self.conf['evaluation']['default_level']
-                if self.epoch % self.mayor_eval == 0 or \
-                        self.epoch == max_epochs:
-                    level = 'mayor'
-                self.logger.init_step(epoch)
-                self.logger.add_value(losses, 'loss', epoch)
-                self.model.evaluate(epoch, level=level)
-                if self.conf['logging']['log']:
-                    logging.info("Saving checkpoint to: {}".format(
-                        self.model.logdir))
-                    # Save Checkpoint
-                    self.logger.save(filename=self.log_file)
-                    state = {
-                        'epoch': epoch + 1,
-                        'step': self.step,
-                        'conf': self.conf,
-                        'state_dict': self.model.state_dict(),
-                        'optimizer': self.optimizer.state_dict()}
-
-                    torch.save(state, self.checkpoint_name)
-                    logging.info("Checkpoint saved sucessfully.")
-                else:
-                    logging.info("Output can be found: {}".format(
-                        self.model.logdir))
-
-            if self.epoch % self.checkpoint_backup == 0:
-                name = 'checkpoint_{:04d}.pth.tar'.format(self.epoch)
-                checkpoint_name = os.path.join(
-                    self.model.logdir, name)
-
-                self.logger.save(filename=self.log_file)
-                state = {
-                    'epoch': epoch + 1,
-                    'step': self.step,
-                    'conf': self.conf,
-                    'state_dict': self.model.state_dict(),
-                    'optimizer': self.optimizer.state_dict()}
-                torch.save(state, checkpoint_name)
-
-                torch.save(state, self.checkpoint_name)
-                logging.info("Checkpoint saved sucessfully.")
 
 
 if __name__ == '__main__':
