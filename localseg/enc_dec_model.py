@@ -36,6 +36,8 @@ def get_network(conf):
     conf['decoder']['label_encoding'] = conf['dataset']['label_encoding']
     conf['decoder']['grid_dims'] = conf['dataset']['grid_dims']
 
+    conf['decoder']['loss_type'] = conf['loss']['type']
+
     decoder = segdecoder.fcn.FCN(
         num_classes=nclasses, scale_dict=channel_dict,
         conf=conf['decoder'])

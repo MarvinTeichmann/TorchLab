@@ -175,6 +175,11 @@ class SegModel(nn.Module):
             self.trainloader = loader2.get_data_loader(
                 conf['dataset'], split='train', batch_size=bs)
             Trainer = WarpingSegTrainer # NOQA
+
+            if self.conf['loss']['type'] == 'magic':
+                self.magic = True
+            else:
+                self.magic = False
         else:
             raise NotImplementedError
 
@@ -210,6 +215,9 @@ class SegModel(nn.Module):
         if self.label_encoding == 'dense':
             par_loss = parallel.CriterionDataParallel(
                 loss.CrossEntropyLoss2d(), device_ids=device_ids)
+        elif self.magic:
+            par_loss = parallel.CriterionDataParallel(
+                loss.CrossEntropyLoss2d(), device_ids=device_ids)
         elif self.label_encoding == 'spatial_2d':
             border = self.conf['loss']['border']
             grid_size = self.conf['dataset']['grid_size']
@@ -220,11 +228,17 @@ class SegModel(nn.Module):
             raise NotImplementedError
 
         if conf['modules']['loss'] == 'warped':
+            grid_size = self.conf['dataset']['grid_size']
             if self.conf['loss']['type'] == 'triplet':
                 self.triplet_loss = loss.TripletLossWithMask(
                     grid_size=grid_size)
             elif self.conf['loss']['type'] == 'squeeze':
                 self.squeeze_loss = loss.TruncatedHingeLoss2dMask(
+                    grid_size=grid_size)
+            elif self.conf['loss']['type'] == 'magic':
+                self.corner_loss = loss.CornerLoss(
+                    grid_size=grid_size)
+                self.magic_squeeze = loss.TruncatedHingeLoss2dMask(
                     grid_size=grid_size)
 
         return par_loss
@@ -267,7 +281,35 @@ class SegModel(nn.Module):
             return logits, pred
 
         elif self.label_encoding == 'spatial_2d':
+
             sem_logits = self.model(img)
+
+            if self.magic:
+
+                gdims = self.conf['dataset']['grid_dims']
+
+                assert sem_logits.shape[1] == self.num_classes + gdims
+
+                pred_logits = sem_logits[:, :self.num_classes]
+                triplet_logits = sem_logits[:, self.num_classes:]
+
+                assert pred_logits.shape[1] == self.num_classes
+                assert triplet_logits.shape[1] == gdims
+
+                pred = sem_logits.max(1)[1]
+
+                assert gdims == 2
+
+                rclasses = self.conf['dataset']['root_classes']
+                gsize = self.conf['dataset']['grid_size']
+
+                d1 = (pred % rclasses + 0.5) * gsize
+                d2 = (pred // rclasses + 0.5) * gsize
+                props = torch.stack([d1, d2], dim=1).float()
+
+                props = props + triplet_logits
+
+                return props, pred
 
             norm_dims = sem_logits / self.conf['dataset']['grid_size']
             rclasses = self.conf['dataset']['root_classes']

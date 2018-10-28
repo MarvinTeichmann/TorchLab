@@ -53,6 +53,27 @@ class HingeLoss2d(_WeightedLoss):
         return torch.mean(mask.float() * loss)
 
 
+class CornerLoss(_WeightedLoss):
+
+    def __init__(self, weight=None,
+                 reduction='elementwise_mean',
+                 border=0.1, grid_size=1):
+        super(CornerLoss, self).__init__(
+            weight, reduction='elementwise_mean')
+
+        self.grid_size = grid_size
+        self.margin = grid_size / 2 - border * grid_size
+
+    def forward(self, input):
+        # _assert_no_grad(target)
+
+        assert self.margin < self.grid_size / 2
+
+        loss = (torch.abs(0.0 - input) - self.margin).clamp(min=0)
+
+        return torch.mean(loss)
+
+
 class TruncatedHingeLoss2d(_WeightedLoss):
 
     def __init__(self, weight=None,

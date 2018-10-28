@@ -295,14 +295,18 @@ class WarpingSegTrainer(SegmentationTrainer):
 
         with torch.no_grad():
 
+            if self.model.magic:
+                raise NotImplementedError
+
             img_var = Variable(sample['image_orig']).cuda()
-            pred_orig = self.model(img_var)
+            pred_orig = self.model(img_var)[
+                :, -self.conf['dataset']['grid_dims']:]
 
             warp_ids = sample['warp_ids'].cuda()
             warped = torch.zeros_like(sample['label']).cuda().float()
             ign = sample['warp_ign'].cuda()
 
-            for i in range(2):
+            for i in range(self.conf['dataset']['grid_dims']):
                 warped[:, i][~ign] = pred_orig[:, i].flatten()[
                     warp_ids[~ign]]
 
