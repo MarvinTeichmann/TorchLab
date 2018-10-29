@@ -165,23 +165,24 @@ class SegModel(nn.Module):
         # Load Dataset
         bs = conf['training']['batch_size']
 
-        if conf['modules']['loss'] == 'xentropy':
+        if conf['modules']['loader'] == 'standard':
             self.loader = loader
             self.trainloader = loader.get_data_loader(
                 conf['dataset'], split='train', batch_size=bs)
             Trainer = SegmentationTrainer # NOQA
-        elif conf['modules']['loss'] == 'warped':
+        elif conf['modules']['loader'] == 'warping':
             self.loader = loader2
             self.trainloader = loader2.get_data_loader(
                 conf['dataset'], split='train', batch_size=bs)
             Trainer = WarpingSegTrainer # NOQA
 
-            if self.conf['loss']['type'] == 'magic':
-                self.magic = True
-            else:
-                self.magic = False
         else:
             raise NotImplementedError
+
+        if self.conf['loss']['type'] == 'magic':
+            self.magic = True
+        else:
+            self.magic = False
 
         assert conf['dataset']['label_encoding'] in ['dense', 'spatial_2d']
         self.label_encoding = conf['dataset']['label_encoding']
@@ -190,7 +191,8 @@ class SegModel(nn.Module):
         assert conf['modules']['model'] in ['mapillary', 'end_dec']
 
         if conf['modules']['model'] == 'mapillary':
-            conf['encoder']['num_classes'] = conf['dataset']['num_classes']
+            conf['encoder']['num_classes'] = self._get_decoder_classes(conf)
+            conf['encoder']['upsample'] = conf['decoder']['upsample']
             from localseg.mapillary import model
             self.model = model.get_network(conf=conf['encoder']).cuda()
             device_ids = None
@@ -203,6 +205,17 @@ class SegModel(nn.Module):
 
         self.loss = self._make_loss(conf, device_ids)
 
+        if conf['modules']['loader'] == 'warping':
+            grid_size = self.conf['dataset']['grid_size']
+            if self.conf['loss']['type'] == 'triplet' or self.magic:
+                self.triplet_loss = loss.TripletLossWithMask(
+                    grid_size=grid_size)
+            elif self.conf['loss']['type'] == 'squeeze':
+                self.squeeze_loss = loss.TruncatedHingeLoss2dMask(
+                    grid_size=grid_size)
+            else:
+                raise NotImplementedError
+
         self.label_coder = LabelCoding(conf['dataset'])
 
         self._load_pretrained_weights(conf)
@@ -212,10 +225,13 @@ class SegModel(nn.Module):
         self.evaluator = evaluator.MetaEvaluator(conf, self)
 
     def _make_loss(self, conf, device_ids):
+
+        if self.magic:
+            return self._magic_loss(conf, device_ids)
+
         if self.label_encoding == 'dense':
             par_loss = parallel.CriterionDataParallel(
                 loss.CrossEntropyLoss2d(), device_ids=device_ids)
-        elif self.magic:
             par_loss = parallel.CriterionDataParallel(
                 loss.CrossEntropyLoss2d(), device_ids=device_ids)
         elif self.label_encoding == 'spatial_2d':
@@ -227,21 +243,51 @@ class SegModel(nn.Module):
         else:
             raise NotImplementedError
 
-        if conf['modules']['loss'] == 'warped':
-            grid_size = self.conf['dataset']['grid_size']
-            if self.conf['loss']['type'] == 'triplet':
-                self.triplet_loss = loss.TripletLossWithMask(
-                    grid_size=grid_size)
-            elif self.conf['loss']['type'] == 'squeeze':
-                self.squeeze_loss = loss.TruncatedHingeLoss2dMask(
-                    grid_size=grid_size)
-            elif self.conf['loss']['type'] == 'magic':
-                self.corner_loss = loss.CornerLoss(
-                    grid_size=grid_size)
-                self.magic_squeeze = loss.TruncatedHingeLoss2dMask(
-                    grid_size=grid_size)
-
         return par_loss
+
+    def _get_decoder_classes(self, conf):
+        if conf['dataset']['label_encoding'] == 'dense':
+            return self.num_classes
+        elif self.magic:
+            return self.num_classes + conf['dataset']['grid_dims']
+        elif conf['dataset']['label_encoding'] == 'spatial_2d':
+            return conf['dataset']['grid_dims']
+
+    def _magic_loss(self, conf, device_ids):
+
+        num_classes = self.num_classes
+        rclasses = self.conf['dataset']['root_classes']
+        grid_size = self.conf['dataset']['grid_size']
+
+        ignore_idx = (-100 + rclasses * -100) // grid_size
+        xentropy = loss.CrossEntropyLoss2d(ignore_index=ignore_idx)
+
+        border = self.conf['loss']['border']
+        grid_size = self.conf['dataset']['grid_size']
+
+        corner = loss.CornerLoss(border=border, grid_size=grid_size)
+
+        assert self.conf['dataset']['grid_dims'] == 2
+
+        def total_loss(input, target):
+
+            self.num_classes
+
+            class_pred = input[:, :num_classes]
+
+            norm_target = target / grid_size
+            class_target = norm_target[:, 0].int() + \
+                rclasses * norm_target[:, 1].int()
+
+            triplet_logits = input[:, num_classes:]
+
+            loss1 = xentropy(class_pred, class_target.long())
+
+            loss2 = corner(triplet_logits)
+
+            return loss1 + loss2
+
+        return total_loss
 
     def _assert_num_gpus(self, conf):
         torch.cuda.device_count()
@@ -296,16 +342,17 @@ class SegModel(nn.Module):
                 assert pred_logits.shape[1] == self.num_classes
                 assert triplet_logits.shape[1] == gdims
 
-                pred = sem_logits.max(1)[1]
+                pred = pred_logits.max(1)[1]
 
                 assert gdims == 2
 
                 rclasses = self.conf['dataset']['root_classes']
                 gsize = self.conf['dataset']['grid_size']
 
-                d1 = (pred % rclasses + 0.5) * gsize
-                d2 = (pred // rclasses + 0.5) * gsize
-                props = torch.stack([d1, d2], dim=1).float()
+                d1 = (pred.float() % rclasses + 0.5) * gsize
+                d2 = (pred.float() // rclasses + 0.5) * gsize
+
+                props = torch.stack([d1, d2], dim=1)
 
                 props = props + triplet_logits
 

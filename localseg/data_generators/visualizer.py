@@ -100,8 +100,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
             return self.id2color(id_image=pred_hard, mask=mask)
         elif self.label_type == 'spatial_2d':
             # TODO: Does not work with larger scale.
-            pred_id = pred[0].astype(np.int) + \
-                self.conf['root_classes'] * pred[1].astype(np.int)
+            pred_id = self.label_coder.space2id(pred)
             return self.id2color(id_image=pred_id, mask=mask)
         else:
             raise NotImplementedError

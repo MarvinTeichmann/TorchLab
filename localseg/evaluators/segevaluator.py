@@ -294,15 +294,9 @@ class Evaluator():
                     label = sample['label'][d].numpy()
                     mask = label != self.ignore_idx
                 elif self.conf['dataset']['label_encoding'] == 'spatial_2d':
-                    raise NotImplementedError
 
-                    hard_pred = self.label_coder.space2id(pred)
+                    hard_pred = pred
 
-                    false_pred = hard_pred < 0
-                    hard_pred[false_pred] = self.num_classes
-
-                    false_pred = hard_pred > self.num_classes
-                    hard_pred[false_pred] = self.num_classes
                     label = sample['label'][d].numpy()
                     mask = label[0] != self.ignore_idx
 

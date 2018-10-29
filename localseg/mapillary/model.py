@@ -143,8 +143,9 @@ class SegmentationModule(nn.Module):
         if True:
 
             sem_logits = self._network(imgs, 1)
-            sem_logits = functional.upsample(
-                sem_logits, size=out_size, mode="bilinear")
+            if self.conf['upsample']:
+                sem_logits = functional.upsample(
+                    sem_logits, size=out_size, mode="bilinear")
 
         return sem_logits
 

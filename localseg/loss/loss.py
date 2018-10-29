@@ -69,7 +69,7 @@ class CornerLoss(_WeightedLoss):
 
         assert self.margin < self.grid_size / 2
 
-        loss = (torch.abs(0.0 - input) - self.margin).clamp(min=0)
+        loss = (torch.abs(0.0 - input) - self.margin).clamp(min=0)**2
 
         return torch.mean(loss)
 

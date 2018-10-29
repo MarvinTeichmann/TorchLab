@@ -296,7 +296,7 @@ class WarpingSegTrainer(SegmentationTrainer):
         with torch.no_grad():
 
             if self.model.magic:
-                raise NotImplementedError
+                pass
 
             img_var = Variable(sample['image_orig']).cuda()
             pred_orig = self.model(img_var)[
@@ -361,6 +361,19 @@ class WarpingSegTrainer(SegmentationTrainer):
                 label, pred, positive, positive, mask, ign)
             triplet_loss = self.model.squeeze_loss(pred, warped, mask)
             # triplet_loss = self.model.squeeze_loss(pred, warped, ign)
+        elif self.conf['loss']['type'] == 'magic':
+            loss_name = 'TripletLoss'
+
+            num_classes = self.model.num_classes
+            triplet_logits = pred[:, num_classes:]
+
+            positive = warped
+            negative, mask = self.warper.warp2(label, triplet_logits)
+
+            mask = torch.all(
+                torch.stack([mask, 1 - ign]), dim=0)
+            triplet_loss = self.model.triplet_loss(
+                triplet_logits, positive, negative, mask)
         else:
             raise NotImplementedError
 
