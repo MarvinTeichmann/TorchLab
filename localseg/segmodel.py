@@ -207,12 +207,17 @@ class SegModel(nn.Module):
 
         if conf['modules']['loader'] == 'warping':
             grid_size = self.conf['dataset']['grid_size']
+            inner = self.conf['loss']['inner_factor']
             if self.conf['loss']['type'] == 'triplet' or self.magic:
-                self.triplet_loss = loss.TripletLossWithMask(
-                    grid_size=grid_size)
+                if self.conf['loss']['squeeze']:
+                    self.triplet_loss = loss.TripletSqueezeLoss(
+                        grid_size=grid_size, inner_factor=inner)
+                else:
+                    self.triplet_loss = loss.TripletLossWithMask(
+                        grid_size=grid_size)
             elif self.conf['loss']['type'] == 'squeeze':
                 self.squeeze_loss = loss.TruncatedHingeLoss2dMask(
-                    grid_size=grid_size)
+                    grid_size=grid_size, inner_factor=inner)
             else:
                 raise NotImplementedError
 

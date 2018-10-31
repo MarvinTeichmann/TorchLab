@@ -214,7 +214,8 @@ class SegmentationTrainer():
         else:
             logging.info("Start Training")
             if self.conf['training']['pre_eval']:
-                self.model.evaluate()
+                level = self.conf['evaluation']['default_level']
+                self.model.evaluate(level=level)
 
         for epoch in range(self.epoch, max_epochs):
             epoche_time = time.time()

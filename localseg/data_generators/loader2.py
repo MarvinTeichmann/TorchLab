@@ -84,6 +84,9 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
         """
         super().__init__(conf=conf, split=split, lst_file=lst_file)
 
+        self.colour_aug = True
+        self.shape_aug = True
+
         logging.info("Warping Version of the Dataset loaded.")
 
     def __getitem__(self, idx):
@@ -220,93 +223,92 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
         if self.split == 'train':
 
             image_orig = image.copy()
-            image, gt_image = self.color_transform(image, gt_image)
 
-            if transform['random_flip']:
-                if random.random() > 0.5:
-                    load_dict['flipped'] = True
-                    image = np.fliplr(image).copy()
-                    gt_image = np.fliplr(gt_image).copy()
-                    warp_img = np.fliplr(warp_img).copy()
-                else:
-                    load_dict['flipped'] = False
+            if self.colour_aug:
+                image, gt_image = self.color_transform(image, gt_image)
 
-            if transform['random_roll']:
-                if random.random() > 0.6:
-                    image, gt_image, warp_img = roll_img(
+            if self.shape_aug:
+
+                if transform['random_flip']:
+                    if random.random() > 0.5:
+                        load_dict['flipped'] = True
+                        image = np.fliplr(image).copy()
+                        gt_image = np.fliplr(gt_image).copy()
+                        warp_img = np.fliplr(warp_img).copy()
+                    else:
+                        load_dict['flipped'] = False
+
+                if transform['random_roll']:
+                    if random.random() > 0.6:
+                        image, gt_image, warp_img = roll_img(
+                            image, gt_image, warp_img)
+
+                shape_distorted = True
+
+                if transform['equirectangular']:
+                    raise NotImplementedError
+                    image, gt_image, warp_img = random_equi_rotation(
                         image, gt_image, warp_img)
 
-            shape_distorted = True
+                if transform['random_rotation']:
 
-            if transform['equirectangular']:
-                raise NotImplementedError
-                image, gt_image, warp_img = random_equi_rotation(
-                    image, gt_image, warp_img)
+                    image, gt_image, warp_img = random_rotation(
+                        image, gt_image, warp_img)
+                    shape_distorted = True
 
-            if transform['random_rotation']:
+                if transform['random_resize']:
+                    lower_size = transform['lower_fac']
+                    upper_size = transform['upper_fac']
+                    sig = transform['resize_sig']
+                    image, gt_image, warp_img = random_resize(
+                        image, gt_image, warp_img, lower_size, upper_size, sig)
+                    shape_distorted = True
 
-                image, gt_image, warp_img = random_rotation(
-                    image, gt_image, warp_img)
-                shape_distorted = True
+                if transform['random_crop']:
+                    max_crop = transform['max_crop']
+                    crop_chance = transform['crop_chance']
+                    image, gt_image, warp_img = random_crop_soft(
+                        image, gt_image, warp_img, max_crop, crop_chance)
+                    shape_distorted = True
 
-            if transform['random_resize']:
-                lower_size = transform['lower_fac']
-                upper_size = transform['upper_fac']
-                sig = transform['resize_sig']
-                image, gt_image, warp_img = random_resize(
-                    image, gt_image, warp_img, lower_size, upper_size, sig)
-                shape_distorted = True
+                if transform['fix_shape'] and shape_distorted:
+                    patch_size = transform['patch_size']
+                    image, gt_image, warp_img = crop_to_size(
+                        image, gt_image, warp_img, patch_size)
 
-            if transform['random_crop']:
-                max_crop = transform['max_crop']
-                crop_chance = transform['crop_chance']
-                image, gt_image, warp_img = random_crop_soft(
-                    image, gt_image, warp_img, max_crop, crop_chance)
-                shape_distorted = True
+                image_orig = image_orig.transpose((2, 0, 1))
+                image_orig = image_orig / 255
+                if transform['normalize']:
+                    mean = np.array(transform['mean']).reshape(3, 1, 1)
+                    std = np.array(transform['std']).reshape(3, 1, 1)
+                    image_orig = (image_orig - mean) / std
+                image_orig = image_orig.astype(np.float32)
 
-            if transform['fix_shape'] and shape_distorted:
-                patch_size = transform['patch_size']
-                image, gt_image, warp_img = crop_to_size(
-                    image, gt_image, warp_img, patch_size)
+                if transform['fix_shape']:
+                    if image.shape[0] < transform['patch_size'][0] or \
+                            image.shape[1] < transform['patch_size'][1]:
+                        new_shape = transform['patch_size'] + [3]
+                        new_img = 127 * np.ones(shape=new_shape,
+                                                dtype=np.float32)
 
-            assert(not (transform['fix_shape'] and transform['reseize_image']))
+                        new_gt = 0 * np.ones(shape=new_shape,
+                                             dtype=gt_image.dtype)
+                        new_warp = 255 * np.ones(shape=new_shape,
+                                                 dtype=warp_img.dtype)
+                        shape = image.shape
 
-            image_orig = image_orig.transpose((2, 0, 1))
-            image_orig = image_orig / 255
-            if transform['normalize']:
-                mean = np.array(transform['mean']).reshape(3, 1, 1)
-                std = np.array(transform['std']).reshape(3, 1, 1)
-                image_orig = (image_orig - mean) / std
-            image_orig = image_orig.astype(np.float32)
+                        assert(new_shape[0] >= shape[0])
+                        assert(new_shape[1] >= shape[1])
+                        pad_h = (new_shape[0] - shape[0]) // 2
+                        pad_w = (new_shape[1] - shape[1]) // 2
 
-        if transform['fix_shape']:
-            if image.shape[0] < transform['patch_size'][0] or \
-                    image.shape[1] < transform['patch_size'][1]:
-                new_shape = transform['patch_size'] + [3]
-                new_img = 127 * np.ones(shape=new_shape, dtype=np.float32)
+                        new_img[pad_h:pad_h + shape[0], pad_w:pad_w + shape[1]] = image # NOQA
+                        new_gt[pad_h:pad_h + shape[0], pad_w:pad_w + shape[1]] = gt_image  # NOQA
+                        new_warp[pad_h:pad_h + shape[0], pad_w:pad_w + shape[1]] = warp_img # NOQA
 
-                new_gt = 0 * np.ones(shape=new_shape,
-                                     dtype=gt_image.dtype)
-                new_warp = 255 * np.ones(shape=new_shape,
-                                         dtype=warp_img.dtype)
-                shape = image.shape
-
-                assert(new_shape[0] >= shape[0])
-                assert(new_shape[1] >= shape[1])
-                pad_h = (new_shape[0] - shape[0]) // 2
-                pad_w = (new_shape[1] - shape[1]) // 2
-
-                new_img[pad_h:pad_h + shape[0], pad_w:pad_w + shape[1]] = image
-                new_gt[pad_h:pad_h + shape[0], pad_w:pad_w + shape[1]] = gt_image  # NOQA
-                new_warp[pad_h:pad_h + shape[0], pad_w:pad_w + shape[1]] = warp_img # NOQA
-
-                image = new_img
-                gt_image = new_gt
-                warp_img = new_warp
-
-        if transform['reseize_image']:
-            image, gt_image, warp_img = self.resize_label_image(
-                image, gt_image, warp_img)
+                        image = new_img
+                        gt_image = new_gt
+                        warp_img = new_warp
 
         warp_img = warp_img.astype(np.int)
 

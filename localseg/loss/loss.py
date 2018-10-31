@@ -74,25 +74,6 @@ class CornerLoss(_WeightedLoss):
         return torch.mean(loss)
 
 
-class TruncatedHingeLoss2d(_WeightedLoss):
-
-    def __init__(self, weight=None,
-                 reduction='elementwise_mean', margin=0.05):
-        super().__init__(weight, reduction='elementwise_mean')
-        self.margin = margin
-
-    def forward(self, input, target, ignore):
-        # _assert_no_grad(target)
-
-        assert self.margin == 0.05
-
-        loss = (torch.abs(target - input) - self.margin).clamp(0, 1)
-
-        mask = (1 - ignore.unsqueeze(1)).float()
-
-        return torch.mean(mask * loss)
-
-
 class TruncatedHingeLoss2dMask(_WeightedLoss):
 
     def __init__(self, weight=None,
@@ -124,10 +105,10 @@ class TripletLossWithMask(_Loss):
     """docstring for TripletLossWithMask"""
 
     def __init__(self, grid_size=1, p=2, eps=1e-6, swap=False,
-                 reduction='elementwise_mean'):
+                 inner_factor=50, reduction='elementwise_mean'):
         super(TripletLossWithMask, self).__init__()
 
-        margin = grid_size / 10
+        margin = grid_size / inner_factor
 
         assert reduction == 'elementwise_mean'
 
@@ -138,7 +119,29 @@ class TripletLossWithMask(_Loss):
 
         loss = self.TripletLoss(anchor, positive, negative)
 
-        return torch.mean(mask.float() * loss.clamp(max=1))
+        return torch.mean(mask.float() * loss)
+
+
+class TripletSqueezeLoss(_Loss):
+    """docstring for TripletLossWithMask"""
+
+    def __init__(self, grid_size=1, p=2, eps=1e-6, swap=False,
+                 inner_factor=50, reduction='elementwise_mean'):
+        super(TripletSqueezeLoss, self).__init__()
+
+        self.grid_size = grid_size
+        self.margin = grid_size / inner_factor
+
+        assert reduction == 'elementwise_mean'
+
+    def forward(self, anchor, positive, negative, mask):
+
+        loss_pos = (torch.abs(positive - anchor) - self.margin).clamp(0)
+        loss_neg = (-2 * (torch.abs(negative - anchor) - self.margin)).clamp(0)
+
+        loss = loss_pos.sum(dim=1) + loss_neg.min(dim=1)[0]
+
+        return torch.mean(mask.float() * loss)
 
 
 class CrossEntropyLoss2d(_WeightedLoss):

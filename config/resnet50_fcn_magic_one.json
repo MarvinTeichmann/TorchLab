@@ -69,8 +69,10 @@
 
     "loss":{
         "type": "magic",
+        "squeeze": true,
         "warp_dist": 48,
-        "border": 0.2
+        "border": 0.2,
+        "inner_factor": 50
     },
 
     "training": {

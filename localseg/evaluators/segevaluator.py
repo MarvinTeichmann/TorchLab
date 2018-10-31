@@ -21,6 +21,7 @@ import torch.nn as nn
 import time
 
 from localseg.evaluators.metric import SegmentationMetric as IoU
+from localseg.evaluators.warpeval import WarpEvaluator
 
 import pyvision
 from pyvision import pretty_printer as pp
@@ -67,6 +68,10 @@ class MetaEvaluator(object):
             conf, model, train_file, train_iter, name="Train", split="train",
             imgdir=self.imgdir)
 
+        self.warp_evaluator = WarpEvaluator(
+            conf, model, val_file, train_iter, name="warp", split="val",
+            imgdir=self.imgdir)
+
         self.evaluators = []
 
         self.logger = model.logger
@@ -87,6 +92,8 @@ class MetaEvaluator(object):
 
         logging.info("Evaluating Model on the Validation Dataset.")
 
+        self.warp_evaluator.evaluate(epoch=epoch, level=level)
+
         # logging.info("Evaluating Model on the Validation Dataset.")
         start_time = time.time()
         val_metric = self.val_evaluator.evaluate(epoch=epoch, level=level)
@@ -98,6 +105,7 @@ class MetaEvaluator(object):
 
         logging.info("Evaluating Model on the Training Dataset.")
         start_time = time.time()
+
         train_metric = self.train_evaluator.evaluate(epoch=epoch, level=level)
         duration = time.time() - start_time
         logging.info("Finished Training run in {} minutes.".format(
