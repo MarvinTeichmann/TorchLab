@@ -135,6 +135,85 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
 
         return sample
 
+    def get_flow(self, idx):
+
+        flow_dir = ("../propagated/mappings_mappings_v39_w_421_h_155_d_4")
+
+        image_filename, ids_filename = self.img_list[idx].split(" ")
+        image_filename = os.path.join(self.root_dir, image_filename)
+        ids_filename = os.path.join(self.root_dir, ids_filename)
+
+        image_filename2, ids_filename2 = self.img_list[idx + 1].split(" ")
+        image_filename2 = os.path.join(self.root_dir, image_filename2)
+        ids_filename2 = os.path.join(self.root_dir, ids_filename2)
+
+        flow_name = os.path.basename(image_filename2.split('.')[0]) + "_OR_" \
+            + os.path.basename(image_filename).split('.')[0] + ".bix"
+
+        flow_file = os.path.join(os.path.dirname(image_filename),
+                                 flow_dir, flow_name)
+
+        output = {'idx': idx}
+
+        #  ----------converting binary mapping file into an array--------
+        with open(flow_file, 'rb') as f:
+            data = f.read()
+            f.close()
+
+        image = scp.misc.imread(image_filename)
+        ids_image = scp.misc.imread(ids_filename)
+
+        image2 = scp.misc.imread(image_filename2)
+        # ids_image2 = scp.misc.imread(ids_filename2)
+
+        h, w, c = ids_image.shape
+
+        flow = np.frombuffer(data, dtype=np.int32)
+        flow = np.reshape(flow, (h, w, 2))
+
+        transform = self.conf['transform']
+        if transform['presize'] is not None:
+            image = scipy.misc.imresize(
+                image, size=transform['presize'], interp='cubic')
+            image2 = scipy.misc.imresize(
+                image2, size=transform['presize'], interp='cubic')
+            flow = self._resize_flow(flow, transform['presize'])
+        output['flow'] = flow
+
+        h, w, c = image.shape
+
+        listgrid = np.meshgrid(
+            np.arange(w), np.arange(h))
+        grid = np.stack([listgrid[1], listgrid[0]], axis=2)
+
+        mask1 = np.sum(np.abs(flow - grid), axis=2) < 50
+        assert np.mean(mask1) > 0.5
+
+        warped_img = image[flow[:, :, 0], flow[:, :, 1]] / 255
+        output['warped_img'] = warped_img
+
+        img2_norm = image2.transpose((2, 0, 1))
+        img2_norm = img2_norm / 255
+
+        output['image'] = img2_norm
+
+        output['mask'] = mask1
+
+        return output
+
+    def _resize_flow(self, flow, factor):
+
+        new_shape = (flow.shape * np.array([factor, factor, 1])).astype(
+            np.uint32)
+
+        flow_ones = flow.astype(np.float) / np.max(flow)
+        flow_out = skimage.transform.resize(
+            flow_ones, new_shape, order=0, mode='reflect', anti_aliasing=False)
+        flow2 = (flow_out * np.max(flow)) * factor
+        flow2 = (flow2 + 0.4).astype(np.int32)
+
+        return flow2
+
     def _downsample_warp_img(self, warp_img, image):
         warp_img_down = scipy.misc.imresize(
             warp_img, size=1 / 8.0, interp='nearest')

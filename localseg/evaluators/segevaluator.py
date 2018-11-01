@@ -68,9 +68,11 @@ class MetaEvaluator(object):
             conf, model, train_file, train_iter, name="Train", split="train",
             imgdir=self.imgdir)
 
-        self.warp_evaluator = WarpEvaluator(
-            conf, model, val_file, train_iter, name="warp", split="val",
-            imgdir=self.imgdir)
+        if self.conf['modules']['loader'] == "warping":
+
+            self.warp_evaluator = WarpEvaluator(
+                conf, model, val_file, train_iter, name="warp", split="val",
+                imgdir=self.imgdir)
 
         self.evaluators = []
 
@@ -92,7 +94,9 @@ class MetaEvaluator(object):
 
         logging.info("Evaluating Model on the Validation Dataset.")
 
-        self.warp_evaluator.evaluate(epoch=epoch, level=level)
+        if self.conf['modules']['loader'] == "warping":
+
+            self.warp_evaluator.evaluate(epoch=epoch, level=level)
 
         # logging.info("Evaluating Model on the Validation Dataset.")
         start_time = time.time()
