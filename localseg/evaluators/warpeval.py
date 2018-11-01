@@ -29,7 +29,7 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 class WarpEvaluator(object):
     """docstring for WarpEvaluator"""
     def __init__(self, conf, model, data_file, max_examples=None,
-                 name='', split="train", imgdir=None):
+                 name='', split="train", imgdir=None, use_flow=False):
 
         self.model = model
         self.conf = conf
@@ -37,6 +37,8 @@ class WarpEvaluator(object):
         self.imgdir = imgdir
 
         self.split = split
+
+        self.use_flow = use_flow
 
         self.imgs_minor = conf['evaluation']['imgs_minor']
 
@@ -121,7 +123,7 @@ class WarpEvaluator(object):
                 bprop, bpred = self._predict(sample['image'])
                 predictions.append(bprop)
 
-            if not level == 'one_image':
+            if not level == 'one_image' and self.use_flow:
                 global_idx = literal_eval(noaug['load_dict'][0])['idx']
 
                 augmented_dict = self.loader_noaug.dataset.get_flow(global_idx)

@@ -72,7 +72,8 @@ class MetaEvaluator(object):
 
             self.warp_evaluator = WarpEvaluator(
                 conf, model, val_file, train_iter, name="warp", split="val",
-                imgdir=self.imgdir)
+                imgdir=self.imgdir,
+                use_flow=conf['evaluation']['has_flow'])
 
         self.evaluators = []
 
