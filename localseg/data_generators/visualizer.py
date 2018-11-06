@@ -94,7 +94,7 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
 
         return figure
 
-    def pred2color_hard(self, pred, mask):
+    def pred2color_hard(self, pred, mask=None):
         if self.label_type == 'dense':
             pred_hard = np.argmax(pred, axis=0)
             return self.id2color(id_image=pred_hard, mask=mask)
@@ -456,6 +456,56 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         plt.xticks(np.arange(-2, self.conf['root_classes'] + 2, step=1))
         plt.yticks(np.arange(-2, self.conf['root_classes'] + 2, step=1))
         """
+
+        return figure
+
+    def plot_prediction_no_label(self, sample_batch, prediction, idx=0,
+                                 trans=0.5, figure=None):
+
+        if figure is None:
+            figure = plt.figure()
+            figure.tight_layout()
+
+        batch_size = len(sample_batch['load_dict'])
+        assert(idx < batch_size)
+
+        figure.set_size_inches(12, 6)
+        # figure.set_size_inches(16, 32)
+
+        load_dict = make_tuple(sample_batch['load_dict'][idx])
+
+        image = sample_batch['image'][idx].numpy().transpose(1, 2, 0)
+
+        image = 255 * image
+        image_orig = image.astype(np.uint8)
+
+        label = sample_batch['label'][idx].numpy()
+        if self.label_type == 'dense':
+            image = scp.misc.imresize(image, size=label.shape[:2])
+        elif self.label_type == 'spatial_2d':
+            image = scp.misc.imresize(image, size=label.shape[1:])
+
+        pred = prediction[idx]
+        # logging.info(pred)
+        idx = load_dict['idx']
+
+        coloured_hard = self.pred2color_hard(pred=pred)
+        coloured_hard_over = trans * image + (1 - trans) * coloured_hard
+
+        ax = figure.add_subplot(2, 1, 1)
+        ax.set_title('Image #{}'.format(idx))
+        ax.axis('off')
+        ax.imshow(image_orig)
+
+        ax = figure.add_subplot(2, 1, 2)
+        ax.set_title('Prediction (Overlay)')
+        ax.axis('off')
+        ax.imshow(coloured_hard_over.astype(np.uint8))
+
+        # ax = figure.add_subplot(3, 1, 2)
+        # ax.set_title('Prediction')
+        # ax.axis('off')
+        # ax.imshow(coloured_hard.astype(np.uint8))
 
         return figure
 
