@@ -67,7 +67,8 @@
     },
 
     "loss": {
-        "border": 0.05
+        "border": 0.05,
+        "type": "dense"
     },
 
     "training": {
