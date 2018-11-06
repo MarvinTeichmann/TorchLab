@@ -296,7 +296,7 @@ class WarpingSegTrainer(SegmentationTrainer):
 
     def do_training_step(self, step, sample, start_time):
 
-        with torch.no_grad():
+        with torch.set_grad_enabled(self.conf['loss']['backprop_orig']):
 
             if self.model.magic:
                 pass
@@ -313,7 +313,9 @@ class WarpingSegTrainer(SegmentationTrainer):
                 warped[:, i][~ign] = pred_orig[:, i].flatten()[
                     warp_ids[~ign]]
 
-            warped = warped.detach()
+            if not self.conf['loss']['backprop_orig']:
+
+                warped = warped.detach()
 
             if self.DEBUG and step == 1:
 
