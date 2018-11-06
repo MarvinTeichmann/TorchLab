@@ -8,7 +8,7 @@
     },
 
     "dataset" : {
-        "dataset": "camvid360",
+        "dataset": "camvid360_reduced",
         "train_file": null,
         "val_file": null,
 
@@ -37,8 +37,8 @@
             "upper_fac": 2,
             "resize_sig": 0.4,
             "random_flip": true,
-            "random_rotation": true,
-            "equirectangular": false,
+            "random_rotation": false,
+            "equirectangular": true,
             "normalize": false,
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
@@ -85,7 +85,7 @@
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": 1.0,
-        "max_epochs": 300,
+        "max_epochs": 3000,
         "pre_eval": false,
         "cnn_gpus": null,
         "max_epoch_steps": null,

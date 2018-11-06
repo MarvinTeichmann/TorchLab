@@ -2,7 +2,11 @@ import sys
 import numpy as np
 #import cv2
 #sys.path.append('/home/ibu6429/shared_file_system/code/math_functions/')
-from algebra import Algebra
+try:
+    from algebra import Algebra
+except ImportError:
+    from localseg.data_generators.algebra import Algebra
+
 
 def extractEquirectangular(wrap,source_image,result_image,euler_angles):
 	extractEquirectangular_quick(wrap,source_image,result_image,Algebra.rotation_matrix(euler_angles))

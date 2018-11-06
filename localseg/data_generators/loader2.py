@@ -46,7 +46,8 @@ try:
     from fast_equi import extractEquirectangular_quick
     from algebra import Algebra
 except ImportError:
-    pass
+    from localseg.data_generators.fast_equi import extractEquirectangular_quick
+    from localseg.data_generators.algebra import Algebra
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -325,9 +326,8 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
                 shape_distorted = True
 
                 if transform['equirectangular']:
-                    raise NotImplementedError
                     image, gt_image, warp_img = random_equi_rotation(
-                        image, gt_image, warp_img)
+                        image, gt_image, warp_img, load_dict)
 
                 if transform['random_rotation']:
 
@@ -422,21 +422,30 @@ def roll_img(image, gt_image, warp_img):
     return image_rolled, gt_image_rolled, warp_img_rolled
 
 
-def random_equi_rotation(image, gt_image):
-    raise NotImplementedError
+def random_equi_rotation(image, gt_image, warp_img, load_dict):
+
+    load_dict['equi'] = {}
     yaw = 2 * np.pi * random.random()
     roll = 2 * np.pi * (random.random() - 0.5) * 0.1
     pitch = 2 * np.pi * (random.random() - 0.5) * 0.1
 
+    load_dict['equi']['yaw'] = yaw
+    load_dict['equi']['roll'] = roll
+    load_dict['equi']['pitch'] = pitch
+
     rotation_angles = np.array([yaw, roll, pitch])
     image_res = np.zeros(image.shape)
     gtimage_res = np.zeros(gt_image.shape)
+    warp_img_res = np.zeros(warp_img.shape)
 
     extractEquirectangular_quick(
         True, image, image_res, Algebra.rotation_matrix(rotation_angles))
 
     extractEquirectangular_quick(
         True, gt_image, gtimage_res, Algebra.rotation_matrix(rotation_angles))
+
+    extractEquirectangular_quick(
+        True, warp_img, warp_img_res, Algebra.rotation_matrix(rotation_angles))
 
     gtimage_res = (gtimage_res + 0.1).astype(np.int32)
 
@@ -455,7 +464,7 @@ def random_equi_rotation(image, gt_image):
                         logging.error("Equirectangular removed classes.")
                     assert i in np.unique(gt_image)
 
-    return image_res, gtimage_res
+    return image_res, gtimage_res, warp_img_res
 
 
 def random_crop_soft(image, gt_image, warp_img, max_crop, crop_chance):

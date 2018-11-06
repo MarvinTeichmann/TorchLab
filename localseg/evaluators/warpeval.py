@@ -61,21 +61,21 @@ class WarpEvaluator(object):
 
         self.loader_noaug = loader.get_data_loader(
             conf['dataset'], split="train", batch_size=batch_size,
-            lst_file=data_file, shuffle=False)
+            lst_file=data_file, shuffle=False, pin_memory=False)
 
         self.loader_noaug.dataset.colour_aug = False
         self.loader_noaug.dataset.shape_aug = False
 
         self.loader_color_aug = loader.get_data_loader(
             conf['dataset'], split="train", batch_size=batch_size,
-            lst_file=data_file, shuffle=False)
+            lst_file=data_file, shuffle=False, pin_memory=False)
 
         self.loader_color_aug.dataset.colour_aug = True
         self.loader_color_aug.dataset.shape_aug = False
 
         self.loader_full_aug = loader.get_data_loader(
             conf['dataset'], split="train", batch_size=batch_size,
-            lst_file=data_file, shuffle=False)
+            lst_file=data_file, shuffle=False, pin_memory=False)
 
         self.loader_full_aug.dataset.colour_aug = True
         self.loader_full_aug.dataset.shape_aug = True

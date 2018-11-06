@@ -71,7 +71,7 @@
         "squeeze": true,
         "warp_dist": 32,
         "border": 0.2,
-        "inner_factor": 50
+        "inner_factor": 20
     },
 
     "training": {

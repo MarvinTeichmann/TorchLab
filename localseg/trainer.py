@@ -223,6 +223,8 @@ class SegmentationTrainer():
 
             start_time = time.time()
 
+            gc.collect()
+
             for step, sample in zip(count_steps, self.loader):
                 self.do_training_step(step, sample, start_time)
 
