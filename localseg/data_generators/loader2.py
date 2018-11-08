@@ -313,7 +313,7 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
 
             shape_aug = self.shape_aug
 
-            if shape_aug and transform['equi_crop']:
+            if shape_aug and transform['equi_crop']['do_equi']:
                 if random.random() < transform['equi_crop']['equi_chance']:
                     patch_size = transform['patch_size']
                     assert patch_size[0] == patch_size[1]

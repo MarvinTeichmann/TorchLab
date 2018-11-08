@@ -65,7 +65,7 @@ default_conf = {
 
     'transform': {
         "equi_crop": {
-            "do_equi": True,
+            "do_equi": False,
             "equi_chance": 1,
             "HFoV_range": [0.8, 2.5],
             "VFoV_range": [0.8, 2.5],
