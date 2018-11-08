@@ -45,9 +45,13 @@ except ImportError:
 try:
     from fast_equi import extractEquirectangular_quick
     from algebra import Algebra
+    from equirectangular_crops \
+        import equirectangular_crop_id_image, euler_to_mat
 except ImportError:
     from localseg.data_generators.fast_equi import extractEquirectangular_quick
     from localseg.data_generators.algebra import Algebra
+    from localseg.data_generators.equirectangular_crops \
+        import equirectangular_crop_id_image, euler_to_mat
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -307,7 +311,27 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
             if self.colour_aug:
                 image, gt_image = self.color_transform(image, gt_image)
 
-            if self.shape_aug:
+            shape_aug = self.shape_aug
+
+            if shape_aug and transform['equi_crop']:
+                if random.random() < transform['equi_crop']['equi_chance']:
+                    patch_size = transform['patch_size']
+                    assert patch_size[0] == patch_size[1]
+                    transform['equi_crop']['H_res'] = patch_size[0]
+                    transform['equi_crop']['W_res'] = patch_size[1]
+                    image, gt_image, warp_img = equi_crop(
+                        image, gt_image, warp_img, transform['equi_crop'])
+                    shape_aug = False
+
+                    image_orig = image_orig.transpose((2, 0, 1))
+                    image_orig = image_orig / 255
+                    if transform['normalize']:
+                        mean = np.array(transform['mean']).reshape(3, 1, 1)
+                        std = np.array(transform['std']).reshape(3, 1, 1)
+                        image_orig = (image_orig - mean) / std
+                    image_orig = image_orig.astype(np.float32)
+
+            if shape_aug:
 
                 if transform['random_flip']:
                     if random.random() > 0.5:
@@ -402,6 +426,31 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
         image = image.astype(np.float32)
 
         return image, image_orig, gt_image, warp_img, load_dict
+
+
+def equi_crop(image, gt_image, warp_img, conf):
+
+    equi_conf = conf.copy()
+
+    z = random.uniform(-0.1 * np.pi, 0.1 * np.pi) - np.pi / 2
+    y = random.uniform(-0.15 * np.pi, 0.15 * np.pi) + np.pi / 2
+    x = random.uniform(0, 2 * np.pi)
+    rotation = euler_to_mat(z, x, y)
+
+    equi_conf['R'] = rotation
+    rng = equi_conf['HFoV_range']
+    equi_conf['HFoV'] = random.uniform(rng[0], rng[1])
+
+    rng = equi_conf['VFoV_range']
+    equi_conf['VFoV'] = random.uniform(rng[0], rng[1])
+
+    id_image = equirectangular_crop_id_image(image, equi_conf)
+
+    eq_row = id_image // np.int32(image.shape[1])
+    eq_col = id_image % np.int32(image.shape[1])
+
+    return image[eq_row, eq_col], gt_image[eq_row, eq_col], \
+        warp_img[eq_row, eq_col]
 
 
 def roll_img(image, gt_image, warp_img):
@@ -652,6 +701,7 @@ if __name__ == '__main__':  # NOQA
 
     for i in range(100):
         test = loader[i]
+        scp.misc.imshow(test['image'])
 
     mylabel = test['label']
     '''

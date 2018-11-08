@@ -61,7 +61,17 @@ default_conf = {
     'idx_offset': 1,
     'num_classes': None,
 
+    'down_label': False,
+
     'transform': {
+        "equi_crop": {
+            "do_equi": True,
+            "equi_chance": 1,
+            "HFoV_range": [0.8, 2.5],
+            "VFoV_range": [0.8, 2.5],
+            "wrap": True,
+            "plane_f": 0.05
+        },
         'presize': 0.5,
         'color_augmentation_level': 1,
         'fix_shape': True,
@@ -184,6 +194,15 @@ class LocalSegmentationLoader(data.Dataset):
         if conf['dataset'] == 'camvid360_reduced':
             conf['train_file'] = 'datasets/camvid360_prop3_reduced.lst'
             conf['val_file'] = 'datasets/camvid360_prop3_reduced.lst'
+            conf['vis_file'] = 'datasets/camvid360_classes.lst'
+
+            conf['ignore_label'] = 0
+            conf['idx_offset'] = 1
+            conf['num_classes'] = 308
+
+        if conf['dataset'] == 'camvid3d_reduced':
+            conf['train_file'] = 'datasets/camvid3d_reduced.lst'
+            conf['val_file'] = 'datasets/camvid3d_reduced.lst'
             conf['vis_file'] = 'datasets/camvid360_classes.lst'
 
             conf['ignore_label'] = 0
@@ -323,6 +342,7 @@ class LocalSegmentationLoader(data.Dataset):
             if self.conf['grid_dims'] == 2:
                 d1 = (labels % rclasses + 0.5) * self.conf['grid_size']
                 d2 = (labels // rclasses + 0.5) * self.conf['grid_size']
+                assert np.max(d2 / self.conf['grid_size'] < rclasses + 0.5)
                 d1[ignore] = -100
                 d2[ignore] = -100
                 label = np.stack([d1, d2])
@@ -331,7 +351,7 @@ class LocalSegmentationLoader(data.Dataset):
                 d1 = (labels % rclasses + 0.5) * gs
                 d2 = (labels // rclasses % rclasses + 0.5) * gs
                 d3 = (labels // rclasses // rclasses + 0.5) * gs
-                assert np.max(d3 < rclasses + 0.5)
+                assert np.max(d3 < (rclasses + 0.5) * gs)
                 d1[ignore] = -100
                 d2[ignore] = -100
                 d3[ignore] = -100

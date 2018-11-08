@@ -264,15 +264,18 @@ class SegModel(nn.Module):
         rclasses = self.conf['dataset']['root_classes']
         grid_size = self.conf['dataset']['grid_size']
 
-        ignore_idx = (-100 + rclasses * -100) // grid_size
+        if self.conf['dataset']['grid_dims'] == 2:
+            ignore_idx = (-100 + rclasses * -100)
+            ignore_idx = ignore_idx // grid_size
+        elif self.conf['dataset']['grid_dims'] == 3:
+            ignore_idx = (-100 + rclasses * -100 + rclasses * rclasses * -100)
+            ignore_idx = ignore_idx // grid_size
         xentropy = loss.CrossEntropyLoss2d(ignore_index=ignore_idx)
 
         border = self.conf['loss']['border']
         grid_size = self.conf['dataset']['grid_size']
 
         corner = loss.CornerLoss(border=border, grid_size=grid_size)
-
-        assert self.conf['dataset']['grid_dims'] == 2
 
         def total_loss(input, target):
 
@@ -281,8 +284,14 @@ class SegModel(nn.Module):
             class_pred = input[:, :num_classes]
 
             norm_target = target / grid_size
-            class_target = norm_target[:, 0].int() + \
-                rclasses * norm_target[:, 1].int()
+
+            if self.conf['dataset']['grid_dims'] == 2:
+                class_target = norm_target[:, 0].int() + \
+                    rclasses * norm_target[:, 1].int()
+            elif self.conf['dataset']['grid_dims'] == 3:
+                class_target = norm_target[:, 0].int() + \
+                    rclasses * norm_target[:, 1].int() + \
+                    rclasses * rclasses * norm_target[:, 2].int()
 
             triplet_logits = input[:, num_classes:]
 
@@ -349,19 +358,22 @@ class SegModel(nn.Module):
 
                 pred = pred_logits.max(1)[1]
 
-                assert gdims == 2
-
                 rclasses = self.conf['dataset']['root_classes']
                 gsize = self.conf['dataset']['grid_size']
 
+            if self.conf['dataset']['grid_dims'] == 2:
                 d1 = (pred.float() % rclasses + 0.5) * gsize
                 d2 = (pred.float() // rclasses + 0.5) * gsize
-
                 props = torch.stack([d1, d2], dim=1)
+            elif self.conf['dataset']['grid_dims'] == 3:
+                d1 = (pred.float() % rclasses + 0.5) * gsize
+                d2 = (pred.float() // rclasses % rclasses + 0.5) * gsize
+                d3 = (pred.float() // rclasses // rclasses + 0.5) * gsize
+                props = torch.stack([d1, d2, d3], dim=1)
 
-                props = props + triplet_logits
+            props = props + triplet_logits
 
-                return props, pred
+            return props, pred
 
             norm_dims = sem_logits / self.conf['dataset']['grid_size']
             rclasses = self.conf['dataset']['root_classes']
