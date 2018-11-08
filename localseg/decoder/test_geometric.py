@@ -53,6 +53,22 @@ def test_world_to_camera():
         assert torch.max(pred_camera * mask - camera_point * mask) < 1e-12
 
 
+def test_normalization():
+
+    for file in file_list:
+        full_path = os.path.join(data_path, file)
+        data = np.load(full_path)
+
+        camera_point = torch.tensor(data['points_3d_original'])
+        sphere_points = torch.tensor(data['points_3d_sphere'])
+        mask = torch.tensor(data['mask']) / 255
+
+        norm_points = geo.sphere_normalization(camera_point, mask)
+
+        assert torch.all(norm_points == sphere_points)
+
+
 if __name__ == '__main__':
+    test_normalization()
     test_world_to_camera()
     logging.info("Hello World.")
