@@ -146,9 +146,9 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
             geo_mask = scipy.misc.imresize(
                 npz_file['mask'][:, :, 0],
                 size=transform['presize'], interp='nearest')
-            geo_label = scipy.misc.imresize(
-                npz_file[self.conf['3d_label']],
-                size=transform['presize'], interp='nearest')
+
+            geo_label = resize_torch(
+                npz_file[self.conf['3d_label']], transform['presize'])
 
         geo_mask = geo_mask // 255
 
@@ -723,6 +723,14 @@ def truncated_normal(mean=0, std=0, lower=-0.5, upper=0.5):
             break
 
     return factor
+
+
+def resize_torch(array, factor, mode="nearest"):
+
+    tensor = torch.tensor(array).unsqueeze(0).unsqueeze(1)
+    resized = torch.nn.functional.interpolate(
+        tensor, scale_factor=[factor, factor, 1])
+    return resized.squeeze().numpy()
 
 
 if __name__ == '__main__':  # NOQA
