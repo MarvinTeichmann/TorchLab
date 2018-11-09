@@ -37,6 +37,7 @@ import pyvision.logger
 import localseg
 from localseg.data_generators import loader
 from localseg.data_generators import loader2
+from localseg.data_generators import loader_geo
 
 
 from localseg import decoder as segdecoder
@@ -173,6 +174,11 @@ class SegModel(nn.Module):
         elif conf['modules']['loader'] == 'warping':
             self.loader = loader2
             self.trainloader = loader2.get_data_loader(
+                conf['dataset'], split='train', batch_size=bs)
+            Trainer = WarpingSegTrainer # NOQA
+        elif conf['modules']['loader'] == 'geometry':
+            self.loader = loader_geo
+            self.trainloader = loader_geo.get_data_loader(
                 conf['dataset'], split='train', batch_size=bs)
             Trainer = WarpingSegTrainer # NOQA
 

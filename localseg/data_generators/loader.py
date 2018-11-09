@@ -86,9 +86,9 @@ default_conf = {
         'upper_fac': 2,
         'resize_sig': 0.4,
         'random_flip': True,
-        'random_rotation': True,
+        'random_rotation': False,
         'equirectangular': False,
-        'normalize': True,
+        'normalize': False,
         'mean': [0.485, 0.456, 0.406],
         'std': [0.229, 0.224, 0.225]
     },
