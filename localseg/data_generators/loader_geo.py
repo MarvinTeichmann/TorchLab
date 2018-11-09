@@ -726,11 +726,11 @@ def truncated_normal(mean=0, std=0, lower=-0.5, upper=0.5):
 
 
 def resize_torch(array, factor, mode="nearest"):
-
-    tensor = torch.tensor(array).unsqueeze(0).unsqueeze(1)
+    tensor = torch.tensor(array).float().transpose(0, 2).unsqueeze(0)
     resized = torch.nn.functional.interpolate(
-        tensor, scale_factor=[factor, factor, 1])
-    return resized.squeeze().numpy()
+        tensor, scale_factor=factor)
+    resized.squeeze().transpose(0, 2).numpy()
+    return resized.squeeze().transpose(0, 2).numpy()
 
 
 if __name__ == '__main__':  # NOQA
