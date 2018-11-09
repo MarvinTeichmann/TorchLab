@@ -35,7 +35,7 @@
                 },
             "presize": 0.5,
             "color_augmentation_level": 1,
-            "fix_shape": true,
+            "fix_shape": false,
             "reseize_image": false,
             "patch_size": [448, 448],
             "random_crop": false,
@@ -46,7 +46,7 @@
             "lower_fac": 0.5,
             "upper_fac": 2,
             "resize_sig": 0.4,
-            "random_flip": true,
+            "random_flip": false,
             "random_rotation": false,
             "equirectangular": false,
             "normalize": false,
@@ -79,7 +79,8 @@
     "loss":{
         "type": "magic",
         "embedding_loss": null,
-        "squeeze": false,
+        "squeeze": true,
+        "dist_loss": false,
         "warp_dist": 32,
         "border": 0.2,
         "inner_factor": 10,
@@ -87,7 +88,7 @@
     },
 
     "training": {
-        "batch_size": 3,
+        "batch_size": 1,
         "learning_rate": 5e-5,
         "lr_schedule": "poly",
         "exp": 1.5,
@@ -107,7 +108,7 @@
     },
 
     "evaluation": {
-        "imgs_minor": [10, 20, 50],
+        "imgs_minor": [2, 20, 50],
         "transparency": 0,
         "default_level": "minor",
         "reduce_val_bs": false,
@@ -115,8 +116,8 @@
     },
 
     "logging": {
-        "display_iter": 200,
-        "eval_iter": 1,
+        "display_iter": 1,
+        "eval_iter": 10,
         "max_val_examples": 50,
         "max_train_examples": 200,
         "log": true,

@@ -360,8 +360,12 @@ class WarpingSegTrainer(SegmentationTrainer):
 
         if self.geometric:
             mask = sample['geo_mask'].float().cuda().unsqueeze(1)
-            dist_gt = sample['geo_label'].cuda()
-            dist_loss = self.model.dist_loss(dist_gt * mask, pred[1] * mask)
+            if self.conf['loss']['dist_loss']:
+                dist_gt = sample['geo_label'].cuda()
+                dist_loss = self.model.dist_loss(
+                    dist_gt * mask, pred[1] * mask)
+            else:
+                dist_loss = 0
             if self.conf['loss']['squeeze']:
                 mask = (1 - ign)
                 squeeze_loss = self.model.squeeze_loss(pred[1], warped, mask)

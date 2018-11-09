@@ -149,7 +149,7 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
 
         warp_ign = warp_ign.astype(np.uint8)
 
-        label = self.decode_ids(ids_image)
+        label, class_mask = self.decode_ids(ids_image)
 
         # assert geo_mask.shape == label.shape
 
@@ -160,6 +160,7 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
             'warp_ids': warp_ids,
             'geo_label': geo_label,
             'geo_mask': geo_mask,
+            'class_mask': class_mask,
             'rotation': npz_file['R'],
             'translation': npz_file['T'],
             'warp_ign': warp_ign,
@@ -668,11 +669,11 @@ if __name__ == '__main__':  # NOQA
 
     loader = WarpingSegmentationLoader(conf=config)
 
-    sample = loader[10]
+    sample = loader[1]
 
-    for i in range(10):
-        test = loader[10 * i]
-        scp.misc.imshow(test['image'])
+    for i in range(4):
+        test = loader[i]
+        scp.misc.imshow(sample['class_mask'] * sample['image'])
 
     mylabel = test['label']
     '''

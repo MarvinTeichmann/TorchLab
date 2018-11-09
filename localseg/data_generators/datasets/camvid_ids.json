@@ -1,0 +1,12 @@
+{
+    "bicyclist": 2,
+    "car": 301,
+    "fence": 303,
+    "pedestrian": 302,
+    "pole": 308,
+    "road": 304,
+    "sidewalk": 1,
+    "sign": 307,
+    "sky": 306,
+    "tree": 305
+}

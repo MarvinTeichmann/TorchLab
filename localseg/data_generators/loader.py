@@ -137,6 +137,11 @@ class LocalSegmentationLoader(data.Dataset):
         else:
             self.lst_file = lst_file
 
+        if self.conf['mask_file'] is not None:
+            self.mask_table = json.load(open(self.conf['mask_file']))
+        else:
+            self.mask_table = None
+
         self.img_list = self._read_lst_file()
 
         self.root_dir = os.environ['TV_DIR_DATA']
@@ -173,10 +178,13 @@ class LocalSegmentationLoader(data.Dataset):
             # config parameters
             return
 
+        conf['mask_file'] = None
+
         if conf['dataset'] == 'camvid360_noprop':
             conf['train_file'] = 'datasets/camvid360_noprop_train.lst'
             conf['val_file'] = 'datasets/camvid360_noprop_val.lst'
             conf['vis_file'] = 'datasets/camvid360_classes.lst'
+            conf['mask_file'] = 'datasets/camvid_ids.json'
 
             conf['ignore_label'] = 0
             conf['idx_offset'] = 1
@@ -186,6 +194,7 @@ class LocalSegmentationLoader(data.Dataset):
             conf['train_file'] = 'datasets/camvid360_prop3_train.lst'
             conf['val_file'] = 'datasets/camvid360_prop3_val.lst'
             conf['vis_file'] = 'datasets/camvid360_classes.lst'
+            conf['mask_file'] = 'datasets/camvid_ids.json'
 
             conf['ignore_label'] = 0
             conf['idx_offset'] = 1
@@ -195,6 +204,7 @@ class LocalSegmentationLoader(data.Dataset):
             conf['train_file'] = 'datasets/camvid360_prop3_reduced.lst'
             conf['val_file'] = 'datasets/camvid360_prop3_reduced.lst'
             conf['vis_file'] = 'datasets/camvid360_classes.lst'
+            conf['mask_file'] = 'datasets/camvid_ids.json'
 
             conf['ignore_label'] = 0
             conf['idx_offset'] = 1
@@ -204,6 +214,7 @@ class LocalSegmentationLoader(data.Dataset):
             conf['train_file'] = 'datasets/camvid3d_reduced.lst'
             conf['val_file'] = 'datasets/camvid3d_reduced.lst'
             conf['vis_file'] = 'datasets/camvid360_classes.lst'
+            conf['mask_file'] = 'datasets/camvid_ids.json'
 
             conf['ignore_label'] = 0
             conf['idx_offset'] = 1
@@ -294,6 +305,14 @@ class LocalSegmentationLoader(data.Dataset):
         files = [line.rstrip() for line in open(data_file)]
         return files
 
+    def _get_mask(self, decoded):
+        mask = np.zeros(decoded.shape, dtype=np.long)
+        for value in self.mask_table.values():
+            mask += decoded == value
+        assert np.all(mask <= 1)
+
+        return 1 - mask
+
     def decode_ids(self, ids_image):
         """
         Split gt_image into label.
@@ -319,6 +338,8 @@ class LocalSegmentationLoader(data.Dataset):
         decoded[ign] = self.conf['ignore_label']
         ignore = decoded == self.conf['ignore_label']
 
+        class_mask = self._get_mask(decoded)
+
         if np.max(decoded) > self.conf['num_classes'] + 1:
             logging.error("More labels then classes.")
             assert False, "np.unique(labels) {}".format(np.unique(decoded))
@@ -334,7 +355,7 @@ class LocalSegmentationLoader(data.Dataset):
 
             labels = labels.astype(np.int64)
             labels[ignore] = -100
-            return labels
+            return labels, class_mask
 
         if self.conf['label_encoding'] == 'spatial_2d':
             # labels[ignore] = -1
@@ -359,7 +380,7 @@ class LocalSegmentationLoader(data.Dataset):
             else:
                 raise NotImplementedError
 
-            return label
+            return label, class_mask
 
     def transform(self, image, gt_image, load_dict):
 
