@@ -77,10 +77,11 @@ class CornerLoss(_WeightedLoss):
 class TruncatedHingeLoss2dMask(_WeightedLoss):
 
     def __init__(self, weight=None,
-                 reduction='elementwise_mean', grid_size=1):
+                 reduction='elementwise_mean', grid_size=1,
+                 inner_factor=20):
         super().__init__(weight, reduction='elementwise_mean')
         self.grid_size = grid_size
-        self.margin = grid_size / 10
+        self.margin = grid_size / inner_factor
 
     def forward(self, input, target, mask):
         # _assert_no_grad(target)
@@ -105,7 +106,7 @@ class TripletLossWithMask(_Loss):
     """docstring for TripletLossWithMask"""
 
     def __init__(self, grid_size=1, p=2, eps=1e-6, swap=False,
-                 inner_factor=50, reduction='elementwise_mean'):
+                 inner_factor=20, reduction='elementwise_mean'):
         super(TripletLossWithMask, self).__init__()
 
         margin = grid_size / inner_factor
@@ -126,7 +127,7 @@ class TripletSqueezeLoss(_Loss):
     """docstring for TripletLossWithMask"""
 
     def __init__(self, grid_size=1, p=2, eps=1e-6, swap=False,
-                 inner_factor=50, reduction='elementwise_mean'):
+                 inner_factor=20, reduction='elementwise_mean'):
         super(TripletSqueezeLoss, self).__init__()
 
         self.grid_size = grid_size

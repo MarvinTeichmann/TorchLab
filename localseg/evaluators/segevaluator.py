@@ -267,7 +267,8 @@ class Evaluator():
                 if cur_bs == self.bs:
 
                     if eval_fkt is None:
-                        bprop, bpred = self.model.predict(img_var)
+                        bprop, bpred, threeD = self.model.predict(
+                            img_var, geo_dict=sample)
                     else:
                         bprop, bpred = eval_fkt(img_var)
 

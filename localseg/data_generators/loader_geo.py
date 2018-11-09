@@ -135,6 +135,8 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
 
         geo_mask = geo_mask / 255
 
+        geo_label = geo_label.transpose([2, 0, 1])
+
         if self.conf['down_label']:
 
             warp_ids, warp_ign = self._downsample_warp_img(warp_img, image)

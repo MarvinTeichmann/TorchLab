@@ -229,6 +229,14 @@ class SegModel(nn.Module):
             else:
                 raise NotImplementedError
 
+        elif conf['modules']['loader'] == 'geometry':
+            self.dist_loss = torch.nn.MSELoss()
+            grid_size = self.conf['dataset']['grid_size']
+            inner = self.conf['loss']['inner_factor']
+
+            self.squeeze_loss = loss.TruncatedHingeLoss2dMask(
+                grid_size=grid_size, inner_factor=inner)
+
         self.label_coder = LabelCoding(conf['dataset'])
 
         self._load_pretrained_weights(conf)
@@ -239,14 +247,11 @@ class SegModel(nn.Module):
 
     def _make_loss(self, conf, device_ids):
 
-        if self.magic:
-            return self._magic_loss(conf, device_ids)
-
         if self.label_encoding == 'dense':
             par_loss = parallel.CriterionDataParallel(
                 loss.CrossEntropyLoss2d(), device_ids=device_ids)
-            par_loss = parallel.CriterionDataParallel(
-                loss.CrossEntropyLoss2d(), device_ids=device_ids)
+        elif self.magic:
+            return self._magic_loss(conf, device_ids)
         elif self.label_encoding == 'spatial_2d':
             border = self.conf['loss']['border']
             grid_size = self.conf['dataset']['grid_size']
@@ -363,16 +368,21 @@ class SegModel(nn.Module):
     def get_loader(self):
         return self.loader
 
-    def predict(self, img):
+    def predict(self, img, geo_dict=None):
 
-        assert False
+        if self.conf['modules']['loader'] == 'geometry':
+            assert geo_dict is not None
+            class_pred, sphere_points = self.forward(img, geo_dict)
+            logits = functional.softmax(class_pred, dim=1)
+            probs, pred = logits.max(1)
+            return logits, pred, sphere_points
 
         if self.label_encoding == 'dense':
 
             sem_logits = self.model(img)
             logits = functional.softmax(sem_logits, dim=1)
             probs, pred = logits.max(1)
-            return logits, pred
+            return logits, pred, None
 
         elif self.label_encoding == 'spatial_2d':
 
@@ -407,7 +417,7 @@ class SegModel(nn.Module):
 
             props = props + triplet_logits
 
-            return props, pred
+            return props, pred, None
 
             norm_dims = sem_logits / self.conf['dataset']['grid_size']
             rclasses = self.conf['dataset']['root_classes']
@@ -428,7 +438,7 @@ class SegModel(nn.Module):
             false_pred = hard_pred > self.num_classes
             hard_pred[false_pred] = self.num_classes
 
-            return sem_logits, hard_pred
+            return sem_logits, hard_pred, None
 
     def debug(self):
         return

@@ -292,6 +292,8 @@ class WarpingSegTrainer(SegmentationTrainer):
             root_classes=conf['dataset']['root_classes'],
             grid_size=conf['dataset']['grid_size'])
 
+        self.geometric = self.conf['modules']['loader'] == 'geometry'
+
         self.DEBUG = False
 
     def do_training_step(self, step, sample, start_time):
@@ -350,9 +352,26 @@ class WarpingSegTrainer(SegmentationTrainer):
 
         # Compute and print loss.
         label = Variable(sample['label']).cuda()
-        loss = self.model.loss(pred, label)
 
-        if self.conf['loss']['type'] == 'triplet':
+        if not self.geometric:
+            loss = self.model.loss(pred, label)
+        else:
+            loss = self.model.loss(pred[0], label)
+
+        if self.geometric:
+            mask = sample['geo_mask'].float().cuda().unsqueeze(1)
+            dist_gt = sample['geo_label'].cuda()
+            dist_loss = self.model.dist_loss(dist_gt * mask, pred[1] * mask)
+            if self.conf['loss']['squeeze']:
+                mask = (1 - ign)
+                squeeze_loss = self.model.squeeze_loss(pred[1], warped, mask)
+
+                dist_loss = dist_loss + 0.1 * squeeze_loss
+
+            triplet_loss = dist_loss
+            loss_name = 'GeometricLoss'
+
+        elif self.conf['loss']['type'] == 'triplet':
             loss_name = 'TripletLoss'
             positive = warped
             negative, mask = self.warper.warp2(label, pred)
