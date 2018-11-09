@@ -24,14 +24,24 @@ import torch
 
 
 def world_to_camera(world_points, rotation, translation):
+
+    new_points = world_points.transpose(1, 3).unsqueeze(-2)
+    rot = rotation.transpose(1, 2).unsqueeze(1).unsqueeze(1)
+
     rotated = torch.matmul(
-        world_points.unsqueeze(2), rotation.transpose(1, 0)).squeeze()
+        new_points, rot).squeeze(-2)
+
+    translation = translation.unsqueeze(1).unsqueeze(1)
+
     translated = rotated + translation
-    return translated
+
+    return translated.transpose(1, 3)
 
 
 def sphere_normalization(camera_point, mask):
-    norm = camera_point.norm(dim=2).unsqueeze(dim=-1)
+
+    norm = camera_point.norm(dim=1).unsqueeze(dim=1)
+    mask = mask.unsqueeze(dim=1)
     norm[mask == 0] = 1
     assert torch.all(norm != 0)
 

@@ -29,7 +29,7 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 
 
 def get_network(conf):
-    nclasses = conf['dataset']['num_classes']
+    nclasses = conf['encoder']['num_classes']
     encoder = _get_encoder(conf)
     channel_dict = encoder.get_channel_dict()
 

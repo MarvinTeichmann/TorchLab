@@ -43,17 +43,6 @@ class FCN(nn.Module):
 
         self.num_classes = num_classes
 
-        self.magic = conf['loss_type'] == 'magic'
-
-        if conf['label_encoding'] == 'dense':
-            self.num_classes = num_classes
-        elif self.magic:
-            self.num_classes = num_classes + conf['grid_dims']
-            num_classes = num_classes + conf['grid_dims']
-        elif conf['label_encoding'] == 'spatial_2d':
-            self.num_classes = conf['grid_dims']
-            num_classes = conf['grid_dims']
-
         if conf['bottleneck'] is not None:
             num_classes = conf['bottleneck']
             logging.info("Using Bottleneck of {}".format(num_classes))

@@ -92,7 +92,7 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
         super().__init__(conf=conf, split=split, lst_file=lst_file)
 
         self.colour_aug = True
-        self.shape_aug = False
+        self.shape_aug = True
 
         logging.info("Warping Version of the Dataset loaded.")
 
@@ -133,6 +133,8 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
         geo_mask = label_dict['geo_mask'][:, :, 0]
         geo_label = label_dict['geo_label']
 
+        geo_mask = geo_mask / 255
+
         if self.conf['down_label']:
 
             warp_ids, warp_ign = self._downsample_warp_img(warp_img, image)
@@ -147,7 +149,7 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
 
         label = self.decode_ids(ids_image)
 
-        assert geo_mask.shape == label.shape
+        # assert geo_mask.shape == label.shape
 
         sample = {
             'image': image,
@@ -156,6 +158,8 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
             'warp_ids': warp_ids,
             'geo_label': geo_label,
             'geo_mask': geo_mask,
+            'rotation': npz_file['R'],
+            'translation': npz_file['T'],
             'warp_ign': warp_ign,
             'load_dict': str(load_dict)}
 

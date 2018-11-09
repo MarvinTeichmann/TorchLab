@@ -77,7 +77,7 @@ default_conf = {
         'fix_shape': True,
         'reseize_image': False,
         'patch_size': [480, 480],
-        'random_roll': True,
+        'random_roll': False,
         'random_crop': True,
         'max_crop': 8,
         'crop_chance': 0.6,

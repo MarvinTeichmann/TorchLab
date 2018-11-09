@@ -39,7 +39,6 @@ from localseg.data_generators import loader
 from localseg.data_generators import loader2
 from localseg.data_generators import loader_geo
 
-
 from localseg import decoder as segdecoder
 from localseg import loss
 from localseg.trainer import SegmentationTrainer
@@ -49,6 +48,8 @@ from localseg.evaluators import segevaluator as evaluator
 
 from localseg.utils.labels import LabelCoding
 from localseg.encoder import parallel as parallel
+
+from localseg.decoder import geometric as geodec
 
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
@@ -204,6 +205,7 @@ class SegModel(nn.Module):
             device_ids = None
         else:
             from localseg import enc_dec_model
+            conf['encoder']['num_classes'] = self._get_decoder_classes(conf)
             self.model, device_ids = enc_dec_model.get_network(conf=conf)
             self.model.cuda()
 
@@ -257,10 +259,10 @@ class SegModel(nn.Module):
         return par_loss
 
     def _get_decoder_classes(self, conf):
-        if conf['dataset']['label_encoding'] == 'dense':
-            return self.num_classes
-        elif self.magic:
+        if self.magic:
             return self.num_classes + conf['dataset']['grid_dims']
+        elif conf['dataset']['label_encoding'] == 'dense':
+            return self.num_classes
         elif conf['dataset']['label_encoding'] == 'spatial_2d':
             return conf['dataset']['grid_dims']
 
@@ -270,24 +272,30 @@ class SegModel(nn.Module):
         rclasses = self.conf['dataset']['root_classes']
         grid_size = self.conf['dataset']['grid_size']
 
-        if self.conf['dataset']['grid_dims'] == 2:
-            ignore_idx = (-100 + rclasses * -100)
-            ignore_idx = ignore_idx // grid_size
-        elif self.conf['dataset']['grid_dims'] == 3:
-            ignore_idx = (-100 + rclasses * -100 + rclasses * rclasses * -100)
-            ignore_idx = ignore_idx // grid_size
-        xentropy = loss.CrossEntropyLoss2d(ignore_index=ignore_idx)
+        if self.conf['dataset']['label_encoding'] == 'dense':
+            xentropy = loss.CrossEntropyLoss2d(ignore_index=-100)
+        else:
 
-        border = self.conf['loss']['border']
-        grid_size = self.conf['dataset']['grid_size']
+            if self.conf['dataset']['grid_dims'] == 2:
+                ignore_idx = (-100 + rclasses * -100)
+                ignore_idx = ignore_idx // grid_size
+            elif self.conf['dataset']['grid_dims'] == 3:
+                ignore_idx = (-100 + rclasses * -100 + rclasses * rclasses * -100) # NOQA
+                ignore_idx = ignore_idx // grid_size
 
-        corner = loss.CornerLoss(border=border, grid_size=grid_size)
+            border = self.conf['loss']['border']
+            grid_size = self.conf['dataset']['grid_size']
+
+            corner = loss.CornerLoss(border=border, grid_size=grid_size)
 
         def total_loss(input, target):
 
             self.num_classes
 
             class_pred = input[:, :num_classes]
+
+            if self.conf['dataset']['label_encoding'] == 'dense':
+                return xentropy(class_pred, target)
 
             norm_target = target / grid_size
 
@@ -328,16 +336,36 @@ class SegModel(nn.Module):
 
             self.load_state_dict(checkpoint['state_dict'])
 
-    def forward(self, imgs):
+    def forward(self, imgs, geo_dict=None):
         # Expect input to be in range [0, 1]
         # and of type float
 
-        return self.model(imgs)
+        if not self.conf['modules']['loader'] == 'geometry':
+            return self.model(imgs)
+
+        if geo_dict is None:
+            return self.model(imgs)
+
+        output = self.model(imgs)
+
+        class_pred = output[:, :self.num_classes]
+        three_pred = output[:, self.num_classes:]
+
+        camera_points = geodec.world_to_camera(
+            three_pred, geo_dict['rotation'].float().cuda(),
+            geo_dict['translation'].float().cuda())
+
+        sphere_points = geodec.sphere_normalization(
+            camera_points, geo_dict['geo_mask'].float().cuda())
+
+        return class_pred, sphere_points
 
     def get_loader(self):
         return self.loader
 
     def predict(self, img):
+
+        assert False
 
         if self.label_encoding == 'dense':
 

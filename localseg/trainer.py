@@ -305,8 +305,12 @@ class WarpingSegTrainer(SegmentationTrainer):
             pred_orig = self.model(img_var)[
                 :, -self.conf['dataset']['grid_dims']:]
 
-            warp_ids = sample['warp_ids'].cuda()
-            warped = torch.zeros_like(sample['label']).cuda().float()
+            warp_ids = sample['warp_ids'].cuda().long()
+
+            shape = (img_var.shape[0], self.conf['dataset']['grid_dims']) \
+                + sample['label'].shape[-2:]
+
+            warped = torch.zeros(shape).cuda().float()
             ign = sample['warp_ign'].cuda()
 
             for i in range(self.conf['dataset']['grid_dims']):
@@ -329,7 +333,7 @@ class WarpingSegTrainer(SegmentationTrainer):
 
                 bs = img_var.shape[0]
 
-                wshape = torch.Size([bs, 3]) + sample['label'].shape[2:] # NOQA
+                wshape = torch.Size([bs, 3]) + sample['label'].shape[-2:] # NOQA
 
                 warped_img = torch.zeros(wshape).float().cuda()
                 for i in range(3):
@@ -342,7 +346,7 @@ class WarpingSegTrainer(SegmentationTrainer):
 
         # Do forward pass
         img_var = Variable(sample['image']).cuda()
-        pred = self.model(img_var)
+        pred = self.model(img_var, geo_dict=sample)
 
         # Compute and print loss.
         label = Variable(sample['label']).cuda()

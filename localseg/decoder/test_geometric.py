@@ -48,7 +48,14 @@ def test_world_to_camera():
         camera_point = torch.tensor(data['points_3d_original'])
         mask = torch.tensor(data['mask']) / 255
 
-        pred_camera = geo.world_to_camera(world_points, rotation, translation)
+        wpoints = world_points.permute([2, 0, 1]).unsqueeze(0)
+
+        pred_camera = geo.world_to_camera(
+            wpoints, rotation.unsqueeze(0), translation.unsqueeze(0))
+
+        pred_camera = pred_camera.squeeze(0)
+
+        pred_camera = pred_camera.permute([1, 2, 0])
 
         assert torch.max(pred_camera * mask - camera_point * mask) < 1e-12
 
