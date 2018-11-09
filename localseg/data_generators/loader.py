@@ -138,7 +138,10 @@ class LocalSegmentationLoader(data.Dataset):
             self.lst_file = lst_file
 
         if self.conf['mask_file'] is not None:
-            self.mask_table = json.load(open(self.conf['mask_file']))
+            data_base_path = os.path.dirname(__file__)
+            data_file = os.path.join(data_base_path,
+                                     self.conf['mask_file'])
+            self.mask_table = json.load(open(data_file))
         else:
             self.mask_table = None
 

@@ -80,7 +80,7 @@
         "type": "magic",
         "embedding_loss": null,
         "squeeze": true,
-        "dist_loss": false,
+        "dist_loss": true,
         "warp_dist": 32,
         "border": 0.2,
         "inner_factor": 10,

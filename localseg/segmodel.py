@@ -230,7 +230,7 @@ class SegModel(nn.Module):
                 raise NotImplementedError
 
         elif conf['modules']['loader'] == 'geometry':
-            self.dist_loss = torch.nn.MSELoss()
+            self.dist_loss = loss.MSELoss()
             grid_size = self.conf['dataset']['grid_size']
             inner = self.conf['loss']['inner_factor']
 

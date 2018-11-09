@@ -74,6 +74,17 @@ class CornerLoss(_WeightedLoss):
         return torch.mean(loss)
 
 
+class MSELoss(_WeightedLoss):
+    """docstring for myMSELoss"""
+    def __init__(self):
+        super(MSELoss, self).__init__()
+        self.loss = torch.nn.MSELoss()
+
+    def forward(self, input, target, mask):
+
+        return torch.mean(((input - target)**2) * mask)
+
+
 class TruncatedHingeLoss2dMask(_WeightedLoss):
 
     def __init__(self, weight=None,
@@ -91,13 +102,13 @@ class TruncatedHingeLoss2dMask(_WeightedLoss):
 
         masked_loss = mask.unsqueeze(1).float() * loss
 
-        assert torch.all(masked_loss < 2.0001 * self.grid_size)
+        # assert torch.all(masked_loss < 2.0001 * self.grid_size)
         assert torch.all(masked_loss >= 0.0)
 
         masked_sum = (torch.sum(mask.unsqueeze(1).float()) + 0.001) # NOQA
         final_loss = torch.mean(masked_loss) / 2
 
-        assert torch.all(final_loss < 1.00001)  # Function of square size
+        # assert torch.all(final_loss < 1.00001)  # Function of square size
 
         return final_loss
 
