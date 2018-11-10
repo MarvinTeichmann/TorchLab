@@ -376,11 +376,15 @@ class SegModel(nn.Module):
     def predict(self, img, geo_dict=None):
 
         if self.conf['modules']['loader'] == 'geometry':
-            assert geo_dict is not None
             output = self.model(img)
 
             class_pred = output[:, :self.num_classes]
             three_pred = output[:, self.num_classes:]
+
+            if geo_dict is None:
+                logits = functional.softmax(class_pred, dim=1)
+                probs, pred = logits.max(1)
+                return logits, pred, three_pred
 
             camera_points = geodec.world_to_camera(
                 three_pred, geo_dict['rotation'].float().cuda(),

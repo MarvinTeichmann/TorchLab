@@ -479,11 +479,13 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         image = 255 * image
         image_orig = image.astype(np.uint8)
 
+        """
         label = sample_batch['label'][idx].numpy()
         if self.label_type == 'dense':
             image = scp.misc.imresize(image, size=label.shape[:2])
         elif self.label_type == 'spatial_2d':
             image = scp.misc.imresize(image, size=label.shape[1:])
+        """
 
         pred = prediction[idx]
         # logging.info(pred)

@@ -133,7 +133,8 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
 
         # label, class_mask = self.decode_ids(ids_image)
 
-        mask = np.all(label_dict['ids_image'] == self.building, axis=2)
+        mask = np.all(label_dict['ids_image'] == self.building, axis=2)\
+            .astype(np.uint8)
 
         # assert np.all(label_dict['mask1'][:, :, 0] == mask2)
 
@@ -537,7 +538,7 @@ def random_crop_soft(image, label_dict, max_crop, crop_chance):
         offset_y += 1
         image = image[:-offset_x, :-offset_y]
         for key, item in label_dict.items():
-            label_dict[key] = item[offset_x:, offset_y:]
+            label_dict[key] = item[:-offset_x, :-offset_y]
 
     return image, label_dict
 
@@ -657,11 +658,9 @@ if __name__ == '__main__':  # NOQA
 
     loader = WarpingSegmentationLoader(conf=config)
 
-    sample = loader[1]
-
-    for i in range(2):
-        test = loader[i]
-        scp.misc.imshow(sample['mask'] * sample['image'])
+    for i in range(10):
+        test = loader[0]
+        scp.misc.imshow(test['mask'] * test['image'])
 
     mylabel = test['label']
     '''

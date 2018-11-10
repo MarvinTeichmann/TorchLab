@@ -8,5 +8,5 @@ setup(name='PyTorchSlam',
       author='Marvin Teichmann',
       author_email='marvin.teichmann@googlemail.com',
       packages=find_packages(),
-      package_data={'': ['*.lst']}
+      package_data={'': ['*.lst', '*camvid_ids.json']}
       )
