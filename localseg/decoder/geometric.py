@@ -38,15 +38,13 @@ def world_to_camera(world_points, rotation, translation):
     return translated.transpose(1, 3)
 
 
-def sphere_normalization(camera_point, mask):
+def sphere_normalization(camera_point):
 
     norm = camera_point.norm(dim=1).unsqueeze(dim=1)
-    mask = mask.unsqueeze(dim=1)
-    # norm[mask == 0] = 1
-    norm = norm + 0.000001
+    norm = norm + 1e-8
     assert torch.all(norm != 0)
 
-    norm_points = camera_point / norm * mask
+    norm_points = (camera_point / norm)
 
     return norm_points
 

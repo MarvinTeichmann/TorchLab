@@ -223,6 +223,16 @@ class LocalSegmentationLoader(data.Dataset):
             conf['idx_offset'] = 1
             conf['num_classes'] = 308
 
+        if conf['dataset'] == 'camvid3d_one':
+            conf['train_file'] = 'datasets/camvid3d_one.lst'
+            conf['val_file'] = 'datasets/camvid3d_p4_one.lst'
+            conf['vis_file'] = 'datasets/camvid360_classes.lst'
+            conf['mask_file'] = 'datasets/camvid_ids.json'
+
+            conf['ignore_label'] = 0
+            conf['idx_offset'] = 1
+            conf['num_classes'] = 308
+
         if conf['dataset'] == 'sincity_small':
             conf['train_file'] = 'datasets/scenecity_small_train.lst'
             conf['val_file'] = 'datasets/scenecity_small_test.lst'
@@ -308,10 +318,13 @@ class LocalSegmentationLoader(data.Dataset):
         files = [line.rstrip() for line in open(data_file)]
         return files
 
-    def _get_mask(self, decoded):
+    def _get_mask(self, decoded, ignore_label):
         mask = np.zeros(decoded.shape, dtype=np.long)
         for value in self.mask_table.values():
             mask += decoded == value
+
+        mask += decoded == ignore_label
+
         assert np.all(mask <= 1)
 
         return 1 - mask
@@ -341,7 +354,7 @@ class LocalSegmentationLoader(data.Dataset):
         decoded[ign] = self.conf['ignore_label']
         ignore = decoded == self.conf['ignore_label']
 
-        class_mask = self._get_mask(decoded)
+        class_mask = self._get_mask(decoded, self.conf['ignore_label'])
 
         if np.max(decoded) > self.conf['num_classes'] + 1:
             logging.error("More labels then classes.")

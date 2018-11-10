@@ -267,7 +267,7 @@ class Evaluator():
                 if cur_bs == self.bs:
 
                     if eval_fkt is None:
-                        bprop, bpred, threeD = self.model.predict(
+                        bprop, bpred, add_dict = self.model.predict(
                             img_var, geo_dict=sample)
                     else:
                         bprop, bpred = eval_fkt(img_var)
@@ -293,6 +293,8 @@ class Evaluator():
                     or level == 'one_image':
                 self._do_plotting_minor(step, bpred_np, bprop_np,
                                         sample, epoch)
+                if self.conf['modules']['loader'] == 'geometry':
+                    self._write_3d_output(step, add_dict, sample, epoch)
                 if level == "one_image":
                     # plt.show(block=False)
                     # plt.pause(0.01)
@@ -369,7 +371,72 @@ class Evaluator():
                 plt.close(fig=fig)
                 logging.info("Finished: {}".format(new_name))
 
-    def _do_plotting_minor(self, step, bpred_np, bprob_np, sample, epoch):
+    def _write_3d_output(self, step, add_dict, sample, epoch):
+        stepdir = os.path.join(self.imgdir, "meshplot{}_{}".format(
+            step, self.split))
+        if not os.path.exists(stepdir):
+            os.mkdir(stepdir)
+
+        colours = sample['image'][0].cpu().numpy().transpose() * 255
+
+        geo_mask = sample['geo_mask'].unsqueeze(1).byte()
+        class_mask = sample['class_mask'].unsqueeze(1).byte()
+
+        total_mask = torch.all(
+            torch.stack([geo_mask, class_mask]), dim=0).squeeze(1)[0]
+
+        total_mask = total_mask.numpy().transpose().astype(np.bool)
+
+        """
+        worlddir = os.path.join(stepdir, "world")
+        if not os.path.exists(worlddir):
+            os.mkdir(worlddir)
+
+        cameradir = os.path.join(stepdir, "camera")
+        if not os.path.exists(cameradir):
+            os.mkdir(cameradir)
+
+        spheredir = os.path.join(stepdir, "sphere")
+        if not os.path.exists(spheredir):
+            os.mkdir(spheredir)
+
+        filename = literal_eval(
+            sample['load_dict'][0])['image_file']
+
+        if epoch is None:
+            newfile = filename.split(".")[0] + "_None.ply"\
+                .format(num=epoch)
+        else:
+            newfile = filename.split(".")[0] + "_epoch_{num:05d}.ply"\
+                .format(num=epoch)
+        """
+        world_points = add_dict['world'][0].cpu().numpy().transpose()
+        fname = os.path.join(stepdir, "pred_world.ply")
+
+        write_ply_file(fname, world_points[total_mask], colours[total_mask])
+
+        world_points = add_dict['camera'][0].cpu().numpy().transpose()
+        fname = os.path.join(stepdir, "pred_camera.ply")
+        write_ply_file(fname, world_points[total_mask], colours[total_mask])
+
+        world_points = add_dict['sphere'][0].cpu().numpy().transpose()
+        fname = os.path.join(stepdir, "pred_sphere.ply")
+        write_ply_file(fname, world_points[total_mask], colours[total_mask])
+
+        world_points = sample['geo_world'][0].cpu().numpy().transpose()
+        fname = os.path.join(stepdir, "label_world.ply")
+        write_ply_file(fname, world_points[total_mask], colours[total_mask])
+
+        world_points = sample['geo_sphere'][0].cpu().numpy().transpose()
+        fname = os.path.join(stepdir, "label_sphere.ply")
+        write_ply_file(fname, world_points[total_mask], colours[total_mask])
+
+        world_points = sample['geo_camera'][0].cpu().numpy().transpose()
+        fname = os.path.join(stepdir, "label_camera.ply")
+        write_ply_file(fname, world_points[total_mask], colours[total_mask])
+
+    def _do_plotting_minor(self, step, bpred_np, bprob_np,
+                           sample, epoch):
         stepdir = os.path.join(self.imgdir, "image{}_{}".format(
             step, self.split))
         if not os.path.exists(stepdir):
@@ -447,3 +514,23 @@ class Evaluator():
         # if self.split == "train":
         #     self.img_fig.close()
         #     self.scatter_fig.close()
+
+
+def write_ply_file(file_name, vertices, colors):
+        ply_header = '''ply
+                        format ascii 1.0
+                        element vertex %(vert_num)d
+                        property float x
+                        property float y
+                        property float z
+                        property uchar red
+                        property uchar green
+                        property uchar blue
+                        end_header
+                       '''
+        vertices = vertices.reshape(-1, 3)
+        colors = colors.reshape(-1, 3)
+        vertices = np.hstack([vertices, colors])
+        with open(file_name, 'w') as f:
+                f.write(ply_header % dict(vert_num=len(vertices)))
+                np.savetxt(f, vertices, '%f %f %f %d %d %d')

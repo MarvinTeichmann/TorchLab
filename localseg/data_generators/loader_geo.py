@@ -115,7 +115,9 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
         npz_file = np.load(npz_fname)
 
         label_dict = {
-            "geo_label": npz_file[self.conf['3d_label']],
+            "geo_world": npz_file['points_3d_world'],
+            "geo_sphere": npz_file['points_3d_sphere'],
+            "geo_camera": npz_file['points_3d_original'],
             "geo_mask": npz_file['mask'],
             "ids_image": ids_image
         }
@@ -131,11 +133,8 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
         warp_img = label_dict['warp_img']
         ids_image = label_dict['ids_image']
         geo_mask = label_dict['geo_mask'][:, :, 0]
-        geo_label = label_dict['geo_label']
 
         geo_mask = geo_mask / 255
-
-        geo_label = geo_label.transpose([2, 0, 1])
 
         if self.conf['down_label']:
 
@@ -158,13 +157,15 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
             'image_orig': image_orig,
             'label': label,
             'warp_ids': warp_ids,
-            'geo_label': geo_label,
             'geo_mask': geo_mask,
             'class_mask': class_mask,
             'rotation': npz_file['R'],
             'translation': npz_file['T'],
             'warp_ign': warp_ign,
             'load_dict': str(load_dict)}
+
+        for key in ["geo_world", "geo_sphere", "geo_camera"]:
+            sample[key] = label_dict[key].transpose([2, 0, 1])
 
         return sample
 
@@ -343,15 +344,14 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
 
             if shape_aug and transform['equi_crop']['do_equi']:
                 if random.random() < transform['equi_crop']['equi_chance']:
-                    assert False
                     gt_image = None
                     warp_img = None
                     patch_size = transform['patch_size']
                     assert patch_size[0] == patch_size[1]
                     transform['equi_crop']['H_res'] = patch_size[0]
                     transform['equi_crop']['W_res'] = patch_size[1]
-                    image, gt_image, warp_img = equi_crop(
-                        image, gt_image, warp_img, transform['equi_crop'])
+                    image, label_dict = equi_crop(
+                        image, label_dict, transform['equi_crop'])
                     shape_aug = False
 
                     image_orig = image_orig.transpose((2, 0, 1))
@@ -458,7 +458,7 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
         return image, image_orig, label_dict, load_dict
 
 
-def equi_crop(image, gt_image, warp_img, conf):
+def equi_crop(image, label_dict, conf):
 
     equi_conf = conf.copy()
 
@@ -479,8 +479,10 @@ def equi_crop(image, gt_image, warp_img, conf):
     eq_row = id_image // np.int32(image.shape[1])
     eq_col = id_image % np.int32(image.shape[1])
 
-    return image[eq_row, eq_col], gt_image[eq_row, eq_col], \
-        warp_img[eq_row, eq_col]
+    for key, item in label_dict.items():
+        label_dict[key] = item[eq_row, eq_col]
+
+    return image[eq_row, eq_col], label_dict
 
 
 def roll_img(image, label_dict):

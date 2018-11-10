@@ -98,10 +98,10 @@
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": 1.0,
-        "max_epochs": 300,
+        "max_epochs": 999,
         "pre_eval": false,
         "cnn_gpus": null,
-        "max_epoch_steps": 50,
+        "max_epoch_steps": null,
         "init_weights_from_checkpoint": false,
         "wd_policy": 2,
         "num_gpus": 1
@@ -116,10 +116,10 @@
     },
 
     "logging": {
-        "display_iter": 1,
-        "eval_iter": 10,
+        "display_iter": 100,
+        "eval_iter": 20,
         "max_val_examples": 50,
-        "max_train_examples": 200,
+        "max_train_examples": 50,
         "log": true,
         "checkpoint_backup": 10000000,
         "mayor_eval": 100

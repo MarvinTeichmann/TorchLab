@@ -365,12 +365,32 @@ class WarpingSegTrainer(SegmentationTrainer):
             total_mask = torch.all(
                 torch.stack([geo_mask, class_mask]), dim=0).float()
             mask = total_mask
-            if self.conf['loss']['dist_loss']:
-                dist_gt = sample['geo_label'].cuda()
-                dist_loss = self.model.dist_loss(
-                    dist_gt, pred[1], total_mask)
-            else:
-                dist_loss = 0
+
+            confloss = self.conf['loss']
+
+            dist_loss = 0
+
+            if confloss['geometric_type']['spherical']:
+
+                dist_gt = sample['geo_sphere'].cuda()
+
+                dist_loss += self.model.dist_loss(
+                    dist_gt, pred[1]['sphere'], total_mask)
+
+            if confloss['geometric_type']['camera']:
+
+                dist_gt = sample['geo_camera'].cuda()
+
+                dist_loss += self.model.dist_loss(
+                    dist_gt, pred[1]['camera'], total_mask)
+
+            if confloss['geometric_type']['world']:
+
+                dist_gt = sample['geo_world'].cuda()
+
+                dist_loss += self.model.dist_loss(
+                    dist_gt, pred[1]['world'], total_mask)
+
             if self.conf['loss']['squeeze']:
                 small_mask = (1 - ign).unsqueeze(1)
                 squeeze_mask = torch.all(
@@ -378,7 +398,8 @@ class WarpingSegTrainer(SegmentationTrainer):
                 squeeze_loss = self.model.squeeze_loss(
                     pred[1], warped, squeeze_mask)
 
-                dist_loss = dist_loss + 0.1 * squeeze_loss
+                dist_loss = dist_loss + \
+                    self.conf['loss']['squeze_weight'] * squeeze_loss
 
             triplet_loss = dist_loss
             loss_name = 'GeometricLoss'
@@ -417,7 +438,10 @@ class WarpingSegTrainer(SegmentationTrainer):
         else:
             raise NotImplementedError
 
-        total_loss = triplet_loss + loss
+        weights = self.conf['loss']['weights']
+
+        total_loss = weights['xentropy'] * loss \
+            + weights['triplet'] * triplet_loss
 
         # Do backward and weight update
         self.update_lr()

@@ -361,9 +361,14 @@ class SegModel(nn.Module):
             geo_dict['translation'].float().cuda())
 
         sphere_points = geodec.sphere_normalization(
-            camera_points, geo_dict['geo_mask'].float().cuda())
+            camera_points)
 
-        return class_pred, sphere_points
+        out_dict = {}
+        out_dict['world'] = three_pred
+        out_dict['camera'] = camera_points
+        out_dict['sphere'] = sphere_points
+
+        return class_pred, out_dict
 
     def get_loader(self):
         return self.loader
@@ -372,10 +377,27 @@ class SegModel(nn.Module):
 
         if self.conf['modules']['loader'] == 'geometry':
             assert geo_dict is not None
-            class_pred, sphere_points = self.forward(img, geo_dict)
+            output = self.model(img)
+
+            class_pred = output[:, :self.num_classes]
+            three_pred = output[:, self.num_classes:]
+
+            camera_points = geodec.world_to_camera(
+                three_pred, geo_dict['rotation'].float().cuda(),
+                geo_dict['translation'].float().cuda())
+
+            sphere_points = geodec.sphere_normalization(
+                camera_points)
+
+            res_dict = {
+                "world": three_pred,
+                "camera": camera_points,
+                "sphere": sphere_points
+            }
+
             logits = functional.softmax(class_pred, dim=1)
             probs, pred = logits.max(1)
-            return logits, pred, sphere_points
+            return logits, pred, res_dict
 
         if self.label_encoding == 'dense':
 
