@@ -362,6 +362,14 @@ class WarpingSegTrainer(SegmentationTrainer):
             geo_mask = sample['geo_mask'].cuda().unsqueeze(1).byte()
             class_mask = sample['class_mask'].cuda().unsqueeze(1).byte()
 
+            if self.DEBUG:
+
+                plt.imshow(img_var.cpu().numpy()[0][0])
+                plt.show()
+
+                plt.imshow(class_mask.cpu().numpy()[0][0])
+                plt.show()
+
             total_mask = torch.all(
                 torch.stack([geo_mask, class_mask]), dim=0).float()
             mask = total_mask

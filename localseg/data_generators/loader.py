@@ -224,8 +224,8 @@ class LocalSegmentationLoader(data.Dataset):
             conf['num_classes'] = 308
 
         if conf['dataset'] == 'camvid3d_one':
-            conf['train_file'] = 'datasets/camvid3d_one.lst'
-            conf['val_file'] = 'datasets/camvid3d_p4_one.lst'
+            conf['train_file'] = 'datasets/camvid3d_one_train.lst'
+            conf['val_file'] = 'datasets/camvid3d_one_val.lst'
             conf['vis_file'] = 'datasets/camvid360_classes.lst'
             conf['mask_file'] = 'datasets/camvid_ids.json'
 
