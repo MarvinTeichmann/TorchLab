@@ -104,7 +104,7 @@
 
     "training": {
         "batch_size": 2,
-        "learning_rate": 5e-4,
+        "learning_rate": 5e-5,
         "lr_schedule": "poly",
         "exp": 1.5,
         "base": 0.9,
