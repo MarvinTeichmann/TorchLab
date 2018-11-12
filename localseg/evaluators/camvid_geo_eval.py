@@ -205,20 +205,15 @@ class Evaluator():
                             dpi=199)
                 plt.close(fig=fig)
 
-                if d == 0:
-                    logging.info("Processed image: {}".format(filename))
-
-        self.united_file.close()
-
     def _write_3d_output(self, step, add_dict, sample, epoch, idx=0):
         stepdir = os.path.join(self.imgdir, "meshplot_{}".format(
             'test'))
         if not os.path.exists(stepdir):
             os.mkdir(stepdir)
 
-        colours = sample['image'][0].cpu().numpy().transpose() * 255
+        colours = sample['image'][idx].cpu().numpy().transpose() * 255
 
-        total_mask = sample['mask'][0]
+        total_mask = sample['mask'][idx]
 
         total_mask = total_mask.numpy().transpose().astype(np.bool)
 
@@ -238,7 +233,7 @@ class Evaluator():
         """
 
         filename = literal_eval(
-            sample['load_dict'][0])['image_file']
+            sample['load_dict'][idx])['image_file']
 
         if epoch is None:
             newfile = filename.split(".")[0] + ".ply"\
@@ -249,6 +244,8 @@ class Evaluator():
 
         world_points = add_dict[idx].cpu().numpy().transpose()
         fname = os.path.join(stepdir, os.path.basename(newfile))
+
+        logging.info("Processed image: {}".format(os.path.basename(filename)))
 
         write_ply_file(fname, world_points[total_mask], colours[total_mask])
 
