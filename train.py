@@ -92,12 +92,13 @@ if __name__ == '__main__':
     if args.debug:
         args.bench = 'Debug'
         config['logging']['display_iter'] = 5
+        config['logging']['eval_iter'] = 5
         config['logging']['max_val_examples'] = 10
         config['logging']['max_train_examples'] = 10
 
-        config['training']['max_epoch_steps'] = 50
-        config['training']['max_epochs'] = 5
-        config['training']['batch_size'] = 1
+        config['training']['max_epoch_steps'] = 10
+        config['training']['max_epochs'] = 10
+        config['training']['batch_size'] = 2
 
     logdir = pvorg.get_logdir_name(
         project=config['pyvision']['project_name'],

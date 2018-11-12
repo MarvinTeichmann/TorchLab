@@ -45,6 +45,8 @@ from localseg.trainer import SegmentationTrainer
 from localseg.trainer import WarpingSegTrainer
 
 from localseg.evaluators import segevaluator as evaluator
+from localseg.evaluators import localevaluator as localevaluator
+
 
 from localseg.utils.labels import LabelCoding
 from localseg.encoder import parallel as parallel
@@ -243,7 +245,10 @@ class SegModel(nn.Module):
 
         # self.visualizer = pvis.PascalVisualizer()
 
-        self.evaluator = evaluator.MetaEvaluator(conf, self)
+        if conf['modules']['loader'] == 'geometry':
+            self.evaluator = localevaluator.MetaEvaluator(conf, self)
+        else:
+            self.evaluator = evaluator.MetaEvaluator(conf, self)
 
     def _make_loss(self, conf, device_ids):
 

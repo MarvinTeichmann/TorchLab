@@ -27,6 +27,48 @@ from collections import OrderedDict
 from pyvision import pretty_printer as pp
 
 
+class CombinedMetric(object):
+    """docstring for CombinedMetric"""
+    def __init__(self, metriclist):
+        super(CombinedMetric, self).__init__()
+        self.metriclist = metriclist
+
+    def get_pp_names(self, time_unit='s', summary=False):
+
+        pp_names = []
+
+        for i, metric in enumerate(self.metriclist):
+            if i > 0:
+                pp_names.append('class_seperator')
+            pp_names += metric.get_pp_names(
+                time_unit=time_unit, summary=summary)
+
+        return pp_names
+
+    def get_pp_values(self, ignore_first=True,
+                      time_unit='s', summary=False):
+
+        pp_values = []
+
+        for i, metric in enumerate(self.metriclist):
+            if i > 0:
+                pp_values.append(pp.NEW_TABLE_LINE_MARKER)
+            pp_values += metric.get_pp_values(
+                ignore_first=ignore_first,
+                time_unit=time_unit, summary=summary)
+
+        return pp_values
+
+    def get_pp_dict(self, ignore_first=True, time_unit='s', summary=False):
+
+        names = self.get_pp_names(time_unit=time_unit, summary=summary)
+        values = self.get_pp_values(ignore_first=ignore_first,
+                                    time_unit=time_unit,
+                                    summary=summary)
+
+        return OrderedDict(zip(names, values))
+
+
 class SegmentationMetric(object):
     """docstring for SegmentationMetric"""
     def __init__(self, num_classes, name_list=None):

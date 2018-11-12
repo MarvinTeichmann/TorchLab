@@ -64,11 +64,27 @@ class DistMetric(object):
             acc = self.pos[i] / self.count
             logging.info("Acc @{}: {}".format(thresh, acc))
 
-    def get_dist_accuracy(self):
-        return
+    def get_pp_names(self, time_unit='s', summary=False):
 
-    def get_dist_histogram(self):
-        return
+        pp_names = ["Acc @{}".format(i) for i in self.thres]
+
+        return pp_names
+
+    def get_pp_values(self, ignore_first=True,
+                      time_unit='s', summary=False):
+
+        pp_values = [self.pos[i] / self.count for i in range(len(self.thres))]
+
+        return pp_values
+
+    def get_pp_dict(self, ignore_first=True, time_unit='s', summary=False):
+
+        names = self.get_pp_names(time_unit=time_unit, summary=summary)
+        values = self.get_pp_values(ignore_first=ignore_first,
+                                    time_unit=time_unit,
+                                    summary=summary)
+
+        return OrderedDict(zip(names, values))
 
     def plot_histogram(self):
 

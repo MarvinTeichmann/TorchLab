@@ -142,8 +142,8 @@
 
     "plotting": {
         "defaults": {
-            "plot": ["mIoU", "accuracy", "mIoU"],
-            "prefixes": ["val", "val", "train"],
+            "plot": ["mIoU", "accuracy", "mIoU", "Acc @6", "Acc @12", "Acc @12"],
+            "prefixes": ["val", "val", "train", "val", "val", "train"],
             "titles": ["Validation mIoU", "Validation Accuracy", "Train mIoU"]
         }
     },
