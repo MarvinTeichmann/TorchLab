@@ -167,6 +167,9 @@ class Evaluator():
         if not os.path.exists(self.output_dir):
             os.mkdir(self.output_dir)
 
+        self.world_points = []
+        self.colours = []
+
         for step, sample in zip(self.count, self.loader):
 
             # Run Model
@@ -205,6 +208,10 @@ class Evaluator():
                             dpi=199)
                 plt.close(fig=fig)
 
+        filename = os.path.join(self.imgdir, "combined.ply")
+        write_ply_file(filename, np.array(self.world_points),
+                       np.array(self.colours))
+
     def _write_3d_output(self, step, add_dict, sample, epoch, idx=0):
         stepdir = os.path.join(self.imgdir, "meshplot_{}".format(
             'test'))
@@ -216,21 +223,6 @@ class Evaluator():
         total_mask = sample['mask'][idx]
 
         total_mask = total_mask.numpy().transpose().astype(np.bool)
-
-        """
-        worlddir = os.path.join(stepdir, "world")
-        if not os.path.exists(worlddir):
-            os.mkdir(worlddir)
-
-        cameradir = os.path.join(stepdir, "camera")
-        if not os.path.exists(cameradir):
-            os.mkdir(cameradir)
-
-        spheredir = os.path.join(stepdir, "sphere")
-        if not os.path.exists(spheredir):
-            os.mkdir(spheredir)
-
-        """
 
         filename = literal_eval(
             sample['load_dict'][idx])['image_file']
@@ -246,6 +238,9 @@ class Evaluator():
         fname = os.path.join(stepdir, os.path.basename(newfile))
 
         logging.info("Processed image: {}".format(os.path.basename(filename)))
+
+        self.world_points += list(world_points[total_mask])
+        self.colours += list(colours[total_mask])
 
         write_ply_file(fname, world_points[total_mask], colours[total_mask])
 
@@ -356,10 +351,6 @@ class Evaluator():
         plt.savefig(new_name, format='png', bbox_inches='tight',
                     dpi=199)
         plt.close(fig)
-
-        # if self.split == "train":
-        #     self.img_fig.close()
-        #     self.scatter_fig.close()
 
 
 def write_ply_file(file_name, vertices, colors):

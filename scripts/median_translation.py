@@ -25,6 +25,7 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 ddir_list = [
 # '/data/cvfs/ib255/shared_file_system/derivative_datasets/camvid_360_3d_data_final_sequences/camvid_360_cvpr18_P2_training_data/part_01_seq_016E5_P1_B_R96_03390_04890/points_3d_info', # NOQA
 '/data/cvfs/ib255/shared_file_system/derivative_datasets/camvid_360_3d_data_final_sequences/camvid_360_cvpr18_P2_training_data/part_05_seq_016E5_P3_R94_10620_11190/points_3d_info', # NOQA
+'/data/cvfs/ib255/shared_file_system/derivative_datasets/camvid_360_3d_data_final_sequences/camvid_360_cvpr18_P2_training_data/part_07_seq_001TP_P2_R94_22230_23100/points_3d_info', # NOQA
 '/data/cvfs/ib255/shared_file_system/derivative_datasets/camvid_360_P2_multiple/camvid360_part_94_8370_8580/points_3d_info_orig' # NOQA
 ]
 

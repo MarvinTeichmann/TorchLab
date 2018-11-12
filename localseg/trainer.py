@@ -404,7 +404,7 @@ class WarpingSegTrainer(SegmentationTrainer):
                 squeeze_mask = torch.all(
                     torch.stack([small_mask, class_mask]), dim=0).float()
                 squeeze_loss = self.model.squeeze_loss(
-                    pred[1], warped, squeeze_mask)
+                    pred[1]['world'], warped, squeeze_mask)
 
                 dist_loss = dist_loss + \
                     self.conf['loss']['squeze_weight'] * squeeze_loss
