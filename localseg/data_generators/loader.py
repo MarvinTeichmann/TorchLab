@@ -145,9 +145,8 @@ class LocalSegmentationLoader(data.Dataset):
         else:
             self.mask_table = None
 
-        self.img_list = self._read_lst_file()
-
         self.root_dir = os.environ['TV_DIR_DATA']
+        self.img_list = self._read_lst_file()
 
         self.num_classes = conf['num_classes']
 
@@ -182,6 +181,15 @@ class LocalSegmentationLoader(data.Dataset):
             return
 
         conf['mask_file'] = None
+
+        if conf['dataset'] == 'camvid3d':
+            conf['traindir'] = 'camvid360/2018_Sep_29/camvid_360_cvpr18_P2_training_data' # NOQA
+            conf['vis_file'] = 'datasets/camvid360_classes.lst'
+            conf['mask_file'] = 'datasets/camvid_ids.json'
+
+            conf['ignore_label'] = 0
+            conf['idx_offset'] = 1
+            conf['num_classes'] = 308
 
         if conf['dataset'] == 'camvid360_noprop':
             conf['train_file'] = 'datasets/camvid360_noprop_train.lst'

@@ -96,11 +96,52 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
 
         logging.info("Warping Version of the Dataset loaded.")
 
+    def _read_lst_file(self):
+        self.traindir = os.path.join(self.root_dir, self.conf['traindir'])
+        seqdir = os.path.join(
+            self.traindir, self.conf['sequence'], 'points_3d_info')
+
+        filelist = os.listdir(seqdir)
+        newlist = []
+        for file in sorted(filelist):
+            if file.endswith(".npz"):
+                newlist.append(file)
+
+        train_list = []
+        val_list = []
+
+        for i, file in enumerate(newlist):
+            if i < 5:
+                train_list.append(file)
+                continue
+            if i % 23 == 0:
+                val_list.append(file)
+                continue
+            if i % 23 in [1, 2, 22, 21]:
+                continue
+            else:
+                train_list.append(file)
+
+        if self.lst_file == 'train':
+            files = [os.path.join(seqdir, file) for file in train_list]
+        elif self.lst_file == 'val':
+            files = [os.path.join(seqdir, file) for file in val_list]
+        else:
+            raise NotImplementedError
+
+        return files
+
     def __getitem__(self, idx):
 
-        image_filename, ids_filename, npz_fname = self.img_list[idx].split(" ")
-        image_filename = os.path.join(self.root_dir, image_filename)
-        ids_filename = os.path.join(self.root_dir, ids_filename)
+        npz_fname = self.img_list[idx]
+        img_name = os.path.basename(npz_fname).split(".npz")[0] + ".png"
+
+        image_filename = os.path.join(self.traindir, 'images_prop', img_name)
+
+        ids_filename = os.path.join(
+            self.traindir,
+            "building_only_filtered1_labels_prop/ids_labels3/",
+            img_name)
         npz_fname = os.path.join(self.root_dir, npz_fname)
 
         assert os.path.exists(image_filename), \
@@ -117,7 +158,7 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
         label_dict = {
             "geo_world": npz_file['points_3d_world'],
             "geo_sphere": npz_file['points_3d_sphere'],
-            "geo_camera": npz_file['points_3d_original'],
+            "geo_camera": npz_file['points_3d_camera'],
             "geo_mask": npz_file['mask'],
             "ids_image": ids_image
         }

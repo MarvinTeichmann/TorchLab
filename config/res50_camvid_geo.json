@@ -8,9 +8,10 @@
     },
 
     "dataset" : {
-        "dataset": "camvid3d_reduced",
-        "train_file": null,
-        "val_file": null,
+        "dataset": "camvid3d",
+        "sequence": "camvid_360_cvpr18_P2_training_data/part_05_seq_016E5_P3_R94_10620_11190",
+        "train_file": "train",
+        "val_file": "val",
 
         "ignore_label": 0,
         "idx_offset": 1,
@@ -105,7 +106,7 @@
     "training": {
         "batch_size": 2,
         "learning_rate": 5e-5,
-        "lr_schedule": "poly",
+        "lr_schedule": "constant",
         "exp": 1.5,
         "base": 0.9,
         "base2": 2,
@@ -133,8 +134,8 @@
     "logging": {
         "display_iter": 50,
         "eval_iter": 20,
-        "max_val_examples": 50,
-        "max_train_examples": 50,
+        "max_val_examples": null,
+        "max_train_examples": 100,
         "log": true,
         "checkpoint_backup": 10000000,
         "mayor_eval": 100
