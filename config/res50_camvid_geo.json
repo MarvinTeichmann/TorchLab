@@ -123,7 +123,7 @@
     },
 
     "evaluation": {
-        "imgs_minor": [2, 20, 50],
+        "imgs_minor": [10, 20, 50],
         "transparency": 0,
         "default_level": "minor",
         "reduce_val_bs": false,
