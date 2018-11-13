@@ -98,34 +98,42 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
 
     def _read_lst_file(self):
         self.traindir = os.path.join(self.root_dir, self.conf['traindir'])
-        seqdir = os.path.join(
-            self.traindir, self.conf['sequence'], 'points_3d_info')
+        # seqdir = os.path.join(
+        # self.traindir, self.conf['sequence'])
 
-        filelist = os.listdir(seqdir)
-        newlist = []
-        for file in sorted(filelist):
-            if file.endswith(".npz"):
-                newlist.append(file)
+        if type(self.conf['sequence']) is str:
+            self.conf['sequence'] = [self.conf['sequence']]
 
         train_list = []
         val_list = []
 
-        for i, file in enumerate(newlist):
-            if i < 5:
-                train_list.append(file)
-                continue
-            if i % 23 == 0:
-                val_list.append(file)
-                continue
-            if i % 23 in [1, 2, 22, 21]:
-                continue
-            else:
-                train_list.append(file)
+        for sequence in self.conf['sequence']:
+
+            seqdir = os.path.join(
+                self.traindir, sequence, 'points_3d_info_new')
+
+            filelist = os.listdir(seqdir)
+            newlist = []
+            for file in sorted(filelist):
+                if file.endswith(".npz"):
+                    newlist.append(file)
+
+            for i, file in enumerate(newlist):
+                if i < 5:
+                    train_list.append(os.path.join(seqdir, file))
+                    continue
+                if i % 23 == 0:
+                    val_list.append(os.path.join(seqdir, file))
+                    continue
+                if i % 23 in [1, 2, 22, 21]:
+                    continue
+                else:
+                    train_list.append(os.path.join(seqdir, file))
 
         if self.lst_file == 'train':
-            files = [os.path.join(seqdir, file) for file in train_list]
+            files = train_list
         elif self.lst_file == 'val':
-            files = [os.path.join(seqdir, file) for file in val_list]
+            files = val_list
         else:
             raise NotImplementedError
 
@@ -427,10 +435,9 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
                         image, gt_image, warp_img, load_dict)
 
                 if transform['random_rotation']:
-                    assert False
 
                     image, gt_image, warp_img = random_rotation(
-                        image, gt_image, warp_img)
+                        image, label_dict)
                     shape_distorted = True
 
                 if transform['random_resize']:
@@ -640,29 +647,17 @@ def random_resize(image, label_dict, lower_size, upper_size, sig):
     return image2, label_dict
 
 
-def random_rotation(image, gt_image, warp_img,
+def random_rotation(image, label_dict,
                     std=3.5, lower=-10, upper=10, expand=True):
+
+    assert False
 
     assert lower < upper
     assert std > 0
 
-    angle = truncated_normal(mean=0, std=std, lower=lower,
-                             upper=upper)
+    # label_dict2 = label_dict.copy()
 
-    image_r = scipy.ndimage.rotate(image, angle, order=3, cval=127)
-    gt_image_r = scipy.ndimage.rotate(gt_image, angle, order=0, cval=255)
-    warp_img_r = scipy.ndimage.rotate(warp_img, angle, order=0, cval=255)
-
-    gt_image[10, 10] = 255
-    if False:
-        if not np.all(np.unique(gt_image_r) == np.unique(gt_image)):
-            logging.info("np.unique(gt_image_r): {}".format(
-                np.unique(gt_image_r)))
-            logging.info("np.unique(gt_image): {}".format(np.unique(gt_image)))
-
-            assert(False)
-
-    return image_r, gt_image_r, warp_img_r
+    return False
 
 
 def skewed_normal(mean=1, std=0, lower=0.5, upper=2):
