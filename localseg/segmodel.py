@@ -197,6 +197,8 @@ class SegModel(nn.Module):
         self.label_encoding = conf['dataset']['label_encoding']
         self.num_classes = self.trainloader.dataset.num_classes
 
+        self.geo = geodec.GeoLayer(self.num_classes).cuda()
+
         assert conf['modules']['model'] in ['mapillary', 'end_dec']
 
         if conf['modules']['model'] == 'mapillary':
@@ -245,6 +247,8 @@ class SegModel(nn.Module):
 
         # self.visualizer = pvis.PascalVisualizer()
 
+        self.translation = torch.Tensor([self.num_classes, 3])
+
         if conf['modules']['loader'] == 'geometry':
             self.evaluator = localevaluator.MetaEvaluator(conf, self)
         else:
@@ -255,6 +259,12 @@ class SegModel(nn.Module):
         if self.label_encoding == 'dense':
             par_loss = parallel.CriterionDataParallel(
                 loss.CrossEntropyLoss2d(), device_ids=device_ids)
+
+            border = self.conf['loss']['border']
+            grid_size = self.conf['dataset']['grid_size']
+
+            self.corner_loss = loss.CornerLoss(
+                border=border, grid_size=grid_size)
         elif self.magic:
             return self._magic_loss(conf, device_ids)
         elif self.label_encoding == 'spatial_2d':
@@ -328,7 +338,6 @@ class SegModel(nn.Module):
         return total_loss
 
     def _assert_num_gpus(self, conf):
-        torch.cuda.device_count()
         if conf['training']['num_gpus']:
             assert torch.cuda.device_count() == conf['training']['num_gpus'], \
                 ('Requested: {0} GPUs   Visible: {1} GPUs.'
@@ -361,15 +370,20 @@ class SegModel(nn.Module):
         class_pred = output[:, :self.num_classes]
         three_pred = output[:, self.num_classes:]
 
+        if self.conf['loss']['spatial']:
+            world_pred = self.geo(class_pred, three_pred, geo_dict)
+        else:
+            world_pred = three_pred
+
         camera_points = geodec.world_to_camera(
-            three_pred, geo_dict['rotation'].float().cuda(),
+            world_pred, geo_dict['rotation'].float().cuda(),
             geo_dict['translation'].float().cuda())
 
         sphere_points = geodec.sphere_normalization(
             camera_points)
 
         out_dict = {}
-        out_dict['world'] = three_pred
+        out_dict['world'] = world_pred
         out_dict['camera'] = camera_points
         out_dict['sphere'] = sphere_points
 
@@ -391,15 +405,20 @@ class SegModel(nn.Module):
                 probs, pred = logits.max(1)
                 return logits, pred, three_pred
 
+            if self.conf['loss']['spatial']:
+                world_pred = self.geo(class_pred, three_pred, geo_dict)
+            else:
+                world_pred = three_pred
+
             camera_points = geodec.world_to_camera(
-                three_pred, geo_dict['rotation'].float().cuda(),
+                world_pred, geo_dict['rotation'].float().cuda(),
                 geo_dict['translation'].float().cuda())
 
             sphere_points = geodec.sphere_normalization(
                 camera_points)
 
             res_dict = {
-                "world": three_pred,
+                "world": world_pred,
                 "camera": camera_points,
                 "sphere": sphere_points
             }

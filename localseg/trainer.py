@@ -162,17 +162,24 @@ class SegmentationTrainer():
             totalnorm = torch.nn.utils.clip_grad.clip_grad_norm(
                 self.model.parameters(), clip_norm)
         else:
-            totalnorm = - 1.0  # Norm is not computed.
+            totalnorm = 0
+            parameters = list(filter(
+                lambda p: p.grad is not None, self.model.parameters()))
+            for p in parameters:
+                norm_type = 2
+                param_norm = p.grad.data.norm(norm_type)
+                totalnorm += param_norm.item() ** norm_type
+            totalnorm = - totalnorm ** (1. / norm_type)
 
         self.optimizer.step()
 
-        if step % self.display_iter == 0:
+        if step % self.display_iter == 0 or step == 1:
             # Printing logging information
             duration = (time.time() - start_time) / self.display_iter
             imgs_per_sec = self.bs / duration
 
             log_str = ("Epoch [{:3d}/{:3d}][{:4d}/{:4d}] "
-                       " Loss: {:.2f} LR: {:.3E}  TotalNorm: {:2.1f}"
+                       " Loss: {:.2f} LR: {:.3E}  GradNorm: {:2.1f}"
                        " Speed: {:.1f} imgs/sec ({:.3f} sec/batch)")
 
             self.losses.append(loss.data[0])
@@ -448,8 +455,10 @@ class WarpingSegTrainer(SegmentationTrainer):
 
         weights = self.conf['loss']['weights']
 
-        total_loss = weights['xentropy'] * loss \
-            + weights['triplet'] * triplet_loss
+        loss = weights['xentropy'] * loss
+        triplet_loss = weights['triplet'] * triplet_loss
+
+        total_loss = loss + triplet_loss
 
         # Do backward and weight update
         self.update_lr()
@@ -461,19 +470,26 @@ class WarpingSegTrainer(SegmentationTrainer):
             totalnorm = torch.nn.utils.clip_grad.clip_grad_norm(
                 self.model.parameters(), clip_norm)
         else:
-            totalnorm = - 1.0  # Norm is not computed.
+            totalnorm = 0
+            parameters = list(filter(
+                lambda p: p.grad is not None, self.model.parameters()))
+            for p in parameters:
+                norm_type = 2
+                param_norm = p.grad.data.norm(norm_type)
+                totalnorm += param_norm.item() ** norm_type
+            totalnorm = - totalnorm ** (1. / norm_type)
 
         self.optimizer.step()
 
-        if step % self.display_iter == 0:
+        if step % self.display_iter == 0 or step == 1:
             # Printing logging information
             duration = (time.time() - start_time) / self.display_iter
             imgs_per_sec = self.bs / duration
 
             log_str = ("Epoch [{:3d}/{:3d}][{:4d}/{:4d}] "
-                       " HingeLoss: {:.2f} {}: {:.2f}"
+                       " ClassLoss: {:.2f} {}: {:.2f}"
                        " MaskMean: {:.2f}"
-                       "  LR: {:.3E}  TotalNorm: {:2.1f} Speed: {:.1f}"
+                       "  LR: {:.3E}  GradNorm: {:2.1f} Speed: {:.1f}"
                        " imgs/sec ({:.3f} sec/batch)")
 
             self.losses.append(loss.item())

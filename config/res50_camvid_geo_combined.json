@@ -116,7 +116,7 @@
         "lr_offset_epochs": 0,
         "momentum": 0.9,
         "weight_decay": 5e-4,
-        "clip_norm": 1.0,
+        "clip_norm": null,
         "max_epochs": 999,
         "pre_eval": false,
         "cnn_gpus": null,

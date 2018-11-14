@@ -67,6 +67,7 @@ class MetaEvaluator(object):
 
         val_iter = self.conf['logging']["max_val_examples"]
         train_iter = self.conf['logging']["max_train_examples"]
+        train_split = self.conf['evaluation']["train_loader_split"]
 
         val_iter = 10
         train_iter = 10
@@ -75,8 +76,8 @@ class MetaEvaluator(object):
             conf, model, val_file, val_iter, name="Val", split="val",
             imgdir=self.imgdir)
         self.train_evaluator = Evaluator(
-            conf, model, train_file, train_iter, name="Train", split="val",
-            imgdir=self.imgdir)
+            conf, model, train_file, train_iter, name="Train",
+            split=train_split, imgdir=self.imgdir)
 
         self.evaluators = []
 
@@ -97,10 +98,6 @@ class MetaEvaluator(object):
         self.model.train(False)
 
         logging.info("Evaluating Model on the Validation Dataset.")
-
-        if self.conf['modules']['loader'] == "warping":
-
-            self.warp_evaluator.evaluate(epoch=epoch, level=level)
 
         # logging.info("Evaluating Model on the Validation Dataset.")
         start_time = time.time()
