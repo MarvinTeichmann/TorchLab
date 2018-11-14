@@ -118,17 +118,36 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
                 if file.endswith(".npz"):
                     newlist.append(file)
 
-            for i, file in enumerate(newlist):
-                if i < 5:
-                    train_list.append(os.path.join(seqdir, file))
-                    continue
-                if i % 23 == 0:
-                    val_list.append(os.path.join(seqdir, file))
-                    continue
-                if i % 23 in [1, 2, 22, 21]:
-                    continue
-                else:
-                    train_list.append(os.path.join(seqdir, file))
+            if self.conf["subsample"] == 0:
+
+                for i, file in enumerate(newlist):
+                    if i < 5:
+                        train_list.append(os.path.join(seqdir, file))
+                        continue
+                    if i % 23 == 0:
+                        val_list.append(os.path.join(seqdir, file))
+                        continue
+                    if i % 23 in [1, 2, 22, 21]:
+                        continue
+                    else:
+                        train_list.append(os.path.join(seqdir, file))
+
+            elif self.conf["subsample"] > 3:
+
+                s2 = self.conf["subsample"] // 2
+
+                for i, file in enumerate(newlist):
+                    if i % self.conf["subsample"] == 0:
+                        train_list.append(os.path.join(seqdir, file))
+                        continue
+                    if i % self.conf["subsample"] == s2:
+                        val_list.append(os.path.join(seqdir, file))
+                        continue
+                    else:
+                        continue
+
+            else:
+                raise NotImplementedError
 
         if self.lst_file == 'train':
             files = train_list

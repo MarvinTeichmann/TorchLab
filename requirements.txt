@@ -7,4 +7,5 @@ ipdb
 ipython
 deepdish
 torchvision
-deepdish
+scikit-image
+imageio
