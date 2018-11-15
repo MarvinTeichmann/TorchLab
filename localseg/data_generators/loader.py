@@ -312,7 +312,7 @@ class LocalSegmentationLoader(data.Dataset):
         image, ids_image, load_dict = self.transform(
             image, ids_image, load_dict)
 
-        label = self.decode_ids(ids_image)
+        label, mask = self.decode_ids(ids_image)
 
         sample = {'image': image, 'label': label,
                   'load_dict': str(load_dict)}
@@ -328,14 +328,16 @@ class LocalSegmentationLoader(data.Dataset):
 
     def _get_mask(self, decoded, ignore_label):
         mask = np.zeros(decoded.shape, dtype=np.long)
-        for value in self.mask_table.values():
-            mask += decoded == value
 
-        mask += decoded == ignore_label
+        if self.mask_table is not None:
+            for value in self.mask_table.values():
+                mask += decoded == value
 
-        assert np.all(mask <= 1)
+            mask += decoded == ignore_label
 
-        return 1 - mask
+            assert np.all(mask <= 1)
+
+            return 1 - mask
 
     def decode_ids(self, ids_image):
         """

@@ -48,10 +48,7 @@ try:
     from equirectangular_crops \
         import equirectangular_crop_id_image, euler_to_mat
 except ImportError:
-    from localseg.data_generators.fast_equi import extractEquirectangular_quick
-    from localseg.data_generators.algebra import Algebra
-    from localseg.data_generators.equirectangular_crops \
-        import equirectangular_crop_id_image, euler_to_mat
+    pass
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -418,10 +415,6 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
                     image, label_dict = random_crop_soft(
                         image, label_dict, max_crop, crop_chance)
                     shape_distorted = True
-
-                from IPython import embed
-                embed()
-                pass
 
                 if transform['fix_shape'] and shape_distorted:
                     patch_size = transform['patch_size']

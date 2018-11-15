@@ -25,6 +25,8 @@
         "grid_size": 10,
         "grid_dims": 3,
 
+        "subsample": 0,
+
         "transform": {
             "equi_crop": {
                 "do_equi": false,
@@ -93,7 +95,8 @@
             "xentropy": 50,
             "triplet": 1
         },
-        "spatial": false,
+        "corner": true,
+        "spatial": true,
         "embedding_loss": null,
         "squeeze": true,
         "dist_loss": true,

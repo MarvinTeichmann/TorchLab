@@ -23,7 +23,7 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 
 def notest():
 
-    from encoding import nn
+    # from encoding import nn
 
     try:
         import encoding_resnet as resnet
@@ -33,12 +33,12 @@ def notest():
     import torch
     from torch.autograd import Variable
 
-    # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
-    resnet_new = resnet.resnet101(batched_dilation=True).cuda()
+    resnet_new = resnet.resnet101(batched_dilation=False).cuda()
     resnet_trad = resnet.resnet101(batched_dilation=False).cuda()
 
-    img = torch.FloatTensor(4, 3, 512, 512).normal_()
+    img = torch.FloatTensor(1, 3, 512, 512).normal_()
     img = Variable(img, volatile=True).cuda()
 
     resTrad = resnet_trad(img) # NOQA
@@ -46,4 +46,5 @@ def notest():
 
 
 if __name__ == '__main__':
+    notest()
     logging.info("Hello World.")

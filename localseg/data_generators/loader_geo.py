@@ -48,10 +48,7 @@ try:
     from equirectangular_crops \
         import equirectangular_crop_id_image, euler_to_mat
 except ImportError:
-    from localseg.data_generators.fast_equi import extractEquirectangular_quick
-    from localseg.data_generators.algebra import Algebra
-    from localseg.data_generators.equirectangular_crops \
-        import equirectangular_crop_id_image, euler_to_mat
+    pass
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -410,26 +407,6 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
 
             shape_aug = self.shape_aug
 
-            if shape_aug and transform['equi_crop']['do_equi']:
-                if random.random() < transform['equi_crop']['equi_chance']:
-                    gt_image = None
-                    warp_img = None
-                    patch_size = transform['patch_size']
-                    assert patch_size[0] == patch_size[1]
-                    transform['equi_crop']['H_res'] = patch_size[0]
-                    transform['equi_crop']['W_res'] = patch_size[1]
-                    image, label_dict = equi_crop(
-                        image, label_dict, transform['equi_crop'])
-                    shape_aug = False
-
-                    image_orig = image_orig.transpose((2, 0, 1))
-                    image_orig = image_orig / 255
-                    if transform['normalize']:
-                        mean = np.array(transform['mean']).reshape(3, 1, 1)
-                        std = np.array(transform['std']).reshape(3, 1, 1)
-                        image_orig = (image_orig - mean) / std
-                    image_orig = image_orig.astype(np.float32)
-
             if shape_aug:
 
                 if transform['random_flip']:
@@ -447,11 +424,6 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
                             image, label_dict)
 
                 shape_distorted = True
-
-                if transform['equirectangular']:
-                    assert False
-                    image, gt_image, warp_img = random_equi_rotation(
-                        image, gt_image, warp_img, load_dict)
 
                 if transform['random_rotation']:
 

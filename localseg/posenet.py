@@ -35,14 +35,14 @@ import pyvision.logger
 
 
 import localseg
-# from localseg.data_generators import loader_pose as loader
-from localseg.data_generators import loader
+from localseg.data_generators import loader_pose as loader
+# from localseg.data_generators import loader
 
 from localseg import loss
-from localseg.trainer import SegmentationTrainer
+from localseg.trainer import PoseTrainer
 
 # from localseg.evaluators import segevaluator as evaluator
-# from localseg.evaluators import localevaluator as localevaluator
+from localseg.evaluators import poseevaluator
 
 
 # from localseg.utils.labels import LabelCoding
@@ -142,7 +142,7 @@ default_conf = {
 
 
 def create_pyvision_model(conf, logdir):
-    model = SegModel(conf=conf, logdir=logdir)
+    model = PoseNet(conf=conf, logdir=logdir)
     return model
 
 
@@ -178,7 +178,7 @@ class Encoder(nn.Module):
         return x
 
 
-class SegModel(nn.Module):
+class PoseNet(nn.Module):
 
     def __init__(self, conf, logdir='tmp'):
         super().__init__()
@@ -196,19 +196,23 @@ class SegModel(nn.Module):
         # Load Dataset
         bs = conf['training']['batch_size']
 
-        # self.loader = loader
-        # self.trainloader = loader.get_data_loader(
-        #    conf['dataset'], split='train', batch_size=bs)
-        Trainer = SegmentationTrainer # NOQA
+        self.loader = loader
+        self.trainloader = loader.get_data_loader(
+            conf['dataset'], split='train', batch_size=bs)
+        Trainer = PoseTrainer # NOQA
 
         assert conf['dataset']['label_encoding'] in ['dense', 'spatial_2d']
         self.label_encoding = conf['dataset']['label_encoding']
 
         self.model = Encoder(conf['encoder'])
 
-        # self.trainer = Trainer(conf, self, self.trainloader)
+        self.trainer = Trainer(conf, self, self.trainloader)
 
         self._load_pretrained_weights(conf)
+
+        self.evaluator = poseevaluator.MetaEvaluator(conf, self)
+
+        self._make_loss(conf)
 
         # self.visualizer = pvis.PascalVisualizer()
 
@@ -220,58 +224,21 @@ class SegModel(nn.Module):
         elif conf['dataset']['label_encoding'] == 'spatial_2d':
             return conf['dataset']['grid_dims']
 
-    '''
-    def _magic_loss(self, conf, device_ids):
+    def _make_loss(self, conf):
 
-        num_classes = self.num_classes
-        rclasses = self.conf['dataset']['root_classes']
-        grid_size = self.conf['dataset']['grid_size']
+        def tloss(input, target):
 
-        if self.conf['dataset']['label_encoding'] == 'dense':
-            xentropy = loss.CrossEntropyLoss2d(ignore_index=-100)
-        else:
+            target = target.float()
+            return torch.mean(((input[:, :3] - target)**2))
 
-            if self.conf['dataset']['grid_dims'] == 2:
-                ignore_idx = (-100 + rclasses * -100)
-                ignore_idx = ignore_idx // grid_size
-            elif self.conf['dataset']['grid_dims'] == 3:
-                ignore_idx = (-100 + rclasses * -100 + rclasses * rclasses * -100) # NOQA
-                ignore_idx = ignore_idx // grid_size
+        def rloss(input, target):
+            beta = conf['loss']['beta']
 
-            border = self.conf['loss']['border']
-            grid_size = self.conf['dataset']['grid_size']
+            target = target.float()
+            return beta ** 2 * torch.mean(((input[:, 3:] - target)**2))
 
-            corner = loss.CornerLoss(border=border, grid_size=grid_size)
-
-        def total_loss(input, target):
-
-            self.num_classes
-
-            class_pred = input[:, :num_classes]
-
-            if self.conf['dataset']['label_encoding'] == 'dense':
-                return xentropy(class_pred, target)
-
-            norm_target = target / grid_size
-
-            if self.conf['dataset']['grid_dims'] == 2:
-                class_target = norm_target[:, 0].int() + \
-                    rclasses * norm_target[:, 1].int()
-            elif self.conf['dataset']['grid_dims'] == 3:
-                class_target = norm_target[:, 0].int() + \
-                    rclasses * norm_target[:, 1].int() + \
-                    rclasses * rclasses * norm_target[:, 2].int()
-
-            triplet_logits = input[:, num_classes:]
-
-            loss1 = xentropy(class_pred, class_target.long())
-
-            loss2 = corner(triplet_logits)
-
-            return loss1 + loss2
-
-        return total_loss
-    '''
+        self.tloss = tloss
+        self.rloss = rloss
 
     def _assert_num_gpus(self, conf):
         if conf['training']['num_gpus']:
@@ -301,9 +268,9 @@ class SegModel(nn.Module):
     def get_loader(self):
         return self.loader
 
-    def predict(self, img, geo_dict=None):
+    def predict(self, img):
 
-        assert False
+        return self.model(img)
 
     def debug(self):
         return
@@ -313,11 +280,8 @@ class SegModel(nn.Module):
             logging.info(name)
 
     def fit(self, max_epochs=None):
-        import ipdb # NOQA
-        ipdb.set_trace()
-        pass
         self.debug()
-        # self.trainer.train(max_epochs)
+        self.trainer.train(max_epochs)
         return
 
     def load_from_logdir(self, logdir=None):
@@ -424,5 +388,5 @@ class SegModel(nn.Module):
 
 
 if __name__ == '__main__':
-    segmentationmodel = SegModel(default_conf)
+    segmentationmodel = PoseNet(default_conf)
     logging.info("Hello World.")

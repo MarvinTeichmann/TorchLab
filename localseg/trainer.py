@@ -288,6 +288,73 @@ class SegmentationTrainer():
                 logging.info("Checkpoint saved sucessfully.")
 
 
+class PoseTrainer(SegmentationTrainer):
+    """docstring for WarpingSegTrainer"""
+    def __init__(self, conf, model, data_loader, logger=None):
+        super(PoseTrainer, self).__init__(conf, model,
+                                          data_loader, logger=logger)
+
+    def do_training_step(self, step, sample, start_time):
+
+        # Do forward pass
+        img_var = Variable(sample['image']).cuda()
+        pred = self.model(img_var)
+
+        # Compute and print loss.
+
+        translation_loss = self.model.tloss(
+            pred, sample['translation'].cuda())
+
+        rotation_loss = self.model.rloss(
+            pred, sample['rotation'].cuda())
+
+        loss = translation_loss + rotation_loss
+
+        # Do backward and weight update
+        self.update_lr()
+        self.optimizer.zero_grad()
+        loss.backward()
+
+        clip_norm = self.conf['training']['clip_norm']
+        if clip_norm is not None:
+            totalnorm = torch.nn.utils.clip_grad.clip_grad_norm(
+                self.model.parameters(), clip_norm)
+        else:
+            totalnorm = 0
+            parameters = list(filter(
+                lambda p: p.grad is not None, self.model.parameters()))
+            for p in parameters:
+                norm_type = 2
+                param_norm = p.grad.data.norm(norm_type)
+                totalnorm += param_norm.item() ** norm_type
+            totalnorm = - totalnorm ** (1. / norm_type)
+
+        self.optimizer.step()
+
+        if step % self.display_iter == 0 or step == 1:
+            # Printing logging information
+            duration = (time.time() - start_time) / self.display_iter
+            imgs_per_sec = self.bs / duration
+
+            log_str = ("Epoch [{:3d}/{:3d}][{:4d}/{:4d}] "
+                       " TLoss: {:.2f} RLoss: {:.2f} LR: {:.3E}"
+                       " GradNorm: {:2.1f} Speed: {:.1f} "
+                       " imgs/sec ({:.3f} sec/batch)")
+
+            self.losses.append(loss.data[0])
+
+            lr = self.get_lr()
+
+            for_str = log_str.format(
+                self.epoch + 1, self.max_epochs, step, self.epoch_steps,
+                translation_loss.data[0], rotation_loss.data[0],
+                lr, totalnorm, imgs_per_sec, duration)
+
+            logging.info(for_str)
+
+            start_time = time.time()
+
+
 class WarpingSegTrainer(SegmentationTrainer):
     """docstring for WarpingSegTrainer"""
     def __init__(self, conf, model, data_loader, logger=None):
@@ -364,6 +431,10 @@ class WarpingSegTrainer(SegmentationTrainer):
             loss = self.model.loss(pred, label)
         else:
             loss = self.model.loss(pred[0], label)
+
+            if self.conf['loss']['spatial'] and \
+                    self.conf['loss']['corner']:
+                loss += self.model.corner_loss(pred[1]['world'])
 
         if self.geometric:
             geo_mask = sample['geo_mask'].cuda().unsqueeze(1).byte()

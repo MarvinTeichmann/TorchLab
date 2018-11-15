@@ -48,10 +48,7 @@ try:
     from equirectangular_crops \
         import equirectangular_crop_id_image, euler_to_mat
 except ImportError:
-    from localseg.data_generators.fast_equi import extractEquirectangular_quick
-    from localseg.data_generators.algebra import Algebra
-    from localseg.data_generators.equirectangular_crops \
-        import equirectangular_crop_id_image, euler_to_mat
+    pass
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,

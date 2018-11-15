@@ -69,9 +69,6 @@ class MetaEvaluator(object):
         train_iter = self.conf['logging']["max_train_examples"]
         train_split = self.conf['evaluation']["train_loader_split"]
 
-        val_iter = 10
-        train_iter = 10
-
         self.val_evaluator = Evaluator(
             conf, model, val_file, val_iter, name="Val", split="val",
             imgdir=self.imgdir)

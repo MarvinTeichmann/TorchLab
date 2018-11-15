@@ -124,7 +124,7 @@ class Evaluator():
         config = conf['dataset']
 
         # config['val_file'] = 'datasets/camvid3d_p4_one.lst'
-        config['val_file'] = 'datasets/camvid_p4_reduced.lst'
+        config['val_file'] = 'datasets/camvid_p4_full.lst'
         config['vis_file'] = 'datasets/camvid360_classes.lst'
         config['num_worker'] = 0
 
@@ -191,8 +191,12 @@ class Evaluator():
                     # last batch makes troubles in parallel mode
                     continue
 
+            bpred_np = bpred.cpu().numpy()
+
             for d in range(bpred.shape[0]):
                 self._write_3d_output(step, add_dict, sample, epoch, idx=d)
+                self._write_npz_output(
+                    step, add_dict, bpred_np, sample, epoch, d)
 
             for d in range(bpred.shape[0]):
                 bprop_np = bprop.cpu().numpy()
@@ -211,6 +215,22 @@ class Evaluator():
         filename = os.path.join(self.imgdir, "combined.ply")
         write_ply_file(filename, np.array(self.world_points),
                        np.array(self.colours))
+
+    def _write_npz_output(self, step, add_dict, bpred_np, sample, epoch, idx):
+        stepdir = os.path.join(self.imgdir, "output_{}".format('test'))
+        if not os.path.exists(stepdir):
+            os.mkdir(stepdir)
+
+        filename = literal_eval(
+            sample['load_dict'][idx])['image_file']
+
+        fname = os.path.join(stepdir, os.path.basename(filename))
+
+        np.savez_compressed(
+            fname,
+            world=add_dict[idx],
+            class_pred=bpred_np[idx],
+            class_mask=sample['mask'][idx])
 
     def _write_3d_output(self, step, add_dict, sample, epoch, idx=0):
         stepdir = os.path.join(self.imgdir, "meshplot_{}".format(

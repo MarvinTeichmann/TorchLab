@@ -52,6 +52,9 @@ class MetaEvaluator(object):
         else:
             self.imgdir = imgdir
 
+        if os.path.basename(imgdir) == 'eval_out':
+            self.imgdir = os.path.join(model.logdir, "full_predictions")
+
         if not os.path.exists(self.imgdir):
             os.mkdir(self.imgdir)
 
@@ -290,7 +293,13 @@ class Evaluator():
                                         bprop_np, epoch, level)
 
             if self.conf['modules']['loader'] == 'geometry':
-                self._write_3d_output(step, add_dict, sample, epoch)
+                for idx in range(bpred_np.shape[0]):
+                    self._write_3d_output(step, add_dict, sample, epoch, idx)
+                    self._write_npz_output(
+                        step, add_dict, bpred_np, sample, epoch, idx)
+            else:
+                raise NotImplementedError
+
             if level != 'none' and step in self.imgs_minor\
                     or level == 'one_image':
                 self._do_plotting_minor(step, bpred_np, bprop_np,
@@ -371,18 +380,37 @@ class Evaluator():
                 plt.close(fig=fig)
                 logging.info("Finished: {}".format(new_name))
 
-    def _write_3d_output(self, step, add_dict, sample, epoch):
+    def _write_npz_output(self, step, add_dict, bpred_np, sample, epoch, idx):
+        stepdir = os.path.join(self.imgdir, "output_{}".format(self.split))
+        if not os.path.exists(stepdir):
+            os.mkdir(stepdir)
+
+        filename = literal_eval(
+            sample['load_dict'][idx])['image_file']
+
+        fname = os.path.join(stepdir, os.path.basename(filename))
+
+        np.savez_compressed(
+            fname,
+            camera=add_dict['camera'][idx],
+            world=add_dict['world'][idx],
+            sphere=add_dict['sphere'][idx],
+            class_pred=bpred_np[idx],
+            class_label=sample['label'][idx],
+            class_mask=sample['class_mask'][idx])
+
+    def _write_3d_output(self, step, add_dict, sample, epoch, idx):
         stepdir = os.path.join(self.imgdir, "meshplot_{}".format(self.split))
         if not os.path.exists(stepdir):
             os.mkdir(stepdir)
 
-        colours = sample['image'][0].cpu().numpy().transpose() * 255
+        colours = sample['image'][idx].cpu().numpy().transpose() * 255
 
         geo_mask = sample['geo_mask'].unsqueeze(1).byte()
         class_mask = sample['class_mask'].unsqueeze(1).byte()
 
         total_mask = torch.all(
-            torch.stack([geo_mask, class_mask]), dim=0).squeeze(1)[0]
+            torch.stack([geo_mask, class_mask]), dim=0).squeeze(1)[idx]
 
         total_mask = total_mask.numpy().transpose().astype(np.bool)
 
@@ -399,7 +427,7 @@ class Evaluator():
             os.mkdir(spheredir)
 
         filename = literal_eval(
-            sample['load_dict'][0])['image_file']
+            sample['load_dict'][idx])['image_file']
 
         if epoch is None:
             newfile = filename.split(".")[0] + "_None.ply"\
@@ -408,18 +436,18 @@ class Evaluator():
             newfile = filename.split(".")[0] + "_epoch_{num:05d}.ply"\
                 .format(num=epoch)
 
-        world_points = add_dict['world'][0].cpu().numpy().transpose()
+        world_points = add_dict['world'][idx].cpu().numpy().transpose()
         fname = os.path.join(worlddir, os.path.basename(newfile))
 
         logging.info("Wrote: {}".format(fname))
 
         write_ply_file(fname, world_points[total_mask], colours[total_mask])
 
-        world_points = add_dict['camera'][0].cpu().numpy().transpose()
+        world_points = add_dict['camera'][idx].cpu().numpy().transpose()
         fname = os.path.join(cameradir, os.path.basename(newfile))
         write_ply_file(fname, world_points[total_mask], colours[total_mask])
 
-        world_points = add_dict['sphere'][0].cpu().numpy().transpose()
+        world_points = add_dict['sphere'][idx].cpu().numpy().transpose()
         fname = os.path.join(spheredir, os.path.basename(newfile))
         write_ply_file(fname, world_points[total_mask], colours[total_mask])
 

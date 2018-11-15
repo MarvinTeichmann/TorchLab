@@ -9,7 +9,7 @@
 
     "dataset" : {
         "dataset": "camvid3d",
-        "sequence": "camvid_360_cvpr18_P2_training_data/part_05_seq_016E5_P3_R94_10620_11190",
+        "sequence": "camvid_360_cvpr18_P2_training_data/part_03_seq_016E5_P2_A_R94_08010_09059/",
         "train_file": "train",
         "val_file": "val",
 
@@ -95,6 +95,7 @@
             "xentropy": 50,
             "triplet": 1
         },
+        "corner": false,
         "spatial": false,
         "embedding_loss": null,
         "squeeze": false,
