@@ -9,7 +9,13 @@
 
     "dataset" : {
         "dataset": "camvid3d",
-        "sequence": "camvid_360_cvpr18_P2_training_data/part_03_seq_016E5_P2_A_R94_08010_09059/",
+        "sequence": [
+            "camvid_360_cvpr18_P2_training_data/part_03_seq_016E5_P2_A_R94_08010_09059/",
+            "camvid_360_cvpr18_P2_training_data/part_04_seq_016E5_P2_B_R94_09060_10380/",
+            "camvid_360_cvpr18_P2_training_data/part_05_seq_016E5_P3_R94_10620_11190/",
+            "camvid_360_cvpr18_P2_training_data/part_06_seq_001TP_P1_R94_21060_22229",
+            "camvid_360_cvpr18_P2_training_data/part_07_seq_001TP_P2_R94_22230_23100"
+        ],
         "train_file": "train",
         "val_file": "val",
 
@@ -42,7 +48,7 @@
             "reseize_image": false,
             "patch_size": [224, 448],
             "random_crop": true,
-            "random_roll": false,
+            "random_roll": true,
             "max_crop": 4,
             "crop_chance": 0.6,
             "random_resize": false,

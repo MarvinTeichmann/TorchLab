@@ -42,7 +42,7 @@
             "reseize_image": false,
             "patch_size": [224, 448],
             "random_crop": true,
-            "random_roll": false,
+            "random_roll": true,
             "max_crop": 4,
             "crop_chance": 0.6,
             "random_resize": false,
