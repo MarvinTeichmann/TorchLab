@@ -468,7 +468,7 @@ class WarpingSegTrainer(SegmentationTrainer):
                 dist_gt = sample['geo_camera'].cuda()
 
                 dist_loss += self.model.dist_loss(
-                    dist_gt, pred[1]['camera'], total_mask)
+                    pred[1]['camera'], dist_gt, total_mask)
 
             if confloss['geometric_type']['world']:
 

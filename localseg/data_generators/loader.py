@@ -187,6 +187,8 @@ class LocalSegmentationLoader(data.Dataset):
             conf['vis_file'] = 'datasets/camvid360_classes.lst'
             conf['mask_file'] = 'datasets/camvid_ids.json'
 
+            conf['img_name'] = 'images_prop'
+
             conf['ignore_label'] = 0
             conf['idx_offset'] = 1
             conf['num_classes'] = 308
@@ -236,6 +238,17 @@ class LocalSegmentationLoader(data.Dataset):
             conf['val_file'] = 'datasets/camvid3d_one_val.lst'
             conf['vis_file'] = 'datasets/camvid360_classes.lst'
             conf['mask_file'] = 'datasets/camvid_ids.json'
+
+            conf['ignore_label'] = 0
+            conf['idx_offset'] = 1
+            conf['num_classes'] = 308
+
+        if conf['dataset'] == 'sincity':
+            conf['traindir'] = 'scenecity/scenecity_small_eccv18_train_cloudy_downsampled' # NOQA
+            conf['vis_file'] = 'datasets/scenecity_small_train_classes.lst'
+            conf['mask_file'] = 'datasets/sincity_ids.json'
+
+            conf['img_name'] = 'images'
 
             conf['ignore_label'] = 0
             conf['idx_offset'] = 1

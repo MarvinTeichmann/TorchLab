@@ -82,7 +82,7 @@ class MSELoss(_WeightedLoss):
 
     def forward(self, input, target, mask):
 
-        return torch.mean(((input - target)**2) * mask)
+        return torch.mean(((input - target.float())**2) * mask)
 
 
 class TruncatedHingeLoss2dMask(_WeightedLoss):

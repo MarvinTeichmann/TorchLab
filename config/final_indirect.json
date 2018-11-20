@@ -9,7 +9,7 @@
 
     "dataset" : {
         "dataset": "camvid3d",
-        "sequence": "camvid_360_cvpr18_P2_training_data/part_05_seq_016E5_P3_R94_10620_11190/",
+        "sequence": "camvid_360_cvpr18_P2_training_data/part_05_seq_016E5_P3_R94_10620_11190_indirect_01",
         "train_file": "train",
         "val_file": "val",
 
@@ -56,7 +56,7 @@
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 8
+        "num_worker": 0
     },
 
     "encoder": {
@@ -92,7 +92,7 @@
             }
         },
         "weights": {
-            "xentropy": 10,
+            "xentropy": 50,
             "triplet": 1
         },
         "corner": false,
@@ -109,7 +109,7 @@
 
     "training": {
         "batch_size": 2,
-        "learning_rate": 5e-5,
+        "learning_rate": 5e-4,
         "lr_schedule": "poly",
         "exp": 1.5,
         "base": 0.9,

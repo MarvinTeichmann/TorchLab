@@ -245,7 +245,8 @@ class Evaluator():
 
         assert eval_fkt is None
         metric = IoU(self.num_classes + 1, self.names)
-        dmetric = distmetric.DistMetric()
+        dmetric = distmetric.DistMetric(
+            scale=self.conf['evaluation']['scale'])
 
         self.trans = self.conf['evaluation']['transparency']
 

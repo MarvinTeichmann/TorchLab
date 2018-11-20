@@ -53,7 +53,7 @@ class MetaEvaluator(object):
             self.imgdir = imgdir
 
         if os.path.basename(imgdir) == 'eval_out':
-            self.imgdir = os.path.join(model.logdir, "full_predictions")
+            self.imgdir = os.path.join(model.logdir, "full")
 
         if not os.path.exists(self.imgdir):
             os.mkdir(self.imgdir)
@@ -61,14 +61,22 @@ class MetaEvaluator(object):
         val_file = conf['dataset']['val_file']
         train_file = conf['dataset']['train_file']
 
-        val_iter = self.conf['logging']["max_val_examples"]
-        train_iter = self.conf['logging']["max_train_examples"]
+        val_iter = None
+        train_iter = None
+
+        self.test_hand_evaluator = Evaluator(
+            conf, model, 'test', train_iter, name="test_hand", split="val",
+            imgdir=self.imgdir)
 
         self.val_evaluator = Evaluator(
-            conf, model, val_file, val_iter, name="Val", split="val",
+            conf, model, val_file, val_iter, name="val", split="val",
             imgdir=self.imgdir)
         self.train_evaluator = Evaluator(
-            conf, model, train_file, train_iter, name="Train", split="train",
+            conf, model, train_file, train_iter, name="train", split="val",
+            imgdir=self.imgdir)
+
+        self.test_evaluator = Evaluator(
+            conf, model, 'test', train_iter, name="test", split="val",
             imgdir=self.imgdir)
 
         if self.conf['modules']['loader'] == "warping":
@@ -98,9 +106,9 @@ class MetaEvaluator(object):
 
         logging.info("Evaluating Model on the Validation Dataset.")
 
-        if self.conf['modules']['loader'] == "warping":
-
-            self.warp_evaluator.evaluate(epoch=epoch, level=level)
+        # logging.info("Evaluating Model on the Validation Dataset.")
+        self.test_hand_evaluator.evaluate(epoch=epoch, level=level)
+        self.test_evaluator.evaluate(epoch=epoch, level=level)
 
         # logging.info("Evaluating Model on the Validation Dataset.")
         start_time = time.time()
@@ -197,6 +205,8 @@ class Evaluator():
 
         self.label_coder = self.model.label_coder
 
+        self.test = data_file == 'test'
+
         if split is None:
             split = 'val'
 
@@ -207,6 +217,11 @@ class Evaluator():
 
         if split == 'val' and conf['evaluation']['reduce_val_bs']:
             batch_size = 1
+
+        if name == "test_hand":
+            conf['dataset']['hand'] = True
+        else:
+            conf['dataset']['hand'] = False
 
         self.loader = loader.get_data_loader(
             conf['dataset'], split=split, batch_size=batch_size,
@@ -265,13 +280,18 @@ class Evaluator():
 
             cur_bs = sample['image'].size()[0]
 
+            if self.test:
+                geo_dict = None
+            else:
+                geo_dict = sample
+
             with torch.no_grad():
 
                 if cur_bs == self.bs:
 
                     if eval_fkt is None:
                         bprop, bpred, add_dict = self.model.predict(
-                            img_var, geo_dict=sample)
+                            img_var, geo_dict=geo_dict)
                     else:
                         bprop, bpred = eval_fkt(img_var)
 
@@ -288,17 +308,22 @@ class Evaluator():
 
             duration = (time.time() - start_time)
 
+            if self.conf['modules']['loader'] == 'geometry':
+                for idx in range(bpred_np.shape[0]):
+                    self._write_3d_output(
+                        step, add_dict, sample, epoch, idx, self.test)
+                    self._write_npz_output(
+                        step, add_dict, bpred_np, sample,
+                        epoch, idx, self.test)
+            else:
+                raise NotImplementedError
+
+            if self.test:
+                continue
+
             if level == 'mayor' and step * self.bs < 300 or level == 'full':
                 self._do_plotting_mayor(cur_bs, sample, bpred_np,
                                         bprop_np, epoch, level)
-
-            if self.conf['modules']['loader'] == 'geometry':
-                for idx in range(bpred_np.shape[0]):
-                    self._write_3d_output(step, add_dict, sample, epoch, idx)
-                    self._write_npz_output(
-                        step, add_dict, bpred_np, sample, epoch, idx)
-            else:
-                raise NotImplementedError
 
             if level != 'none' and step in self.imgs_minor\
                     or level == 'one_image':
@@ -380,8 +405,9 @@ class Evaluator():
                 plt.close(fig=fig)
                 logging.info("Finished: {}".format(new_name))
 
-    def _write_npz_output(self, step, add_dict, bpred_np, sample, epoch, idx):
-        stepdir = os.path.join(self.imgdir, "output_{}".format(self.split))
+    def _write_npz_output(self, step, add_dict, bpred_np, sample, epoch, idx,
+                          test=False):
+        stepdir = os.path.join(self.imgdir, "output_{}".format(self.name))
         if not os.path.exists(stepdir):
             os.mkdir(stepdir)
 
@@ -389,6 +415,13 @@ class Evaluator():
             sample['load_dict'][idx])['image_file']
 
         fname = os.path.join(stepdir, os.path.basename(filename))
+
+        if test:
+            np.savez_compressed(
+                fname,
+                world=add_dict[idx],
+                class_pred=bpred_np[idx])
+            return
 
         np.savez_compressed(
             fname,
@@ -399,38 +432,45 @@ class Evaluator():
             class_label=sample['label'][idx],
             class_mask=sample['class_mask'][idx])
 
-    def _write_3d_output(self, step, add_dict, sample, epoch, idx):
-        stepdir = os.path.join(self.imgdir, "meshplot_{}".format(self.split))
+    def _write_3d_output(self, step, add_dict, sample, epoch, idx, test=False):
+
+        if test:
+            return
+
+        stepdir = os.path.join(self.imgdir, "meshplot_{}".format(self.name))
         if not os.path.exists(stepdir):
             os.mkdir(stepdir)
 
         colours = sample['image'][idx].cpu().numpy().transpose() * 255
 
-        geo_mask = sample['geo_mask'].unsqueeze(1).byte()
-        class_mask = sample['class_mask'].unsqueeze(1).byte()
-
-        total_mask = torch.all(
-            torch.stack([geo_mask, class_mask]), dim=0).squeeze(1)[idx]
-
-        total_mask = total_mask.numpy().transpose().astype(np.bool)
-
         worlddir = os.path.join(stepdir, "world")
         if not os.path.exists(worlddir):
             os.mkdir(worlddir)
 
-        cameradir = os.path.join(stepdir, "camera")
-        if not os.path.exists(cameradir):
-            os.mkdir(cameradir)
+        if test:
+            total_mask = 1
+        if not test:
+            geo_mask = sample['geo_mask'].unsqueeze(1).byte()
+            class_mask = sample['class_mask'].unsqueeze(1).byte()
 
-        spheredir = os.path.join(stepdir, "sphere")
-        if not os.path.exists(spheredir):
-            os.mkdir(spheredir)
+            total_mask = torch.all(
+                torch.stack([geo_mask, class_mask]), dim=0).squeeze(1)[idx]
 
-        filename = literal_eval(
-            sample['load_dict'][idx])['image_file']
+            total_mask = total_mask.numpy().transpose().astype(np.bool)
+
+            cameradir = os.path.join(stepdir, "camera")
+            if not os.path.exists(cameradir):
+                os.mkdir(cameradir)
+
+            spheredir = os.path.join(stepdir, "sphere")
+            if not os.path.exists(spheredir):
+                os.mkdir(spheredir)
+
+            filename = literal_eval(
+                sample['load_dict'][idx])['image_file']
 
         if epoch is None:
-            newfile = filename.split(".")[0] + "_None.ply"\
+            newfile = filename.split(".")[0] + ".ply"\
                 .format(num=epoch)
         else:
             newfile = filename.split(".")[0] + "_epoch_{num:05d}.ply"\
@@ -440,6 +480,9 @@ class Evaluator():
         fname = os.path.join(worlddir, os.path.basename(newfile))
 
         logging.info("Wrote: {}".format(fname))
+
+        if test:
+            return
 
         write_ply_file(fname, world_points[total_mask], colours[total_mask])
 

@@ -30,12 +30,15 @@ import matplotlib.pyplot as plt
 
 class DistMetric(object):
     """docstring for DistMetric"""
-    def __init__(self, threshholds=[6, 12, 24], keep_raw=False):
+    def __init__(self, threshholds=[6, 12, 24],
+                 keep_raw=False, scale=1):
         super(DistMetric, self).__init__()
 
         self.distances = []
         self.thres = threshholds
         self.keep_raw = keep_raw
+
+        self.scale = scale
 
         self.pos = [0 for i in self.thres]
         self.neg = [0 for i in self.thres]
@@ -50,8 +53,8 @@ class DistMetric(object):
         dists = np.linalg.norm(prediction[:, mask] - gt[:, mask], axis=0)
 
         for i, thres in enumerate(self.thres):
-            self.pos[i] += np.sum(dists < thres)
-            self.neg[i] += np.sum(dists >= thres)
+            self.pos[i] += np.sum(dists < thres * self.scale)
+            self.neg[i] += np.sum(dists >= thres * self.scale)
             assert self.count == self.pos[i] + self.neg[i]
 
         if self.keep_raw:

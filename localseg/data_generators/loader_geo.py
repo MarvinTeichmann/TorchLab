@@ -8,6 +8,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import matplotlib.pyplot as plt
+
 
 import os
 import collections
@@ -106,13 +108,26 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
 
         for sequence in self.conf['sequence']:
 
-            seqdir = os.path.join(
-                self.traindir, sequence, 'points_3d_info_new')
+            if self.lst_file == 'test':
+                new_seq = os.path.basename(sequence)
+                if new_seq == '':
+                    new_seq = sequence.split('/')[-2]
+
+                if not self.conf['hand']:
+                    img_dir = 'images_prop'
+                else:
+                    img_dir = 'images_hand'
+
+                seqdir = os.path.join(
+                    self.traindir, 'test_data', new_seq, img_dir)
+            else:
+                seqdir = os.path.join(
+                    self.traindir, sequence, 'points_3d_info_new')
 
             filelist = os.listdir(seqdir)
             newlist = []
             for file in sorted(filelist):
-                if file.endswith(".npz"):
+                if file.endswith(".npz") or file.endswith(".png"):
                     newlist.append(file)
 
             if self.conf["subsample"] == 0:
@@ -150,12 +165,37 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
             files = train_list
         elif self.lst_file == 'val':
             files = val_list
+        elif self.lst_file == 'test':
+            files = [os.path.join(seqdir, file) for file in newlist]
         else:
             raise NotImplementedError
 
         return files
 
     def __getitem__(self, idx):
+
+        if self.lst_file == 'test':
+            image_filename = self.img_list[idx]
+
+            assert os.path.exists(image_filename), \
+                "File does not exist: %s" % image_filename
+
+            image = scp.misc.imread(image_filename)
+
+            label_dict = {}
+            load_dict = {}
+            load_dict['idx'] = idx
+            load_dict['image_file'] = image_filename
+
+            image, image_orig, label_dict, load_dict = self.transform(
+                image, label_dict, load_dict)
+
+            sample = {
+                'image': image,
+                'image_orig': image_orig,
+                'load_dict': str(load_dict)}
+
+            return sample
 
         npz_fname = self.img_list[idx]
         img_name = os.path.basename(npz_fname).split(".npz")[0] + ".png"
@@ -598,7 +638,7 @@ def random_crop_soft(image, label_dict, max_crop, crop_chance):
         offset_y += 1
         image = image[:-offset_x, :-offset_y]
         for key, item in label_dict.items():
-            label_dict[key] = item[offset_x:, offset_y:]
+            label_dict[key] = item[:-offset_x, :-offset_y]
 
     return image, label_dict
 
@@ -692,17 +732,32 @@ def resize_torch(array, factor, mode="nearest"):
 if __name__ == '__main__':  # NOQA
 
     config = loader.default_conf.copy()
-    config['dataset'] = "camvid3d_reduced"
+    config['dataset'] = "sincity"
+    config['sequence'] = ""
+    config['subsample'] = 0
 
-    config['3d_label'] = 'points_3d_sphere'
+    config['train_file'] = 'train'
+    config['val_file'] = 'val'
 
-    loader = WarpingSegmentationLoader(conf=config)
+    loader = WarpingSegmentationLoader(conf=config, split='train')
+
+    config['transform']['presize'] = None
+
+    outdir = 'test'
 
     sample = loader[1]
 
-    for i in range(4):
+    loader.shape_aug = False
+    loader.colour_aug = False
+
+    for i in range(1000):
         test = loader[i]
-        scp.misc.imshow(sample['class_mask'] * sample['image'])
+        filename = os.path.join(outdir, '{:03d}.png'.format(i))
+        scp.misc.imsave(
+            filename,
+            (test['class_mask'] * test['image']).transpose([1, 2, 0]))
+        # plt.imshow((sample['class_mask'] * sample['image']).transpose([1, 2, 0])) # NOQA
+        # plt.show()
 
     mylabel = test['label']
     '''

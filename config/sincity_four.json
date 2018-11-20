@@ -8,10 +8,10 @@
     },
 
     "dataset" : {
-        "dataset": "camvid3d",
-        "sequence": "camvid_360_cvpr18_P2_training_data/part_05_seq_016E5_P3_R94_10620_11190/",
+        "dataset": "sincity",
+        "sequence": "mysets/fourimgs",
         "train_file": "train",
-        "val_file": "val",
+        "val_file": "train",
 
         "ignore_label": 0,
         "idx_offset": 1,
@@ -36,7 +36,7 @@
                 "wrap": true,
                 "plane_f": 0.05
                 },
-            "presize": 0.5,
+            "presize": null,
             "color_augmentation_level": 1,
             "fix_shape": true,
             "reseize_image": false,
@@ -92,8 +92,8 @@
             }
         },
         "weights": {
-            "xentropy": 10,
-            "triplet": 1
+            "xentropy": 1,
+            "triplet": 10
         },
         "corner": false,
         "spatial": false,
@@ -109,7 +109,7 @@
 
     "training": {
         "batch_size": 2,
-        "learning_rate": 5e-5,
+        "learning_rate": 5e-4,
         "lr_schedule": "poly",
         "exp": 1.5,
         "base": 0.9,
@@ -133,12 +133,12 @@
         "default_level": "minor",
         "reduce_val_bs": false,
         "has_flow": false,
-        "scale": 1,
-        "train_loader_split": "val"
+        "train_loader_split": "val",
+        "scale": 1e-2
     },
 
     "logging": {
-        "display_iter": 5000,
+        "display_iter": 300,
         "eval_iter": 20,
         "max_val_examples": null,
         "max_train_examples": 100,
