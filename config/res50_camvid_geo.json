@@ -92,7 +92,7 @@
             }
         },
         "weights": {
-            "xentropy": 50,
+            "xentropy": 10,
             "triplet": 1
         },
         "corner": false,

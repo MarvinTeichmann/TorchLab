@@ -194,7 +194,8 @@ class CriterionDataParallel(Module):
         return criterion_parallel_apply(replicas, inputs, targets, kwargs)
 
     def gather(self, outputs, output_device):
-        return gather(outputs, output_device, dim=self.dim).mean()
+        gathered = [output.cuda(output_device) for output in outputs]
+        return sum(gathered) / len(gathered)
     
 
 class SelfDataParallel(Module):
