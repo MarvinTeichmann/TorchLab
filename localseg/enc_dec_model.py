@@ -105,6 +105,13 @@ def _get_encoder(conf):
     batched_dilation = conf['encoder']['batched_dilation']
     pretrained = conf['encoder']['load_pretrained']
 
+    if conf['encoder']['norm'] == 'Group':
+        bn = segencoder.resnet.GroupNorm
+    elif conf['encoder']['norm'] == 'Batch':
+        bn = nn.BatchNorm2d
+    else:
+        raise NotImplementedError
+
     if conf['modules']['encoder'] == 'resnet':
 
         if conf['encoder']['source'] == "simple":
@@ -118,15 +125,18 @@ def _get_encoder(conf):
         if conf['encoder']['num_layer'] == 50:
             encoder = resnet.resnet50(
                 pretrained=pretrained, dilated=dilated,
-                batched_dilation=batched_dilation).cuda()
+                batched_dilation=batched_dilation,
+                bn=bn).cuda()
         elif conf['encoder']['num_layer'] == 101:
             encoder = resnet.resnet101(
                 pretrained=pretrained, dilated=dilated,
-                batched_dilation=batched_dilation).cuda()
+                batched_dilation=batched_dilation,
+                bn=bn).cuda()
         elif conf['encoder']['num_layer'] == 152:
             encoder = resnet.resnet152(
                 pretrained=pretrained, dilated=dilated,
-                batched_dilation=batched_dilation).cuda()
+                batched_dilation=batched_dilation,
+                bn=bn).cuda()
         else:
             raise NotImplementedError
             # further implementation are available; see encoder.resnet

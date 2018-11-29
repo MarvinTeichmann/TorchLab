@@ -60,8 +60,9 @@
     },
 
     "encoder": {
-        "source": "encoding",
-        "dilated": true,
+        "source": "simple",
+        "norm": "Batch",
+        "dilated": false,
         "normalize": true,
         "batched_dilation": false,
         "num_layer": 50,
@@ -133,6 +134,7 @@
         "default_level": "minor",
         "reduce_val_bs": false,
         "has_flow": false,
+        "scale": 1,
         "train_loader_split": "val"
     },
 
@@ -155,7 +157,7 @@
     },
 
     "pyvision": {
-        "project_name": "localseg",
+        "project_name": "localsegICCV",
         "entry_point": "../localseg/segmodel.py",
         "plotter": "../localseg/plotting/segplotter.py",
         "required_packages": ["../localseg"],

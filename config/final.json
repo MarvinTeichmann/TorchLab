@@ -61,6 +61,7 @@
 
     "encoder": {
         "source": "encoding",
+        "norm": "Batch",
         "dilated": true,
         "normalize": true,
         "batched_dilation": false,
