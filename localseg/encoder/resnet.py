@@ -153,13 +153,19 @@ class ResNet(nn.Module):
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
-        self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
+
+        if dilated:
+            stride = 1
+        else:
+            stride = 2
+
+        self.layer3 = self._make_layer(block, 256, layers[2], stride=stride)
+        self.layer4 = self._make_layer(block, 512, layers[3], stride=stride)
         self.avgpool = nn.AvgPool2d(7, stride=1, ceil_mode=True,
                                     count_include_pad=False)
         self.fc = nn.Linear(512 * block.expansion, num_classes)
 
-        assert not dilated
+        self.dilated = dilated
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -198,6 +204,17 @@ class ResNet(nn.Module):
         assert(isinstance(bn3, self.BatchNorm))
         bn2 = [m for m in self.layer2.modules()][-2]
         assert(isinstance(bn2, self.BatchNorm))
+
+        if self.dilated:
+            df = 8
+        else:
+            df = 32
+
+        chan_dict = {
+            'scale8': bn2.num_features,
+            'scale16': bn3.num_features,
+            'scale32': bn4.num_features,
+            'down_factor': df}
 
         chan_dict = {
             'scale8': bn2.num_features,

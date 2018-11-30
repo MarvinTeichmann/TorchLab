@@ -48,33 +48,18 @@ def get_network(conf):
 class EncoderDecoder(nn.Module):
 
     def __init__(self, conf, encoder, decoder,
-                 self_parallel=False, ngpus=None):
+                 ngpus=None):
         super().__init__()
 
-        self.self_parallel = self_parallel
         self.conf = conf
 
         self.verbose = False
 
-        if self.conf['encoder']['normalize']:
+        self.mean = np.array(self.conf['encoder']['mean'])
+        self.std = np.array(self.conf['encoder']['std'])
 
-            mean = np.array(self.conf['encoder']['mean'])
-            self.mean = torch.Tensor(mean).view(1, 3, 1, 1).cuda()
-
-            std = np.array(self.conf['encoder']['std'])
-            self.std = torch.Tensor(std).view(1, 3, 1, 1).cuda()
-
-        if not self.self_parallel:
-            self.encoder = encoder
-            self.decoder = decoder
-        else:
-            if ngpus is None:
-                self.ids = list(range(torch.cuda.device_count()))
-            else:
-                self.ids = list(range(ngpus))
-            self.encoder = parallel.SelfDataParallel(
-                encoder, device_ids=self.ids)
-            self.decoder = decoder
+        self.encoder = encoder
+        self.decoder = decoder
 
     def forward(self, imgs):
         # Expect input to be in range [0, 1]
@@ -82,18 +67,19 @@ class EncoderDecoder(nn.Module):
 
         if self.conf['encoder']['normalize']:
 
-            normalized_imgs = (imgs - self.mean) / self.std
+            mean = torch.Tensor(self.mean).view(1, 3, 1, 1).cuda(imgs.device)
+            std = torch.Tensor(self.std).view(1, 3, 1, 1).cuda(imgs.device)
+
+        if self.conf['encoder']['normalize']:
+
+            normalized_imgs = (imgs - mean) / std
 
         feats32 = self.encoder(normalized_imgs,
                                verbose=self.verbose, return_dict=True)
 
         self.verbose = False
 
-        if not self.self_parallel:
-            prediction = self.decoder(feats32)
-        else:
-            prediction = parallel.my_data_parallel(
-                self.decoder, feats32, device_ids=self.ids)
+        prediction = self.decoder(feats32)
 
         return prediction
 
@@ -159,25 +145,13 @@ def _get_parallelized_model(conf, encoder, decoder):
     # Self parallel has not been used for a while. TODO test
     # TODO: use new device assignment
 
-    ngpus = conf['training']['cnn_gpus']
-    self_parallel = conf['encoder']['source'] == "encoding"
+    model = EncoderDecoder(conf, encoder=encoder, decoder=decoder)
 
-    if self_parallel:
-        model = EncoderDecoder(conf, encoder=encoder, decoder=decoder,
-                               self_parallel=True, ngpus=ngpus)
-        return model.cuda(), None
+    device_ids = None
 
-    if not self_parallel:
-        model = EncoderDecoder(conf, encoder=encoder, decoder=decoder)
+    model = nn.DataParallel(model).cuda()
 
-        if ngpus is None:
-            device_ids = None
-        else:
-            device_ids = list(range(ngpus))
-
-        model = parallel.ModelDataParallel(
-            model, device_ids=device_ids).cuda()
-        return model, device_ids
+    return model, device_ids
 
 
 if __name__ == '__main__':

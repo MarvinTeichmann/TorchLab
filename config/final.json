@@ -28,9 +28,8 @@
         "grid_dims": 3,
 
         "transform": {
+            "equirectangular": true,
             "equi_crop": {
-                "do_equi": false,
-                "equi_chance": 0.5,
                 "HFoV_range": [0.8, 2.5],
                 "VFoV_range": [0.8, 2.5],
                 "wrap": true,
@@ -51,7 +50,6 @@
             "resize_sig": 0.4,
             "random_flip": false,
             "random_rotation": false,
-            "equirectangular": false,
             "normalize": false,
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
@@ -110,7 +108,7 @@
 
     "training": {
         "batch_size": 2,
-        "learning_rate": 5e-5,
+        "learning_rate": 5e-4,
         "lr_schedule": "poly",
         "exp": 1.5,
         "base": 0.9,
@@ -132,14 +130,14 @@
         "imgs_minor": [1, 3, 10],
         "transparency": 0,
         "default_level": "minor",
-        "reduce_val_bs": false,
+        "reduce_val_bs": true,
         "has_flow": false,
         "scale": 1,
         "train_loader_split": "val"
     },
 
     "logging": {
-        "display_iter": 5000,
+        "display_iter": 200,
         "eval_iter": 20,
         "max_val_examples": null,
         "max_train_examples": 100,

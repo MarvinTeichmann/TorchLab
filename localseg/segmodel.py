@@ -49,7 +49,6 @@ from localseg.evaluators import localevaluator as localevaluator
 
 
 from localseg.utils.labels import LabelCoding
-from localseg.encoder import parallel as parallel
 
 from localseg.decoder import geometric as geodec
 
@@ -257,8 +256,7 @@ class SegModel(nn.Module):
     def _make_loss(self, conf, device_ids):
 
         if self.label_encoding == 'dense':
-            par_loss = parallel.CriterionDataParallel(
-                loss.CrossEntropyLoss2d(), device_ids=device_ids)
+            par_loss = loss.CrossEntropyLoss2d()
 
             border = self.conf['loss']['border']
             grid_size = self.conf['dataset']['grid_size']
@@ -271,8 +269,7 @@ class SegModel(nn.Module):
             border = self.conf['loss']['border']
             grid_size = self.conf['dataset']['grid_size']
             myloss = loss.HingeLoss2d(border=border, grid_size=grid_size)
-            par_loss = parallel.CriterionDataParallel(
-                myloss, device_ids=device_ids)
+            par_loss = myloss
         else:
             raise NotImplementedError
 

@@ -173,7 +173,7 @@ class SegmentationTrainer():
 
         self.optimizer.step()
 
-        if step % self.display_iter == 0 or step == 1:
+        if step % self.display_iter == 0:
             # Printing logging information
             duration = (time.time() - start_time) / self.display_iter
             imgs_per_sec = self.bs / duration
@@ -372,53 +372,55 @@ class WarpingSegTrainer(SegmentationTrainer):
 
     def do_training_step(self, step, sample, start_time):
 
-        with torch.set_grad_enabled(self.conf['loss']['backprop_orig']):
+        if False:
 
-            if self.model.magic:
-                pass
+            with torch.set_grad_enabled(self.conf['loss']['backprop_orig']):
 
-            img_var = Variable(sample['image_orig']).cuda()
-            pred_orig = self.model(img_var)[
-                :, -self.conf['dataset']['grid_dims']:]
+                if self.model.magic:
+                    pass
 
-            warp_ids = sample['warp_ids'].cuda().long()
+                img_var = Variable(sample['image_orig']).cuda()
+                pred_orig = self.model(img_var)[
+                    :, -self.conf['dataset']['grid_dims']:]
 
-            shape = (img_var.shape[0], self.conf['dataset']['grid_dims']) \
-                + sample['label'].shape[-2:]
+                warp_ids = sample['warp_ids'].cuda().long()
 
-            warped = torch.zeros(shape).cuda().float()
-            ign = sample['warp_ign'].cuda()
+                shape = (img_var.shape[0], self.conf['dataset']['grid_dims']) \
+                    + sample['label'].shape[-2:]
 
-            for i in range(self.conf['dataset']['grid_dims']):
-                warped[:, i][~ign] = pred_orig[:, i].flatten()[
-                    warp_ids[~ign]]
+                warped = torch.zeros(shape).cuda().float()
+                ign = sample['warp_ign'].cuda()
 
-            if not self.conf['loss']['backprop_orig']:
+                for i in range(self.conf['dataset']['grid_dims']):
+                    warped[:, i][~ign] = pred_orig[:, i].flatten()[
+                        warp_ids[~ign]]
 
-                warped = warped.detach()
+                if not self.conf['loss']['backprop_orig']:
 
-            if self.DEBUG and step == 1:
+                    warped = warped.detach()
 
-                if not self.conf['decoder']['upsample']:
-                    new_shape = (img_var.shape[2] // 8,
-                                 img_var.shape[3] // 8)
-                    img_in = nn.functional.interpolate(
-                        img_var, new_shape, mode='bilinear')
-                else:
-                    img_in = img_var
+                if self.DEBUG and step == 1:
 
-                bs = img_var.shape[0]
+                    if not self.conf['decoder']['upsample']:
+                        new_shape = (img_var.shape[2] // 8,
+                                     img_var.shape[3] // 8)
+                        img_in = nn.functional.interpolate(
+                            img_var, new_shape, mode='bilinear')
+                    else:
+                        img_in = img_var
 
-                wshape = torch.Size([bs, 3]) + sample['label'].shape[-2:] # NOQA
+                    bs = img_var.shape[0]
 
-                warped_img = torch.zeros(wshape).float().cuda()
-                for i in range(3):
-                    warped_img[:, i][~ign] = img_in[:, i].flatten()[warp_ids[~ign]]  # NOQA
+                    wshape = torch.Size([bs, 3]) + sample['label'].shape[-2:] # NOQA
 
-                img = np.transpose(warped_img[0], [1, 2, 0])
+                    warped_img = torch.zeros(wshape).float().cuda()
+                    for i in range(3):
+                        warped_img[:, i][~ign] = img_in[:, i].flatten()[warp_ids[~ign]]  # NOQA
 
-                plt.imshow(img)
-                plt.show()
+                    img = np.transpose(warped_img[0], [1, 2, 0])
+
+                    plt.imshow(img)
+                    plt.show()
 
         # Do forward pass
         img_var = Variable(sample['image']).cuda()
@@ -488,7 +490,7 @@ class WarpingSegTrainer(SegmentationTrainer):
                     self.conf['loss']['squeze_weight'] * squeeze_loss
 
             triplet_loss = dist_loss
-            loss_name = 'GeometricLoss'
+            loss_name = 'GeoLoss'
 
         elif self.conf['loss']['type'] == 'triplet':
             loss_name = 'TripletLoss'
@@ -552,7 +554,7 @@ class WarpingSegTrainer(SegmentationTrainer):
 
         self.optimizer.step()
 
-        if step % self.display_iter == 0 or step == 1:
+        if step % self.display_iter == 0:
             # Printing logging information
             duration = (time.time() - start_time) / self.display_iter
             imgs_per_sec = self.bs / duration
@@ -560,8 +562,8 @@ class WarpingSegTrainer(SegmentationTrainer):
             log_str = ("Epoch [{:3d}/{:3d}][{:4d}/{:4d}] "
                        " ClassLoss: {:.2f} {}: {:.2f}"
                        " MaskMean: {:.2f}"
-                       "  LR: {:.3E}  GradNorm: {:2.1f} Speed: {:.1f}"
-                       " imgs/sec ({:.3f} sec/batch)")
+                       "  LR: {:.3E} Speed: {:.1f}"
+                       " imgs/sec ({:.3f} s/batch)")
 
             self.losses.append(loss.item())
 
@@ -572,7 +574,7 @@ class WarpingSegTrainer(SegmentationTrainer):
             for_str = log_str.format(
                 self.epoch + 1, self.max_epochs, step, self.epoch_steps,
                 loss.item(),
-                loss_name, triplet_loss.item(), mmean, lr, totalnorm,
+                loss_name, triplet_loss.item(), mmean, lr,
                 imgs_per_sec, duration)
 
             logging.info(for_str)

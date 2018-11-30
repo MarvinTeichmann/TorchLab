@@ -28,8 +28,8 @@
         "subsample": 0,
 
         "transform": {
-            "equirectangular": false,
             "equi_crop": {
+                "do_equi": false,
                 "equi_chance": 0.5,
                 "HFoV_range": [0.8, 2.5],
                 "VFoV_range": [0.8, 2.5],
@@ -51,6 +51,7 @@
             "resize_sig": 0.4,
             "random_flip": false,
             "random_rotation": false,
+            "equirectangular": false,
             "normalize": false,
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
@@ -59,7 +60,7 @@
     },
 
     "encoder": {
-        "source": "encoding",
+        "source": "simple",
         "norm": "Group",
         "dilated": false,
         "normalize": true,
@@ -109,7 +110,7 @@
 
     "training": {
         "batch_size": 2,
-        "learning_rate": 5e-5,
+        "learning_rate": 5e-4,
         "lr_schedule": "poly",
         "exp": 1.5,
         "base": 0.9,
@@ -120,11 +121,10 @@
         "clip_norm": null,
         "max_epochs": 2000,
         "pre_eval": false,
-        "cnn_gpus": null,
         "max_epoch_steps": null,
         "init_weights_from_checkpoint": false,
         "wd_policy": 2,
-        "num_gpus": 1
+        "num_gpus": 2
     },
 
     "evaluation": {
@@ -138,7 +138,7 @@
     },
 
     "logging": {
-        "display_iter": 200,
+        "display_iter": 5000,
         "eval_iter": 20,
         "max_val_examples": null,
         "max_train_examples": 100,

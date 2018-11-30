@@ -235,12 +235,13 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
         image, image_orig, label_dict, load_dict = self.transform(
             image, label_dict, load_dict)
 
-        warp_img = label_dict['warp_img']
+        # warp_img = label_dict['warp_img']
         ids_image = label_dict['ids_image']
         geo_mask = label_dict['geo_mask'][:, :, 0]
 
         geo_mask = geo_mask / 255
 
+        '''
         if self.conf['down_label']:
 
             warp_ids, warp_ign = self._downsample_warp_img(warp_img, image)
@@ -250,8 +251,9 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
             warp_ids = warp_img[:, :, 0] +\
                 256 * warp_img[:, :, 1] \
                 + 256 * 256 * warp_img[:, :, 2]
+        '''
 
-        warp_ign = warp_ign.astype(np.uint8)
+        # warp_ign = warp_ign.astype(np.uint8)
 
         label, class_mask = self.decode_ids(ids_image)
 
@@ -261,12 +263,12 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
             'image': image,
             'image_orig': image_orig,
             'label': label,
-            'warp_ids': warp_ids,
+            # 'warp_ids': warp_ids,
             'geo_mask': geo_mask,
             'class_mask': class_mask,
             'rotation': npz_file['R'],
             'translation': npz_file['T'],
-            'warp_ign': warp_ign,
+            # 'warp_ign': warp_ign,
             'load_dict': str(load_dict)}
 
         for key in ["geo_world", "geo_sphere", "geo_camera"]:
@@ -434,18 +436,34 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
             for key, item in label_dict.items():
                 label_dict[key] = resize_torch(item, transform['presize'])
 
-        label_dict['warp_img'] = self._generate_warp_img(image.shape)
+        if False:
+            label_dict['warp_img'] = self._generate_warp_img(image.shape)
+
+        shape_aug = self.shape_aug
+
+        if transform['equirectangular']:
+            patch_size = transform['patch_size']
+            assert patch_size[0] == patch_size[1]
+            transform['equi_crop']['H_res'] = patch_size[0]
+            transform['equi_crop']['W_res'] = patch_size[1]
+            if self.split == 'train':
+                image, label_dict = equi_crop(
+                    image, label_dict, transform['equi_crop'])
+            else:
+                image, label_dict = equi_crop_val(
+                    image, label_dict, transform['equi_crop'])
+
+            shape_aug = False
 
         image_orig = 0
 
         if self.split == 'train':
 
-            image_orig = image.copy()
+            if False:
+                image_orig = image.copy()
 
             if self.colour_aug:
                 image, label_dict = self.color_transform(image, label_dict)
-
-            shape_aug = self.shape_aug
 
             if shape_aug:
 
@@ -491,13 +509,15 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
                     image, label_dict = crop_to_size(
                         image, label_dict, patch_size)
 
-                image_orig = image_orig.transpose((2, 0, 1))
-                image_orig = image_orig / 255
-                if transform['normalize']:
-                    mean = np.array(transform['mean']).reshape(3, 1, 1)
-                    std = np.array(transform['std']).reshape(3, 1, 1)
-                    image_orig = (image_orig - mean) / std
-                image_orig = image_orig.astype(np.float32)
+                if False:
+
+                    image_orig = image_orig.transpose((2, 0, 1))
+                    image_orig = image_orig / 255
+                    if transform['normalize']:
+                        mean = np.array(transform['mean']).reshape(3, 1, 1)
+                        std = np.array(transform['std']).reshape(3, 1, 1)
+                        image_orig = (image_orig - mean) / std
+                    image_orig = image_orig.astype(np.float32)
 
                 if transform['fix_shape']:
                     if image.shape[0] < transform['patch_size'][0] or \
@@ -539,19 +559,68 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
 
 def equi_crop(image, label_dict, conf):
 
+    try:
+        from localseg.data_generators.fast_equi \
+            import extractEquirectangular_quick
+        from localseg.data_generators.algebra import Algebra
+        from localseg.data_generators.equirectangular_crops import equirectangular_crop_id_image, euler_to_mat # NOQA
+    except ImportError:
+        pass
+
     equi_conf = conf.copy()
 
-    z = random.uniform(-0.1 * np.pi, 0.1 * np.pi) - np.pi / 2
-    y = random.uniform(-0.15 * np.pi, 0.15 * np.pi) + np.pi / 2
-    x = random.uniform(0, 2 * np.pi)
-    rotation = euler_to_mat(z, x, y)
+    z = random.normalvariate(0, 0.02 * np.pi) - np.pi / 2
+    y = random.uniform(0, 2 * np.pi)
+    x = random.normalvariate(0, 0.03 * np.pi) + np.pi / 2
+    rotation = euler_to_mat(z, y, x)
 
     equi_conf['R'] = rotation
-    rng = equi_conf['HFoV_range']
-    equi_conf['HFoV'] = random.uniform(rng[0], rng[1])
 
-    rng = equi_conf['VFoV_range']
-    equi_conf['VFoV'] = random.uniform(rng[0], rng[1])
+    scale_factor = skewed_normal(mean=1, std=0.4)
+    distort_factor = skewed_normal(mean=1, std=0.1)
+    distort_factor = 1
+
+    equi_conf['HFoV'] = (34.8592 / 360) * np.pi * 2 * 1.5 * scale_factor
+    equi_conf['VFoV'] = (34.8592 / 360) * np.pi * 2 * 1.5 \
+        * scale_factor * distort_factor
+
+    id_image = equirectangular_crop_id_image(image, equi_conf)
+
+    eq_row = id_image // np.int32(image.shape[1])
+    eq_col = id_image % np.int32(image.shape[1])
+
+    for key, item in label_dict.items():
+        label_dict[key] = item[eq_row, eq_col]
+
+    return image[eq_row, eq_col], label_dict
+
+
+def equi_crop_val(image, label_dict, conf):
+
+    try:
+        from localseg.data_generators.fast_equi \
+            import extractEquirectangular_quick
+        from localseg.data_generators.algebra import Algebra
+        from localseg.data_generators.equirectangular_crops import equirectangular_crop_id_image, euler_to_mat # NOQA
+    except ImportError:
+        pass
+
+    equi_conf = conf.copy()
+
+    z = -np.pi / 2
+    y = np.pi
+    x = np.pi / 2
+    rotation = euler_to_mat(z, y, x)
+
+    equi_conf['R'] = rotation
+    equi_conf['HFoV'] = (69.7184 / 360) * np.pi * 2 * 1.5
+    equi_conf['VFoV'] = (34.8592 / 360) * np.pi * 2 * 1.5
+
+    equi_conf['H_res'] = image.shape[0]
+    equi_conf['W_res'] = image.shape[1]
+
+    # assert (equi_conf['H_res'] == 512)
+    # assert (equi_conf['W_res'] == 1024)
 
     id_image = equirectangular_crop_id_image(image, equi_conf)
 
@@ -732,16 +801,20 @@ def resize_torch(array, factor, mode="nearest"):
 if __name__ == '__main__':  # NOQA
 
     config = loader.default_conf.copy()
-    config['dataset'] = "sincity"
-    config['sequence'] = ""
+    config['dataset'] = "camvid3d"
+    config['sequence'] = "camvid_360_cvpr18_P2_training_data/part_05_seq_016E5_P3_R94_10620_11190/" # NOQA
     config['subsample'] = 0
 
-    config['train_file'] = 'train'
+    config['train_file'] = 'val'
     config['val_file'] = 'val'
 
-    loader = WarpingSegmentationLoader(conf=config, split='train')
+    config['transform']["equirectangular"] = True
 
-    config['transform']['presize'] = None
+    split = 'train'
+
+    loader = WarpingSegmentationLoader(conf=config, split=split)
+
+    config['transform']['presize'] = 0.5
 
     outdir = 'test'
 
@@ -750,14 +823,16 @@ if __name__ == '__main__':  # NOQA
     loader.shape_aug = False
     loader.colour_aug = False
 
-    for i in range(1000):
-        test = loader[i]
-        filename = os.path.join(outdir, '{:03d}.png'.format(i))
+    multi = {'val': 1, 'train': 1}[split]
+
+    for i in range(10):
+        test = loader[0]
+        filename = os.path.join(outdir, '{:03d}_{}.png'.format(i, split))
         scp.misc.imsave(
             filename,
-            (test['class_mask'] * test['image']).transpose([1, 2, 0]))
-        # plt.imshow((sample['class_mask'] * sample['image']).transpose([1, 2, 0])) # NOQA
-        # plt.show()
+            (test['image']).transpose([1, 2, 0]))
+        plt.imshow((test['image']).transpose([1, 2, 0])) # NOQA
+        plt.show()
 
     mylabel = test['label']
     '''
