@@ -61,7 +61,7 @@
     "encoder": {
         "source": "encoding",
         "norm": "Group",
-        "dilated": false,
+        "dilated": true,
         "normalize": true,
         "batched_dilation": false,
         "num_layer": 50,
@@ -109,7 +109,7 @@
 
     "training": {
         "batch_size": 2,
-        "learning_rate": 5e-5,
+        "learning_rate": 5e-4,
         "lr_schedule": "poly",
         "exp": 1.5,
         "base": 0.9,
