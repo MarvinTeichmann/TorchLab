@@ -31,16 +31,16 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     stream=sys.stdout)
 
 
-conf = "../config/resnet50_fcn_magic.json"
+conf = "../config/res50_camvid_geo.json"
 
 gpus = '0'
 
-names = ['lr_1e4', 'lr_7e5', 'lr_5e5', 'lr_3e5', 'lr_1e5', 'lr_5e6']
+names = ['Xweight0.3', 'Xweight1', 'Xweight10', 'Xweight50']
 
-bench_name = "lrbenchMagic"
+bench_name = "XentroWeightBench"
 
-values = [1e-4, 7e-5, 5e-5, 3e-5, 1e-5, 5e-6]
-key = 'training.learning_rate'
+values = [0.3, 1, 10, 50]
+key = 'loss.weights.xentropy'
 
 
 print_str = "pv2 train --gpus %s {}" % gpus

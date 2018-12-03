@@ -197,9 +197,6 @@ class ResNet(nn.Module):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
-    def train(self, train):
-        super(ResNet, self).train(True)
-
     def get_channel_dict(self):
 
         bn4 = [m for m in self.layer4.modules()][-2]
