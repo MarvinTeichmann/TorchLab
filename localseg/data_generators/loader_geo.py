@@ -430,17 +430,6 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
 
         transform = self.conf['transform']
 
-        if transform['presize'] is not None:
-            image = scipy.misc.imresize(
-                image, size=transform['presize'], interp='cubic')
-            for key, item in label_dict.items():
-                label_dict[key] = resize_torch(item, transform['presize'])
-
-        if False:
-            label_dict['warp_img'] = self._generate_warp_img(image.shape)
-
-        shape_aug = self.shape_aug
-
         if transform['equirectangular']:
             patch_size = transform['patch_size']
             assert patch_size[0] == patch_size[1]
@@ -454,6 +443,17 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
                     image, label_dict, transform['equi_crop'])
 
             shape_aug = False
+
+        if transform['presize'] is not None:
+            image = scipy.misc.imresize(
+                image, size=transform['presize'], interp='cubic')
+            for key, item in label_dict.items():
+                label_dict[key] = resize_torch(item, transform['presize'])
+
+        if False:
+            label_dict['warp_img'] = self._generate_warp_img(image.shape)
+
+        shape_aug = self.shape_aug
 
         image_orig = 0
 

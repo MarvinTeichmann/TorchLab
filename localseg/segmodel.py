@@ -50,8 +50,6 @@ from localseg.evaluators import localevaluator as localevaluator
 
 from localseg.utils.labels import LabelCoding
 
-from localseg.decoder import geometric as geodec
-
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -159,6 +157,7 @@ class SegModel(nn.Module):
         self.logdir = logdir
 
         self._assert_num_gpus(conf)
+        self._normalize_parallel(conf)
 
         self.conf['dataset']['down_label'] \
             = not self.conf['decoder']['upsample']
@@ -196,11 +195,10 @@ class SegModel(nn.Module):
         self.label_encoding = conf['dataset']['label_encoding']
         self.num_classes = self.trainloader.dataset.num_classes
 
-        self.geo = geodec.GeoLayer(self.num_classes).cuda()
-
         assert conf['modules']['model'] in ['mapillary', 'end_dec']
 
         if conf['modules']['model'] == 'mapillary':
+            assert False
             conf['encoder']['num_classes'] = self._get_decoder_classes(conf)
             conf['encoder']['upsample'] = conf['decoder']['upsample']
             from localseg.mapillary import model
@@ -213,6 +211,8 @@ class SegModel(nn.Module):
             self.model.cuda()
 
         self.trainer = Trainer(conf, self, self.trainloader)
+
+        self.epoch = 0
 
         self.loss = self._make_loss(conf, device_ids)
 
@@ -341,6 +341,14 @@ class SegModel(nn.Module):
                  ' Please set visible GPUs to {0}'.format(
                      conf['training']['num_gpus'], torch.cuda.device_count()))
 
+    def _normalize_parallel(self, conf):
+        num_gpus = conf['training']['num_gpus']
+        conf['training']['batch_size'] *= num_gpus
+        conf['training']['learning_rate'] *= num_gpus
+        conf['logging']['display_iter'] //= num_gpus
+
+        conf['dataset']['num_worker'] *= num_gpus
+
     def _load_pretrained_weights(self, conf):
 
         if conf['training']['init_weights_from_checkpoint']:
@@ -356,35 +364,7 @@ class SegModel(nn.Module):
         # Expect input to be in range [0, 1]
         # and of type float
 
-        if not self.conf['modules']['loader'] == 'geometry':
-            return self.model(imgs)
-
-        if geo_dict is None:
-            return self.model(imgs)
-
-        output = self.model(imgs)
-
-        class_pred = output[:, :self.num_classes]
-        three_pred = output[:, self.num_classes:]
-
-        if self.conf['loss']['spatial']:
-            world_pred = self.geo(class_pred, three_pred, geo_dict)
-        else:
-            world_pred = three_pred
-
-        camera_points = geodec.world_to_camera(
-            world_pred, geo_dict['rotation'].float().cuda(),
-            geo_dict['translation'].float().cuda())
-
-        sphere_points = geodec.sphere_normalization(
-            camera_points)
-
-        out_dict = {}
-        out_dict['world'] = world_pred
-        out_dict['camera'] = camera_points
-        out_dict['sphere'] = sphere_points
-
-        return class_pred, out_dict
+        return self.model(imgs, geo_dict)
 
     def get_loader(self):
         return self.loader
@@ -392,37 +372,17 @@ class SegModel(nn.Module):
     def predict(self, img, geo_dict=None):
 
         if self.conf['modules']['loader'] == 'geometry':
-            output = self.model(img)
-
-            class_pred = output[:, :self.num_classes]
-            three_pred = output[:, self.num_classes:]
+            class_pred, out_dict = self.model(img, geo_dict=geo_dict)
 
             if geo_dict is None:
+                three_pred = out_dict
                 logits = functional.softmax(class_pred, dim=1)
                 probs, pred = logits.max(1)
                 return logits, pred, three_pred
 
-            if self.conf['loss']['spatial']:
-                world_pred = self.geo(class_pred, three_pred, geo_dict)
-            else:
-                world_pred = three_pred
-
-            camera_points = geodec.world_to_camera(
-                world_pred, geo_dict['rotation'].float().cuda(),
-                geo_dict['translation'].float().cuda())
-
-            sphere_points = geodec.sphere_normalization(
-                camera_points)
-
-            res_dict = {
-                "world": world_pred,
-                "camera": camera_points,
-                "sphere": sphere_points
-            }
-
             logits = functional.softmax(class_pred, dim=1)
             probs, pred = logits.max(1)
-            return logits, pred, res_dict
+            return logits, pred, out_dict
 
         if self.label_encoding == 'dense':
 
@@ -501,6 +461,8 @@ class SegModel(nn.Module):
 
     def load_from_logdir(self, logdir=None):
 
+        self.share_memory()
+
         if logdir is None:
             logdir = self.logdir
 
@@ -513,6 +475,7 @@ class SegModel(nn.Module):
         checkpoint = torch.load(checkpoint_name)
 
         self.trainer.epoch = checkpoint['epoch']
+        self.epoch = checkpoint['epoch']
         self.trainer.step = checkpoint['step']
 
         if not self.conf == checkpoint['conf']:

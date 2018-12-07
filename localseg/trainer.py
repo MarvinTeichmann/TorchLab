@@ -242,6 +242,7 @@ class SegmentationTrainer():
             logging.info("Finished Epoch {} in {} minutes"
                          .format(epoch, duration))
             self.epoch = epoch + 1
+            self.model.epoch = epoch + 1
 
             if self.epoch % self.eval_iter == 0 or self.epoch == max_epochs:
 

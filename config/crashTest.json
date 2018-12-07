@@ -1,0 +1,16 @@
+{
+    "print_str": "hello",
+    "training": {
+        "max_epochs": 10
+    },
+
+    "pyvision": {
+        "project_name": "localseg",
+        "entry_point": "../localseg/helloW.py",
+        "plotter": "../localseg/plotting/segplotter.py",
+        "required_packages": ["../localseg"],
+        "optional_packages": ["../pyvision/pyvision"],
+        "copy_required_packages": true,
+        "copy_optional_packages": true
+    }
+}

@@ -27,6 +27,8 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
 
+from localseg.decoder import geometric as geodec
+
 
 def get_network(conf):
     nclasses = conf['encoder']['num_classes']
@@ -61,7 +63,11 @@ class EncoderDecoder(nn.Module):
         self.encoder = encoder
         self.decoder = decoder
 
-    def forward(self, imgs):
+        self.num_classes = conf['dataset']['num_classes']
+
+        self.geo = geodec.GeoLayer(self.num_classes)  # TODO
+
+    def forward(self, imgs, geo_dict=None):
         # Expect input to be in range [0, 1]
         # and of type float
 
@@ -81,7 +87,33 @@ class EncoderDecoder(nn.Module):
 
         prediction = self.decoder(feats32)
 
-        return prediction
+        if not self.conf['modules']['loader'] == 'geometry':
+            return prediction
+
+        class_pred = prediction[:, :self.num_classes]
+        three_pred = prediction[:, self.num_classes:]
+
+        if geo_dict is None:
+            return class_pred, three_pred
+
+        if self.conf['loss']['spatial']:
+            world_pred = self.geo(class_pred, three_pred, geo_dict)
+        else:
+            world_pred = three_pred
+
+        camera_points = geodec.world_to_camera(
+            world_pred, geo_dict['rotation'].float().cuda(),
+            geo_dict['translation'].float().cuda())
+
+        sphere_points = geodec.sphere_normalization(
+            camera_points)
+
+        out_dict = {}
+        out_dict['world'] = world_pred
+        out_dict['camera'] = camera_points
+        out_dict['sphere'] = sphere_points
+
+        return class_pred, out_dict
 
 
 def _get_encoder(conf):

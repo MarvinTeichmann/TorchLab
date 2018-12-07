@@ -35,11 +35,11 @@ conf = "../config/res50_camvid_geo.json"
 
 gpus = '0'
 
-names = ['Xweight0.3', 'Xweight1', 'Xweight10', 'Xweight50']
+names = ['Xweight5_lr4', 'Xweight10', 'Xweight50', 'Xweight100']
 
-bench_name = "XentroWeightBench"
+bench_name = "XentroWeightBench2"
 
-values = [0.3, 1, 10, 50]
+values = [5, 10, 50, 100]
 key = 'loss.weights.xentropy'
 
 
@@ -72,6 +72,10 @@ def main():
         config = json.load(open(conf))
 
         pvorg.change_value(config, key, val)
+
+        if val == 5:
+            config['training']['learning_rate'] = 5e-4
+            logging.warning("Learning rate for run {} changes.".format(name))
 
         logdir = pvorg.get_logdir_name(
             config=config, bench=bench_name, prefix=name, cfg_file=conf)

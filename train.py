@@ -45,6 +45,8 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
 
+import signal
+
 
 def handle_args():
     parser = argparse.ArgumentParser()
@@ -130,10 +132,7 @@ if __name__ == '__main__':
 
         mymodel = m.create_pyvision_model(config, logdir=logdir)
 
-        start_time = time.time()
-        mymodel.fit()
-        end_time = (time.time() - start_time) / 3600
-        logging.info("Finished training in {} hours".format(end_time))
+        pvutils.robust_training(mymodel, restarts=0, subprocess=False)
 
         # Do forward pass
         # img_var = Variable(sample['image']).cuda() # NOQA

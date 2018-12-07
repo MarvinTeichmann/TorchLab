@@ -202,7 +202,7 @@ class Evaluator():
             batch_size = 8
 
         if split == 'val' and conf['evaluation']['reduce_val_bs']:
-            batch_size = 1
+            batch_size = conf['training']['num_gpus']
 
         self.loader = loader.get_data_loader(
             conf['dataset'], split=split, batch_size=batch_size,

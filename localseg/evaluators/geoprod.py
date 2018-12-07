@@ -207,6 +207,10 @@ class Evaluator():
 
         self.test = data_file == 'test'
 
+        if self.test:
+            self.conf = conf.copy()
+            self.conf['dataset']['transform']['equirectangular'] = False
+
         if split is None:
             split = 'val'
 
@@ -434,9 +438,6 @@ class Evaluator():
 
     def _write_3d_output(self, step, add_dict, sample, epoch, idx, test=False):
 
-        if test:
-            return
-
         stepdir = os.path.join(self.imgdir, "meshplot_{}".format(self.name))
         if not os.path.exists(stepdir):
             os.mkdir(stepdir)
@@ -458,16 +459,16 @@ class Evaluator():
 
             total_mask = total_mask.numpy().transpose().astype(np.bool)
 
-            cameradir = os.path.join(stepdir, "camera")
-            if not os.path.exists(cameradir):
-                os.mkdir(cameradir)
-
             spheredir = os.path.join(stepdir, "sphere")
             if not os.path.exists(spheredir):
                 os.mkdir(spheredir)
 
-            filename = literal_eval(
-                sample['load_dict'][idx])['image_file']
+            cameradir = os.path.join(stepdir, "camera")
+            if not os.path.exists(cameradir):
+                os.mkdir(cameradir)
+
+        filename = literal_eval(
+            sample['load_dict'][idx])['image_file']
 
         if epoch is None:
             newfile = filename.split(".")[0] + ".ply"\
@@ -476,15 +477,19 @@ class Evaluator():
             newfile = filename.split(".")[0] + "_epoch_{num:05d}.ply"\
                 .format(num=epoch)
 
-        world_points = add_dict['world'][idx].cpu().numpy().transpose()
         fname = os.path.join(worlddir, os.path.basename(newfile))
+        if test:
+            return
+            world_points = add_dict[idx].cpu().numpy().transpose()
+            write_ply_file(fname, world_points, colours)
+        else:
+            world_points = add_dict['world'][idx].cpu().numpy().transpose()
+            write_ply_file(fname, world_points, colours)
 
         logging.info("Wrote: {}".format(fname))
 
         if test:
             return
-
-        write_ply_file(fname, world_points[total_mask], colours[total_mask])
 
         world_points = add_dict['camera'][idx].cpu().numpy().transpose()
         fname = os.path.join(cameradir, os.path.basename(newfile))
@@ -497,7 +502,7 @@ class Evaluator():
     def _do_plotting_minor(self, step, bpred_np, bprob_np,
                            sample, epoch):
         stepdir = os.path.join(self.imgdir, "image{}_{}".format(
-            step, self.split))
+            step, self.name))
         if not os.path.exists(stepdir):
             os.mkdir(stepdir)
 

@@ -28,8 +28,8 @@
         "subsample": 0,
 
         "transform": {
+            "equirectangular": false,
             "equi_crop": {
-                "do_equi": false,
                 "equi_chance": 0.5,
                 "HFoV_range": [0.8, 2.5],
                 "VFoV_range": [0.8, 2.5],
@@ -51,7 +51,6 @@
             "resize_sig": 0.4,
             "random_flip": false,
             "random_rotation": false,
-            "equirectangular": false,
             "normalize": false,
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
@@ -61,6 +60,7 @@
 
     "encoder": {
         "source": "encoding",
+        "norm": "Batch",
         "dilated": true,
         "normalize": true,
         "batched_dilation": false,
@@ -95,10 +95,10 @@
             "xentropy": 50,
             "triplet": 1
         },
-        "corner": true,
-        "spatial": true,
+        "corner": false,
+        "spatial": false,
         "embedding_loss": null,
-        "squeeze": true,
+        "squeeze": false,
         "dist_loss": true,
         "warp_dist": 32,
         "squeze_weight": 0,
@@ -131,13 +131,14 @@
         "imgs_minor": [1, 2, 10],
         "transparency": 0,
         "default_level": "minor",
-        "reduce_val_bs": false,
+        "reduce_val_bs": true,
         "has_flow": false,
+        "scale": 1,
         "train_loader_split": "train"
     },
 
     "logging": {
-        "display_iter": 200,
+        "display_iter": 3,
         "eval_iter": 20,
         "max_val_examples": null,
         "max_train_examples": 100,
@@ -155,11 +156,12 @@
     },
 
     "pyvision": {
-        "project_name": "localseg",
+        "project_name": "localsegICCV",
         "entry_point": "../localseg/segmodel.py",
         "plotter": "../localseg/plotting/segplotter.py",
         "required_packages": ["../localseg"],
         "optional_packages": ["../pyvision/pyvision"],
+        "run_as_subprocess": true,
         "copy_required_packages": true,
         "copy_optional_packages": true
     }
