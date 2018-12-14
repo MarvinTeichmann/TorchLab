@@ -76,13 +76,19 @@ class CornerLoss(_WeightedLoss):
 
 class MSELoss(_WeightedLoss):
     """docstring for myMSELoss"""
-    def __init__(self):
+    def __init__(self, sqrt=False):
         super(MSELoss, self).__init__()
         self.loss = torch.nn.MSELoss()
+        self.sqrt = sqrt
 
     def forward(self, input, target, mask):
 
-        return torch.mean(((input - target.float())**2) * mask)
+        if self.sqrt:
+            mask = torch.squeeze(mask)
+            dists = torch.norm(input - target.float(), dim=1) * mask
+            return torch.mean(dists)
+        else:
+            return torch.mean(((input - target.float())**2) * mask)
 
 
 class TruncatedHingeLoss2dMask(_WeightedLoss):

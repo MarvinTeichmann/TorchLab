@@ -132,7 +132,7 @@ if __name__ == '__main__':
 
         mymodel = m.create_pyvision_model(config, logdir=logdir)
 
-        pvutils.robust_training(mymodel, restarts=0, subprocess=False)
+        pvutils.robust_training(mymodel, restarts=5, subprocess=False)
 
         # Do forward pass
         # img_var = Variable(sample['image']).cuda() # NOQA

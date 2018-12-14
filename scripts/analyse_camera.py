@@ -42,21 +42,39 @@ for idx, ddir in enumerate(ddir_list):
 
     translist = []
 
-    for file in sorted(filelist):
+    for i, file in enumerate(sorted(filelist)):
         npzfile = np.load(os.path.join(ddir, file))
-        translist.append(npzfile['T'])
+        translist.append(npzfile['points_3d_camera'])
 
-    distlist = []
+        logging.info("Processed image: {}".format(i))
 
-    for i in range(len(translist) - 1):
-        distlist.append(np.linalg.norm(translist[i] - translist[i + 1]))
-        if not i % 10:
-            logging.info("Processed {}".format(i))
+        if i == 100:
+            break
 
-    # plt.hist(distlist, bins=20)
-    # plt.show()
+    # distlist = [np.linalg.norm(dist, axis=-1).flatten() for dist in translist]
+    distlist = [(dist[:, :, 0]) + np.abs(dist[:, :, 2]) for dist in translist]
 
-    median_distance = np.median(distlist)
+    from IPython import embed
+    embed()
+    pass
+
+    for i in range(5):
+
+        plt.hist(distlist[20 * i], bins=100)
+        plt.show()
+
+
+    totallist = np.concatenate([ dist for dist in distlist])
+
+    from IPython import embed
+    embed()
+    pass
+
+    # np.linalg.norm(translist[0], axis=-1)
+
+    # totallist = np.concatenate([ for dists in translist])
+
+    # median_distance = np.median(distlist)
 
     logging.info("Dir: {} (Ex: {}), Median: {}".format(
         idx, i, median_distance))

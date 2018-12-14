@@ -82,6 +82,32 @@ class Broadcast(Function):
         return comm.reduce_add_coalesced(grad_outputs, self.input_device)
 
 
+def fakegather(outputs, dim=0):
+    r"""
+    Gathers tensors from different GPUs on a specified device
+      (-1 means the CPU).
+    """
+    def gather_map(outputs):
+        out = outputs[0]
+        if isinstance(out, torch.Tensor):
+            return list(outputs)
+        if out is None:
+            return None
+        if isinstance(out, dict):
+            if not all((len(out) == len(d) for d in outputs)):
+                raise ValueError('All dicts must have the same number of keys')
+            return type(out)(((k, gather_map([d[k] for d in outputs]))
+                              for k in out))
+        return type(out)(map(gather_map, zip(*outputs)))
+
+    # Recursive function calls like this create reference cycles.
+    # Setting the function to None clears the refcycle.
+    try:
+        return gather_map(outputs)
+    finally:
+        gather_map = None
+
+
 class ModelDataParallel(Module):
     """Implements data parallelism at the module level.
 
@@ -131,14 +157,17 @@ class ModelDataParallel(Module):
                 m.momentum = 0.9996
         """
 
-    def forward(self, *inputs, **kwargs):
+    def forward(self, *inputs, dofakegather=False, **kwargs):
         inputs, kwargs = self.scatter(inputs, kwargs, self.device_ids)
         if len(self.device_ids) == 1:
             return self.module(*inputs[0], **kwargs[0])
         replicas = self.replicate(self.module, \
             self.device_ids[:len(inputs)])
         outputs = self.parallel_apply(replicas, inputs, kwargs)
-        return outputs 
+        if dofakegather:
+            return fakegather(outputs)
+        else:
+            return outputs
 
     def replicate(self, module, device_ids):
         return replicate(module, device_ids)

@@ -33,7 +33,7 @@ import skimage
 # import skimage.transform
 
 import numbers
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt # NOQA
 
 from PIL import Image
 
@@ -240,6 +240,13 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
         geo_mask = label_dict['geo_mask'][:, :, 0]
 
         geo_mask = geo_mask / 255
+
+        if self.conf['dist_mask'] is not None:
+            # dists = np.abs(label_dict['geo_camera'][:, :, 0]) \
+            #    + np.abs(label_dict['geo_camera'][:, :, 2])
+            dists = np.linalg.norm(label_dict['geo_camera'], axis=-1)
+            mask = dists < self.conf['dist_mask']
+            geo_mask = mask * geo_mask
 
         '''
         if self.conf['down_label']:
@@ -801,20 +808,22 @@ def resize_torch(array, factor, mode="nearest"):
 if __name__ == '__main__':  # NOQA
 
     config = loader.default_conf.copy()
-    config['dataset'] = "camvid3d"
-    config['sequence'] = "camvid_360_cvpr18_P2_training_data/part_05_seq_016E5_P3_R94_10620_11190/" # NOQA
+    config['dataset'] = "sincity"
+    config['sequence'] = "mysets/fourimgs" # NOQA
     config['subsample'] = 0
 
-    config['train_file'] = 'val'
-    config['val_file'] = 'val'
+    config['train_file'] = 'train'
+    config['val_file'] = 'train'
 
-    config['transform']["equirectangular"] = True
+    config['transform']["equirectangular"] = False
 
-    split = 'train'
+    split = 'val'
 
     loader = WarpingSegmentationLoader(conf=config, split=split)
 
     config['transform']['presize'] = 0.5
+
+    config['dist_mask'] = 1
 
     outdir = 'test'
 
@@ -826,7 +835,7 @@ if __name__ == '__main__':  # NOQA
     multi = {'val': 1, 'train': 1}[split]
 
     for i in range(10):
-        test = loader[0]
+        test = loader[i]
         filename = os.path.join(outdir, '{:03d}_{}.png'.format(i, split))
         scp.misc.imsave(
             filename,

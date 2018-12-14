@@ -263,27 +263,30 @@ class Evaluator():
                 if cur_bs == self.bs:
 
                     if eval_fkt is None:
-                        bprop, bpred, add_dict = self.model.predict(
-                            img_var, geo_dict=sample)
+                        output = self.model(
+                            img_var, geo_dict=sample, fakegather=False,
+                            softmax=False)
                     else:
-                        bprop, bpred = eval_fkt(img_var)
+                        output = eval_fkt(img_var, fakegather=False)
 
-                    if type(bpred) is list:
-                        raise NotImplementedError
-                        batched_pred = torch.nn.parallel.gather( # NOQA
-                            bpred, target_device=0)
+                    if type(output) is list:
+                        output = torch.nn.parallel.gather( # NOQA
+                            output, target_device=0)
+
+                    semlogits, add_dict = output
+
                 else:
                     # last batch makes troubles in parallel mode
                     continue
 
-            bpred_np = bpred.cpu().numpy()
-            bprop_np = bprop.cpu().numpy()
+            # bpred_np = bpred.cpu().numpy()
+            logits = semlogits.cpu().numpy()
 
             duration = (time.time() - start_time)
 
             if level == 'mayor' and step * self.bs < 300 or level == 'full':
-                self._do_plotting_mayor(cur_bs, sample, bpred_np,
-                                        bprop_np, epoch, level)
+                self._do_plotting_mayor(cur_bs, sample,
+                                        logits, epoch, level)
 
             if self.conf['modules']['loader'] == 'geometry':
                 if step == self.imgs_minor[0]:
@@ -291,7 +294,7 @@ class Evaluator():
 
             if level != 'none' and step in self.imgs_minor\
                     or level == 'one_image':
-                self._do_plotting_minor(step, bpred_np, bprop_np,
+                self._do_plotting_minor(step, logits,
                                         sample, epoch)
                 if level == "one_image":
                     # plt.show(block=False)
@@ -314,17 +317,17 @@ class Evaluator():
                     pred_world_np[d], label_world_np[d], total_mask_np[d])
 
             # Analyze output
-            for d in range(bpred_np.shape[0]):
-                pred = bpred_np[d]
+            for d in range(logits.shape[0]):
+                pred = logits[d]
 
                 if self.conf['dataset']['label_encoding'] == 'dense':
-                    hard_pred = pred
+                    hard_pred = np.argmax(pred, axis=0)
 
                     label = sample['label'][d].numpy()
                     mask = label != self.ignore_idx
                 elif self.conf['dataset']['label_encoding'] == 'spatial_2d':
 
-                    hard_pred = pred
+                    hard_pred = np.argmax(pred, axis=0)
 
                     label = sample['label'][d].numpy()
                     mask = label[0] != self.ignore_idx
@@ -351,7 +354,7 @@ class Evaluator():
 
         return CombinedMetric([metric, dmetric])
 
-    def _do_plotting_mayor(self, cur_bs, sample, bpred_np, bprob_np,
+    def _do_plotting_mayor(self, cur_bs, sample, bprob_np,
                            epoch, level):
         for d in range(cur_bs):
             fig = self.vis.plot_prediction(
@@ -430,7 +433,7 @@ class Evaluator():
         fname = os.path.join(stepdir, "label_camera.ply")
         write_ply_file(fname, world_points[total_mask], colours[total_mask])
 
-    def _do_plotting_minor(self, step, bpred_np, bprob_np,
+    def _do_plotting_minor(self, step, bprob_np,
                            sample, epoch):
         stepdir = os.path.join(self.imgdir, "image{}_{}".format(
             step, self.name))

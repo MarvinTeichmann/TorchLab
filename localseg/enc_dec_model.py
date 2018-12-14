@@ -27,6 +27,8 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
 
+import torch.nn.functional as functional
+
 from localseg.decoder import geometric as geodec
 
 
@@ -67,7 +69,7 @@ class EncoderDecoder(nn.Module):
 
         self.geo = geodec.GeoLayer(self.num_classes)  # TODO
 
-    def forward(self, imgs, geo_dict=None):
+    def forward(self, imgs, geo_dict=None, softmax=False):
         # Expect input to be in range [0, 1]
         # and of type float
 
@@ -112,6 +114,9 @@ class EncoderDecoder(nn.Module):
         out_dict['world'] = world_pred
         out_dict['camera'] = camera_points
         out_dict['sphere'] = sphere_points
+
+        if softmax:
+            class_pred = functional.softmax(class_pred, dim=1)
 
         return class_pred, out_dict
 
@@ -181,7 +186,9 @@ def _get_parallelized_model(conf, encoder, decoder):
 
     device_ids = None
 
-    model = nn.DataParallel(model).cuda()
+    model = parallel.ModelDataParallel(model)
+
+    # model = nn.DataParallel(model).cuda()
 
     return model, device_ids
 

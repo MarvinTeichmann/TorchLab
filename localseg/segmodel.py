@@ -47,6 +47,7 @@ from localseg.trainer import WarpingSegTrainer
 from localseg.evaluators import segevaluator as evaluator
 from localseg.evaluators import localevaluator as localevaluator
 
+from localseg.encoder import parallel as parallel
 
 from localseg.utils.labels import LabelCoding
 
@@ -233,12 +234,17 @@ class SegModel(nn.Module):
                 raise NotImplementedError
 
         elif conf['modules']['loader'] == 'geometry':
-            self.dist_loss = loss.MSELoss()
+            self.dist_loss = parallel.CriterionDataParallel(
+                loss.MSELoss(sqrt=conf['loss']['sqrt']))
+
             grid_size = self.conf['dataset']['grid_size']
             inner = self.conf['loss']['inner_factor']
 
-            self.squeeze_loss = loss.TruncatedHingeLoss2dMask(
+            squeeze_loss = loss.TruncatedHingeLoss2dMask(
                 grid_size=grid_size, inner_factor=inner)
+
+            self.squeeze_loss = parallel.CriterionDataParallel(
+                squeeze_loss)
 
         self.label_coder = LabelCoding(conf['dataset'])
 
@@ -272,6 +278,9 @@ class SegModel(nn.Module):
             par_loss = myloss
         else:
             raise NotImplementedError
+
+        par_loss = parallel.CriterionDataParallel(
+            par_loss, device_ids=device_ids)
 
         return par_loss
 
@@ -360,11 +369,12 @@ class SegModel(nn.Module):
 
             self.load_state_dict(checkpoint['state_dict'])
 
-    def forward(self, imgs, geo_dict=None):
+    def forward(self, imgs, geo_dict=None, fakegather=True, softmax=False):
         # Expect input to be in range [0, 1]
         # and of type float
 
-        return self.model(imgs, geo_dict)
+        return self.model(
+            imgs, geo_dict, dofakegather=fakegather, softmax=softmax)
 
     def get_loader(self):
         return self.loader
