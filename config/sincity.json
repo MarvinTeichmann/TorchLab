@@ -24,10 +24,13 @@
 
         "subsample": 0,
 
+        "dist_mask": 6.4,
+
         "grid_size": 10,
         "grid_dims": 3,
 
         "transform": {
+            "equirectangular": false,
             "equi_crop": {
                 "do_equi": false,
                 "equi_chance": 0.5,
@@ -51,7 +54,6 @@
             "resize_sig": 0.4,
             "random_flip": false,
             "random_rotation": false,
-            "equirectangular": false,
             "normalize": false,
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
@@ -61,6 +63,7 @@
 
     "encoder": {
         "source": "encoding",
+        "norm": "Batch",
         "dilated": true,
         "normalize": true,
         "batched_dilation": false,
@@ -92,13 +95,14 @@
             }
         },
         "weights": {
-            "xentropy": 1,
-            "triplet": 10
+            "xentropy": 10,
+            "triplet": 1
         },
         "corner": false,
         "spatial": false,
         "embedding_loss": null,
         "squeeze": false,
+        "sqrt": true,
         "dist_loss": true,
         "warp_dist": 32,
         "squeze_weight": 0,
@@ -109,7 +113,7 @@
 
     "training": {
         "batch_size": 2,
-        "learning_rate": 5e-4,
+        "learning_rate": 5e-5,
         "lr_schedule": "poly",
         "exp": 1.5,
         "base": 0.9,
@@ -131,10 +135,10 @@
         "imgs_minor": [1, 3, 10],
         "transparency": 0,
         "default_level": "minor",
-        "reduce_val_bs": false,
+        "reduce_val_bs": true,
         "has_flow": false,
         "train_loader_split": "val",
-        "scale": 1e-2
+        "scale": 0.02
     },
 
     "logging": {
@@ -156,7 +160,7 @@
     },
 
     "pyvision": {
-        "project_name": "localseg",
+        "project_name": "localsegICCV",
         "entry_point": "../localseg/segmodel.py",
         "plotter": "../localseg/plotting/segplotter.py",
         "required_packages": ["../localseg"],

@@ -25,6 +25,8 @@
         "grid_size": 10,
         "grid_dims": 3,
 
+        "dist_mask": null,
+
         "subsample": 0,
 
         "transform": {
@@ -92,12 +94,13 @@
             }
         },
         "weights": {
-            "xentropy": 50,
+            "xentropy": 10,
             "triplet": 1
         },
         "corner": false,
         "spatial": false,
         "embedding_loss": null,
+        "sqrt": true,
         "squeeze": false,
         "dist_loss": true,
         "warp_dist": 32,
@@ -141,7 +144,7 @@
         "display_iter": 100,
         "eval_iter": 20,
         "max_val_examples": null,
-        "max_train_examples": 100,
+        "max_train_examples": 50,
         "log": true,
         "checkpoint_backup": 500,
         "mayor_eval": 1000
