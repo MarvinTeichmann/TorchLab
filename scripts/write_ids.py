@@ -23,11 +23,11 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
 
-table_fname = "/data/cvfs/mttt2/DATA/scenecity/scenecity_small_eccv18_train_cloudy/labels_building_only_class/ids_labels2/table.p" # NOQA
+table_fname = "/data/cvfs/mttt2/DATA/scenecity/scenecity_medium_eccv18_train_cloudy/building_only_filtered1_labels_prop/ids_labels3/table.p" # NOQA
 
 json_file = "sincity_classes.json"
 
-output = "sincity_ids.json"
+output = "sincity_medium_ids.json"
 
 table = pickle.load(open(table_fname, 'rb'))
 

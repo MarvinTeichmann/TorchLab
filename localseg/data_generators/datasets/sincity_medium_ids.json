@@ -1,0 +1,12 @@
+{
+    "box": 68,
+    "grass": 831,
+    "lane": 832,
+    "pole": 837,
+    "road": 833,
+    "sidewalk": 2,
+    "sign": 836,
+    "sky": 835,
+    "tree": 834,
+    "water": 3
+}

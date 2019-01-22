@@ -254,6 +254,15 @@ class LocalSegmentationLoader(data.Dataset):
             conf['idx_offset'] = 1
             conf['num_classes'] = 308
 
+        if conf['dataset'] == 'sincity_medium':
+            conf['traindir'] = 'scenecity/scenecity_medium_eccv18_train_cloudy'
+            conf['vis_file'] = 'datasets/scenecity_medium_train_classes.lst'
+            conf['mask_file'] = 'datasets/sincity_medium_ids.json'
+
+            conf['ignore_label'] = 0
+            conf['idx_offset'] = 1
+            conf['num_classes'] = 838
+
         if conf['dataset'] == 'sincity_small':
             conf['train_file'] = 'datasets/scenecity_small_train.lst'
             conf['val_file'] = 'datasets/scenecity_small_test.lst'
@@ -280,14 +289,6 @@ class LocalSegmentationLoader(data.Dataset):
             conf['ignore_label'] = 0
             conf['idx_offset'] = 1
             conf['num_classes'] = 112
-
-        if conf['dataset'] == 'sincity_medium':
-            conf['train_file'] = 'datasets/scenecity_medium_train.lst'
-            conf['val_file'] = 'datasets/scenecity_medium_test.lst'
-
-            conf['ignore_label'] = 0
-            conf['idx_offset'] = 1
-            conf['num_classes'] = 838
 
         if conf['dataset'] == 'blender_mini':
             conf['train_file'] = 'datasets/blender_mini.lst'

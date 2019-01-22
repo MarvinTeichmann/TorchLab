@@ -8,8 +8,8 @@
     },
 
     "dataset" : {
-        "dataset": "sincity",
-        "sequence": "",
+        "dataset": "sincity_medium",
+        "sequence": "part01",
         "train_file": "train",
         "val_file": "val",
 
@@ -19,8 +19,6 @@
 
         "label_encoding": "dense",
         "root_classes": 0,
-
-        "3d_label": "points_3d_sphere",
 
         "subsample": 0,
 
@@ -112,7 +110,7 @@
     },
 
     "training": {
-        "batch_size": 4,
+        "batch_size": 2,
         "learning_rate": 5e-5,
         "lr_schedule": "poly",
         "exp": 1.5,
@@ -123,7 +121,7 @@
         "weight_decay": 5e-4,
         "clip_norm": null,
         "max_epochs": 20000,
-        "pre_eval": false,
+        "pre_eval": true,
         "cnn_gpus": null,
         "max_epoch_steps": null,
         "init_weights_from_checkpoint": false,
@@ -142,9 +140,9 @@
     },
 
     "logging": {
-        "display_iter": 150,
+        "display_iter": 2000,
         "eval_iter": 20,
-        "max_val_examples": null,
+        "max_val_examples": 25,
         "max_train_examples": 100,
         "log": true,
         "checkpoint_backup": 100,
