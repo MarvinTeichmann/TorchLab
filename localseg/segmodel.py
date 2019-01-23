@@ -213,6 +213,8 @@ class SegModel(nn.Module):
 
         self.trainer = Trainer(conf, self, self.trainloader)
 
+        torch.backends.cudnn.benchmark = True
+
         self.epoch = 0
 
         self.loss = self._make_loss(conf, device_ids)

@@ -74,6 +74,10 @@ def handle_args():
     parser.add_argument('--wait', action='store_true',
                         help="Wait till gpus are available.")
 
+    parser.add_argument('--restarts', type=int,
+                        default=5,
+                        help="Restart training [num] times when crashed.")
+
     parser.add_argument("--bench", type=str, default='debug',
                         help="Subfolder to .")
     # parser.add_argument('--compare', action='store_true')
@@ -132,7 +136,8 @@ if __name__ == '__main__':
 
         mymodel = m.create_pyvision_model(config, logdir=logdir)
 
-        pvutils.robust_training(mymodel, restarts=5, subprocess=False)
+        pvutils.robust_training(mymodel, restarts=args.restarts,
+                                subprocess=False)
 
         # Do forward pass
         # img_var = Variable(sample['image']).cuda() # NOQA
