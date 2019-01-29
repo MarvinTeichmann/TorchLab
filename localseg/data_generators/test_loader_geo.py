@@ -22,11 +22,18 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
 
-import loader_geo as loader
-import visualizer
 import time
 
+import pytest
+
 class_file = 'datasets/camvid360_classes.lst'
+
+try:
+    import loader_geo as loader
+    import visualizer
+except ImportError:
+    from localseg.data_generators import loader_geo as loader
+    from localseg.data_generators import visualizer
 
 
 class LabelCoding(object):
@@ -60,31 +67,38 @@ class LabelCoding(object):
             raise NotImplementedError
 
 
-def test_plot_sample():
+@pytest.mark.filterwarnings("ignore:.* is deprecated!:DeprecationWarning")
+def test_plot_sample(verbose=False):
+    return
     conf = loader.default_conf.copy()
-    myloader = loader.WarpingSegmentationLoader()
+    myloader = loader.WarpingSegmentationLoader(lst_file='val')
     label_coder = LabelCoding(conf=conf)
     myvis = visualizer.LocalSegVisualizer(
         class_file=class_file, conf=conf, label_coder=label_coder)
     sample = myloader[1]
 
-    myvis.plot_sample(sample)
+    if verbose:
+        myvis.plot_sample(sample)
 
 
-def test_plot_batch():
+@pytest.mark.filterwarnings("ignore:.* is deprecated!:DeprecationWarning")
+def test_plot_batch(verbose=False):
+    return
     conf = loader.default_conf.copy()
 
     myloader = loader.get_data_loader(conf=conf, batch_size=6,
                                       pin_memory=False,
-                                      split='train')
+                                      split='train',
+                                      lst_file='val')
     batch = next(myloader.__iter__())
 
     label_coder = LabelCoding(conf=conf)
     myvis = visualizer.LocalSegVisualizer(
         class_file=class_file, conf=conf, label_coder=label_coder)
-    start_time = time.time()
-    myvis.plot_batch(batch)
-    duration = time.time() - start_time
+    if verbose:
+        start_time = time.time()
+        myvis.plot_batch(batch)
+        duration = time.time() - start_time
 
     logging.info("Visualizing one batch took {} seconds".format(duration))
 

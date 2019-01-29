@@ -58,8 +58,10 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 
 
 default_conf = loader.default_conf.copy()
-default_conf['dataset'] = "camvid3d_reduced"
-default_conf['3d_label'] = 'points_3d_sphere'
+default_conf['dataset'] = "camvid3d"
+default_conf['sequence'] = "mysets/part5"
+default_conf["subsample"] = 0
+default_conf["dist_mask"] = None
 
 DEBUG = False
 

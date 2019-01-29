@@ -20,11 +20,18 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
 
-import loader
 import time
-import visualizer
+import warnings
+import pytest
 
 import matplotlib.pyplot as plt
+
+try:
+    import loader
+    import visualizer
+except ImportError:
+    from localseg.data_generators import loader
+    from localseg.data_generators import visualizer
 
 
 def test_loading():
@@ -55,7 +62,7 @@ def test_loading_blender(verbose=False):
     conf["dataset"] = "blender_mini"
     conf['num_worker'] = 8
 
-    conf['transform'] = loader.mytransform
+    # conf['transform'] = loader.mytransform
 
     myloader = loader.get_data_loader(
         conf=conf, batch_size=8, pin_memory=False)
@@ -66,7 +73,7 @@ def test_loading_blender(verbose=False):
             class_file=conf["vis_file"], conf=conf)
         start_time = time.time()
         myvis.plot_batch(sample)
-        duration = time.time() - start_time
+        duration = time.time() - start_time # NOQA
 
         if step == 5:
             break
@@ -80,6 +87,8 @@ def test_loading_2d():
     conf = loader.default_conf.copy()
     conf['num_worker'] = 8
     conf['label_encoding'] = 'spatial_2d'
+    conf['grid_dims'] = 2
+    conf['grid_size'] = 10
 
     myloader = loader.get_data_loader(
         conf=conf, batch_size=1, pin_memory=False)
@@ -88,7 +97,7 @@ def test_loading_2d():
 
     for step, sample in enumerate(myloader):
 
-        if step == 10:
+        if step == 2:
             break
 
         logging.info("Processed example: {}".format(step))
@@ -151,8 +160,10 @@ def speed_bench():
 
 
 if __name__ == '__main__':
-    test_loading_blender(verbose=True)
-    exit(1)
+    # test_loading_blender(verbose=True)
     test_loading_2d()
-    speed_bench()
+    test_loading()
+    test_loading_blender(verbose=False)
+    exit(1)
+    # speed_bench()
     logging.info("Hello World.")

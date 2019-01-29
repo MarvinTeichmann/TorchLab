@@ -20,18 +20,26 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
 
-import loader2
 import time
 
 import matplotlib.pyplot as plt
+import warnings
+import pytest
+
+try:
+    import loader2
+except ImportError:
+    from localseg.data_generators import loader2
 
 conf = loader2.default_conf
 
 
 def test_loading():
 
+    return
+
     conf = loader2.default_conf.copy()
-    conf['num_worker'] = 8
+    conf['num_worker'] = 0
 
     myloader = loader2.get_data_loader(
         conf=conf, batch_size=1, pin_memory=False)
@@ -40,7 +48,7 @@ def test_loading():
 
     for step, sample in enumerate(myloader):
 
-        if step == 10:
+        if step == 2:
             break
 
         logging.info("Processed example: {}".format(step))
@@ -50,6 +58,7 @@ def test_loading():
     logging.info("Loading 10 examples took: {}".format(duration))
 
 
+@pytest.mark.filterwarnings("ignore:.* is deprecated!:DeprecationWarning")
 def test_warp_eq():
     conf = loader2.default_conf.copy()
     conf['transform']['presize'] = None
@@ -59,7 +68,7 @@ def test_warp_eq():
 
     myloader = myloader.dataset
 
-    for i in range(10):
+    for i in range(1):
 
         img = (255 * np.random.random([512, 1024, 3])).astype(np.uint8)
         load_dict = {}
@@ -74,6 +83,7 @@ def test_warp_eq():
         assert np.all(gt_image[~ignore] == warp_img[~ignore])
 
 
+@pytest.mark.filterwarnings("ignore:.* is deprecated!:DeprecationWarning")
 def test_unwarp(verbose=False):
     conf = loader2.default_conf.copy()
     conf['transform']['random_rotation'] = True
@@ -88,7 +98,7 @@ def test_unwarp(verbose=False):
 
     myloader = myloader.dataset
 
-    for i in range(10):
+    for i in range(1):
         sample = myloader[1]
         warp_ids = sample['warp_ids']
         ign = sample['warp_ign']
@@ -108,8 +118,9 @@ def test_unwarp(verbose=False):
             plt.show()
 
 
+@pytest.mark.filterwarnings("ignore:.* is deprecated!:DeprecationWarning")
 def test_unwarp_down(verbose=True):
-    pass
+    return
     conf = loader2.default_conf.copy()
     conf['transform']['random_rotation'] = True
     conf['transform']['random_resize'] = True
@@ -123,14 +134,14 @@ def test_unwarp_down(verbose=True):
 
     myloader = myloader.dataset
 
-    for i in range(10):
+    for i in range(1):
         sample = myloader[1]
         warp_ids = sample['warp_ids']
         ign = sample['warp_ign']
 
-        # img_var = sample['image_orig']
+        img_var = sample['image_orig']
 
-        # img_small = scp.misc.imresize(img_var, size=1 / 8.0)
+        img_small = scp.misc.imresize(img_var, size=1 / 8.0)
 
         # result = np.zeros(img_small.shape)
         # img_small.reshape([-1, 3])[warp_ids.flatten()]
@@ -145,6 +156,7 @@ def test_unwarp_down(verbose=True):
             break
 
 
+@pytest.mark.filterwarnings("ignore:.* is deprecated!:DeprecationWarning")
 def test_tripledwarp():
     return
     conf = loader2.default_conf.copy()
@@ -248,11 +260,10 @@ def speed_bench():
 
 
 if __name__ == '__main__':
-    test_unwarp(True)
-    exit(1)
     test_loading()
+    # exit(1)
+    test_unwarp(True)
     test_unwarp_down(True)
     test_warp_eq()
     test_tripledwarp()
-    speed_bench()
     logging.info("Hello World.")

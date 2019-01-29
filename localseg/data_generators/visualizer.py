@@ -32,9 +32,21 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     stream=sys.stdout)
 
 
+class LabelCoding(object):
+    """docstring for LabelCoding"""
+    def __init__(self, ign_label=-100):
+        self.ign_label = ign_label
+
+    def space2id(self, dim_img):
+        raise NotImplementedError
+
+    def getmask(self, label):
+        return label != self.ign_label
+
+
 class LocalSegVisualizer(vis.SegmentationVisualizer):
 
-    def __init__(self, class_file, label_coder, conf=None):
+    def __init__(self, class_file, label_coder=None, conf=None):
 
         color_list = self._read_class_file(class_file)
 
@@ -50,7 +62,10 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
         mask_color = color_list[0]
         color_list = color_list[conf['idx_offset']:]
 
-        self.label_coder = label_coder
+        if label_coder is not None:
+            self.label_coder = label_coder
+        else:
+            self.label_coder = LabelCoding()
 
         self.conf = conf
 

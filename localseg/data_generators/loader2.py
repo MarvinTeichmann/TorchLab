@@ -54,6 +54,18 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
 
+import warnings
+
+
+def fxn():
+    warnings.warn("deprecated", DeprecationWarning)
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    fxn()
+
+warnings.filterwarnings("ignore")
+
 
 default_conf = loader.default_conf.copy()
 
@@ -93,49 +105,51 @@ class WarpingSegmentationLoader(loader.LocalSegmentationLoader):
 
     def __getitem__(self, idx):
 
-        image_filename, ids_filename = self.img_list[idx].split(" ")
-        image_filename = os.path.join(self.root_dir, image_filename)
-        ids_filename = os.path.join(self.root_dir, ids_filename)
+        with warnings.catch_warnings():
 
-        assert os.path.exists(image_filename), \
-            "File does not exist: %s" % image_filename
-        assert os.path.exists(ids_filename), \
-            "File does not exist: %s" % ids_filename
+            image_filename, ids_filename = self.img_list[idx].split(" ")
+            image_filename = os.path.join(self.root_dir, image_filename)
+            ids_filename = os.path.join(self.root_dir, ids_filename)
 
-        image = scp.misc.imread(image_filename)
-        ids_image = scp.misc.imread(ids_filename)
+            assert os.path.exists(image_filename), \
+                "File does not exist: %s" % image_filename
+            assert os.path.exists(ids_filename), \
+                "File does not exist: %s" % ids_filename
 
-        load_dict = {}
-        load_dict['idx'] = idx
-        load_dict['image_file'] = image_filename
-        load_dict['label_file'] = ids_filename
+            image = scp.misc.imread(image_filename)
+            ids_image = scp.misc.imread(ids_filename)
 
-        image, image_orig, ids_image, warp_img, load_dict = self.transform(
-            image, ids_image, load_dict)
+            load_dict = {}
+            load_dict['idx'] = idx
+            load_dict['image_file'] = image_filename
+            load_dict['label_file'] = ids_filename
 
-        if self.conf['down_label']:
+            image, image_orig, ids_image, warp_img, load_dict = self.transform(
+                image, ids_image, load_dict)
 
-            warp_ids, warp_ign = self._downsample_warp_img(warp_img, image)
+            if self.conf['down_label']:
 
-        else:
-            warp_ign = np.all(warp_img == 255, axis=2)
-            warp_ids = warp_img[:, :, 0] +\
-                256 * warp_img[:, :, 1] \
-                + 256 * 256 * warp_img[:, :, 2]
+                warp_ids, warp_ign = self._downsample_warp_img(warp_img, image)
 
-        warp_ign = warp_ign.astype(np.uint8)
+            else:
+                warp_ign = np.all(warp_img == 255, axis=2)
+                warp_ids = warp_img[:, :, 0] +\
+                    256 * warp_img[:, :, 1] \
+                    + 256 * 256 * warp_img[:, :, 2]
 
-        label = self.decode_ids(ids_image)
+            warp_ign = warp_ign.astype(np.uint8)
 
-        sample = {
-            'image': image,
-            'image_orig': image_orig,
-            'label': label,
-            'warp_ids': warp_ids,
-            'warp_ign': warp_ign,
-            'load_dict': str(load_dict)}
+            label = self.decode_ids(ids_image)
 
-        return sample
+            sample = {
+                'image': image,
+                'image_orig': image_orig,
+                'label': label,
+                'warp_ids': warp_ids,
+                'warp_ign': warp_ign,
+                'load_dict': str(load_dict)}
+
+            return sample
 
     def get_flow(self, idx):
 
@@ -582,9 +596,13 @@ def random_resize(image, gt_image, warp_img, lower_size, upper_size, sig):
             gt_ones, gt_shape, order=0, mode='reflect', anti_aliasing=False)
         gt_image2 = (gt_image3 * np.max(gt_image) + 0.5).astype(np.int32)
 
-    image2 = scipy.misc.imresize(image, size=factor, interp='cubic')
-    gt_image2 = scipy.misc.imresize(gt_image, size=factor, interp='nearest')
-    warp_img2 = scipy.misc.imresize(warp_img, size=factor, interp='nearest')
+    with warnings.catch_warnings():
+
+        image2 = scipy.misc.imresize(image, size=factor, interp='cubic')
+        gt_image2 = scipy.misc.imresize(
+            gt_image, size=factor, interp='nearest')
+        warp_img2 = scipy.misc.imresize(
+            warp_img, size=factor, interp='nearest')
 
     if DEBUG:
 

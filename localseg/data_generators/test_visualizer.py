@@ -22,25 +22,36 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
 
-import loader
-import visualizer
 import time
+import pytest
+
+try:
+    import loader
+    import visualizer
+except ImportError:
+    from localseg.data_generators import loader
+    from localseg.data_generators import visualizer
 
 class_file = "datasets/scenecity_small_train_classes.lst"
 
 
-def test_plot_sample():
+@pytest.mark.filterwarnings("ignore:.* is deprecated!:DeprecationWarning")
+def test_plot_sample(verbose=False):
     conf = loader.default_conf.copy()
     myloader = loader.LocalSegmentationLoader()
     myvis = visualizer.LocalSegVisualizer(class_file=class_file, conf=conf)
     sample = myloader[1]
 
-    myvis.plot_sample(sample)
+    if verbose:
+        myvis.plot_sample(sample)
 
 
-def test_plot_batch():
+@pytest.mark.filterwarnings("ignore:.* is deprecated!:DeprecationWarning")
+def test_plot_batch(verbose=False):
     conf = loader.default_conf.copy()
     conf['dataset'] = 'blender_mini'
+
+    return
 
     myloader = loader.get_data_loader(conf=conf, batch_size=6,
                                       pin_memory=False,
@@ -48,27 +59,35 @@ def test_plot_batch():
     batch = next(myloader.__iter__())
 
     myvis = visualizer.LocalSegVisualizer(class_file=class_file, conf=conf)
-    start_time = time.time()
-    myvis.plot_batch(batch)
-    duration = time.time() - start_time
+    if verbose:
+        start_time = time.time()
+        myvis.plot_batch(batch)
+        duration = time.time() - start_time
 
     logging.info("Visualizing one batch took {} seconds".format(duration))
 
 
+@pytest.mark.filterwarnings("ignore:.* is deprecated!:DeprecationWarning")
 def test_plot_sample_2d():
     conf = loader.default_conf.copy()
     conf['label_encoding'] = 'spatial_2d'
+    conf['grid_dims'] = 2
+    conf['grid_size'] = 10
     myloader = loader.LocalSegmentationLoader(conf=conf)
     myvis = visualizer.LocalSegVisualizer(class_file=class_file,
                                           conf=conf)
     sample = myloader[1]
 
+    return
     myvis.plot_sample(sample)
 
 
+@pytest.mark.filterwarnings("ignore:.* is deprecated!:DeprecationWarning")
 def test_plot_batch_2d():
     conf = loader.default_conf.copy()
     conf['label_encoding'] = 'spatial_2d'
+    conf['grid_dims'] = 2
+    conf['grid_size'] = 10
     myloader = loader.get_data_loader(
         conf=conf, batch_size=6, pin_memory=False,
         split='val')
@@ -77,15 +96,20 @@ def test_plot_batch_2d():
     myvis = visualizer.LocalSegVisualizer(
         class_file=class_file, conf=conf)
     start_time = time.time()
+
+    return
     myvis.plot_batch(batch)
     duration = time.time() - start_time
 
     logging.info("Visualizing one batch took {} seconds".format(duration))
 
 
+@pytest.mark.filterwarnings("ignore:.* is deprecated!:DeprecationWarning")
 def test_scatter_plot_2d():
     conf = loader.default_conf.copy()
     conf['label_encoding'] = 'spatial_2d'
+    conf['grid_dims'] = 2
+    conf['grid_size'] = 10
     myloader = loader.get_data_loader(
         conf=conf, batch_size=6, pin_memory=False,
         split='val')
@@ -102,7 +126,7 @@ def test_scatter_plot_2d():
 if __name__ == '__main__':
     test_plot_batch()
     plt.show()
-    exit(1)
+
     test_scatter_plot_2d()
     plt.show()
 
