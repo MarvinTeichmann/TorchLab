@@ -37,6 +37,8 @@ import matplotlib.pyplot as plt # NOQA
 
 from PIL import Image
 
+import warnings
+
 from torch.utils import data
 
 try:
