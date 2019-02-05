@@ -245,12 +245,15 @@ class DirLoader(data.Dataset):
         mask_file = os.path.join(self.datadir, 'camvid_ids.json')
         self.mask_table = json.load(open(mask_file))
         self.num_classes = self.meta_dict['num_classes']
+        self.conf['num_classes'] = self.num_classes
+
+        self.vis_file = os.path.join(self.datadir, 'camvid360_classes.lst')
 
     def _decode_mask(self, label_dict):
 
         geo_mask = label_dict['geo_mask']
         geo_mask = geo_mask / 255
-        geo_mask = geo_mask.astype(np.uint8)
+        geo_mask = geo_mask.astype(np.uint8)[:, :, 0]
 
         if self.conf['dist_mask'] is not None:
             # dists = np.abs(label_dict['geo_camera'][:, :, 0]) \
@@ -916,7 +919,7 @@ def speed_bench():
 
 if __name__ == '__main__':  # NOQA
 
-    if False:
+    if True:
 
         speed_bench()
 

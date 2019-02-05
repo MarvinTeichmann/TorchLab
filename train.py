@@ -136,7 +136,12 @@ if __name__ == '__main__':
 
         mymodel = m.create_pyvision_model(config, logdir=logdir)
 
-        pvutils.robust_training(mymodel, restarts=args.restarts,
+        if args.debug:
+            restarts = 0
+        else:
+            restarts = args.restarts
+
+        pvutils.robust_training(mymodel, restarts=restarts,
                                 subprocess=False)
 
         # Do forward pass
