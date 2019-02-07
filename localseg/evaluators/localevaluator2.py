@@ -148,7 +148,7 @@ class MetaEvaluator(object):
                                             ignore_first=False)
             self.logger.add_values(value_dict=tdic, step=epoch, prefix='train')
 
-        self._print_summery_string(epoch)
+            self._print_summery_string(epoch)
 
     def _print_summery_string(self, epoch):
 
@@ -425,8 +425,6 @@ class Evaluator():
 
             os.mkdir(iterdir)
 
-            self.threeDFiles[stepdir] = img_name
-
             image = sample['image'][0].cpu().numpy().transpose([1, 2, 0])
 
             scp.misc.imsave(arr=image, name=os.path.join(stepdir, img_name))
@@ -446,11 +444,16 @@ class Evaluator():
             write_ply_file(fname, world_points[total_mask],
                            colours[total_mask])
 
+        if stepdir not in self.threeDFiles.keys():
+            self.threeDFiles[stepdir] = img_name
+
         assert self.threeDFiles[stepdir] == img_name
 
-        world_points = add_dict['world'][0].cpu().numpy().transpose()
-        fname = os.path.join(iterdir, "pred_world_epoch_{:05d}.ply".format(
-            epoch))
+        if epoch is not None:
+            world_points = add_dict['world'][0].cpu().numpy().transpose()
+            fname = os.path.join(iterdir, "pred_world_epoch_{:05d}.ply".format(
+                epoch))
+
         write_ply_file(fname, world_points[total_mask], colours[total_mask])
 
         fname = os.path.join(stepdir, "pred_world.ply")

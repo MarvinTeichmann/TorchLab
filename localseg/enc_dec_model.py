@@ -95,6 +95,9 @@ class EncoderDecoder(nn.Module):
         class_pred = prediction[:, :self.num_classes]
         three_pred = prediction[:, self.num_classes:]
 
+        if self.conf['decoder']['geo_scale'] is not None:
+            three_pred = three_pred * self.conf['decoder']['geo_scale']
+
         if geo_dict is None:
             return class_pred, three_pred
 

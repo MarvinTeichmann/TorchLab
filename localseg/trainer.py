@@ -143,7 +143,7 @@ class SegmentationTrainer():
     def get_lr(self):
         return self.optimizer.param_groups[0]['lr']
 
-    def do_training_step(self, step, sample, start_time):
+    def do_training_step(self, step, sample):
 
         # Do forward pass
         img_var = Variable(sample['image']).cuda()
@@ -175,7 +175,7 @@ class SegmentationTrainer():
 
         if step % self.display_iter == 0:
             # Printing logging information
-            duration = (time.time() - start_time) / self.display_iter
+            duration = (time.time() - self.start_time) / self.display_iter
             imgs_per_sec = self.bs / duration
 
             log_str = ("Epoch [{:3d}/{:3d}][{:4d}/{:4d}] "
@@ -192,7 +192,7 @@ class SegmentationTrainer():
 
             logging.info(for_str)
 
-            start_time = time.time()
+            self.start_time = time.time()
 
     def train(self, max_epochs=None):
         self.model.cuda()
@@ -220,20 +220,21 @@ class SegmentationTrainer():
             logging.info('Continue Training from {}'.format(self.epoch))
         else:
             logging.info("Start Training")
-            if self.conf['training']['pre_eval']:
-                level = self.conf['evaluation']['default_level']
-                self.model.evaluate(level=level)
+
+        if self.conf['training']['pre_eval']:
+            level = self.conf['evaluation']['default_level']
+            self.model.evaluate(level=level)
 
         for epoch in range(self.epoch, max_epochs):
             epoche_time = time.time()
             self.losses = []
 
-            start_time = time.time()
+            self.start_time = time.time()
 
             gc.collect()
 
             for step, sample in zip(count_steps, self.loader):
-                self.do_training_step(step, sample, start_time)
+                self.do_training_step(step, sample)
 
             gc.collect()
 
@@ -371,7 +372,7 @@ class WarpingSegTrainer(SegmentationTrainer):
 
         self.DEBUG = False
 
-    def do_training_step(self, step, sample, start_time):
+    def do_training_step(self, step, sample):
 
         if False:
 
@@ -557,7 +558,7 @@ class WarpingSegTrainer(SegmentationTrainer):
 
         if step % self.display_iter == 0:
             # Printing logging information
-            duration = (time.time() - start_time) / self.display_iter
+            duration = (time.time() - self.start_time) / self.display_iter
             imgs_per_sec = self.bs / duration
 
             log_str = ("Epoch [{:3d}/{:3d}][{:4d}/{:4d}] "
@@ -580,7 +581,7 @@ class WarpingSegTrainer(SegmentationTrainer):
 
             logging.info(for_str)
 
-            start_time = time.time()
+            self.start_time = time.time()
 
 
 def _set_lr(optimizer, learning_rate):
