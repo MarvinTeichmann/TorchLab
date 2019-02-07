@@ -34,8 +34,10 @@ class BasicBlock(nn.Module):
     expansion = 1
 
     def __init__(self, inplanes, planes, stride=1, dilation=1,
-                 downsample=None, first_dilation=1, bn=None): # NOQA
+                 downsample=None, first_dilation=1, bn=None, use_s2b=False): # NOQA
         super(BasicBlock, self).__init__()
+
+        assert not use_s2b
         self.BatchNorm = bn
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=3, stride=stride,
                                padding=dilation, dilation=dilation, bias=False)
@@ -200,10 +202,16 @@ class ResNet(nn.Module):
     def get_channel_dict(self):
 
         bn4 = [m for m in self.layer4.modules()][-2]
+        if not isinstance(bn4, self.BatchNorm):
+            bn4 = [m for m in self.layer4.modules()][-1]
         assert(isinstance(bn4, self.BatchNorm))
         bn3 = [m for m in self.layer3.modules()][-2]
+        if not isinstance(bn3, self.BatchNorm):
+            bn3 = [m for m in self.layer4.modules()][-1]
         assert(isinstance(bn3, self.BatchNorm))
         bn2 = [m for m in self.layer2.modules()][-2]
+        if not isinstance(bn2, self.BatchNorm):
+            bn2 = [m for m in self.layer4.modules()][-1]
         assert(isinstance(bn2, self.BatchNorm))
 
         if self.dilated:

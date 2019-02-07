@@ -9,10 +9,10 @@
 
     "dataset" : {
         "dataset": "Camvid360",
-        "data_root": "camvid360/P5_100/train",
+        "data_root": "camvid360/Part3",
 
-        "train_file": "camvid360/P5_100/train",
-        "val_file": "camvid360/P5_100/train",
+        "train_file": "camvid360/Part3",
+        "val_file": "camvid360/Part3",
 
         "ignore_label": 0,
         "idx_offset": 1,
@@ -135,7 +135,13 @@
     },
 
     "evaluation": {
-        "imgs_minor": [1, 3, 10],
+        "imgs_minor": {
+            "train": [10, 20, 30, 40, 50],
+            "val": [0, 1, 2, 3, 4, 5],
+            "test": [10, 20, 30, 40, 50]
+        },
+        "do_segmentation_eval": true,
+        "do_dist_eval": true,
         "transparency": 0,
         "default_level": "minor",
         "reduce_val_bs": true,
@@ -156,9 +162,10 @@
 
     "plotting": {
         "defaults": {
-            "plot": ["mIoU", "mIoU", "Acc @6", "Acc @12", "Acc @12"],
-            "prefixes": ["val", "val", "train", "val", "val", "train"],
-            "titles": ["Validation mIoU", "Train mIoU", "Acc @6", "Acc @12", "Train Acc @12"]
+            "plot": ["mIoU", "mIoU", "Acc @6", "Acc @12", "Acc @12", "Dist Mean", "CDM min"],
+            "prefixes": ["val", "train", "val", "val", "train", "val", "val"],
+            "titles": ["Validation mIoU", "Validation Accuracy", "Train mIoU", "Acc @6", "Acc @12", "Train Acc @12",
+                       "Dist Mean (val)", "Clipped Dist Mean (val)"]
         }
     },
 

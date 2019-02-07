@@ -50,9 +50,9 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 
 
 default_conf = {
-    'dataset': 'Camvid360',
+    'dataset': 'SinCity',
 
-    'data_root': 'camvid360/P5_100/train',
+    'data_root': 'sincity/sincity_100',
 
     'ignore_label': 0,
     'idx_offset': 1,
@@ -62,7 +62,7 @@ default_conf = {
 
     'dist_mask': None,
 
-    'do_split': True,
+    'do_split': False,
 
     'transform': {
         "equi_crop": {
@@ -74,6 +74,7 @@ default_conf = {
             "plane_f": 0.05
         },
         'presize': 0.5,
+        'npz_factor': 2,
         'color_augmentation_level': 1,
         'fix_shape': True,
         'reseize_image': False,
@@ -155,6 +156,9 @@ class DirLoader(data.Dataset):
         self.do_augmentation = do_augmentation
         self._debug_interrupt = None
 
+        self.npz_keys = ['geo_mask', 'geo_world', 'geo_camera',
+                         'geo_sphere']
+
         logging.info("Segmentation Dataset '{}' ({}) with {} examples "
                      "successfully loaded.".format(
                          conf['dataset'], split, self.__len__()))
@@ -193,9 +197,9 @@ class DirLoader(data.Dataset):
         npz_file = np.load(meta_filename)
 
         label_dict = {
-            "geo_world": npz_file['points_3d_world'],
-            "geo_sphere": npz_file['points_3d_sphere'],
-            "geo_camera": npz_file['points_3d_camera'],
+            "geo_world": npz_file['points_3d_world'].astype(np.float32),
+            "geo_sphere": npz_file['points_3d_sphere'].astype(np.float32),
+            "geo_camera": npz_file['points_3d_camera'].astype(np.float32),
             "geo_mask": npz_file['mask'],
             "ids_image": ids_image
         }
@@ -242,12 +246,12 @@ class DirLoader(data.Dataset):
         meta_file = os.path.join(self.datadir, 'meta.json')
         self.meta_dict = json.load(open(meta_file, 'r'))
 
-        mask_file = os.path.join(self.datadir, 'camvid_ids.json')
+        mask_file = os.path.join(self.datadir, 'class_ids.json')
         self.mask_table = json.load(open(mask_file))
         self.num_classes = self.meta_dict['num_classes']
         self.conf['num_classes'] = self.num_classes
 
-        self.vis_file = os.path.join(self.datadir, 'camvid360_classes.lst')
+        self.vis_file = os.path.join(self.datadir, 'colors.lst')
 
     def _decode_mask(self, label_dict):
 
@@ -283,7 +287,7 @@ class DirLoader(data.Dataset):
         datadir = os.path.join(self.root_dir, self.data_root)
         self.datadir = datadir
 
-        metadir = os.path.join(datadir, 'meta')
+        metadir = os.path.join(datadir, 'meta2')
 
         if os.path.exists(metadir):
             filelist = os.listdir(metadir)
@@ -458,7 +462,14 @@ class DirLoader(data.Dataset):
                 image = scipy.misc.imresize(
                     image, size=transform['presize'], interp='cubic')
             for key, item in label_dict.items():
-                label_dict[key] = resize_torch(item, transform['presize'])
+
+                if key in self.npz_keys:
+                    factor = transform['presize'] * transform['npz_factor']
+
+                    if not (factor > 0.99 and factor < 1.01):
+                        label_dict[key] = resize_torch(item, factor)
+                else:
+                    label_dict[key] = resize_torch(item, transform['presize'])
 
         if self.do_augmentation:
             image, label_dict = self.color_transform(image, label_dict)
@@ -520,6 +531,7 @@ class DirLoader(data.Dataset):
                     new_img[pad_h:pad_h + shape[0], pad_w:pad_w + shape[1]] = image # NOQA
 
                     for key, item in label_dict.items():
+
                         new_shape = transform['patch_size'] \
                             + [item.shape[2]]
                         new_item = 255 * np.ones(
@@ -531,7 +543,9 @@ class DirLoader(data.Dataset):
                     image = new_img
 
         for key, item in label_dict.items():
-            assert image.shape[:2] == item.shape[:2]
+            assert image.shape[:2] == item.shape[:2], \
+                "Shape missmatch in DataLoader: image: {}, {}, {}".format(
+                    image.shape, key, item.shape)
 
         image = image.transpose((2, 0, 1))
         image = image / 255
@@ -884,7 +898,7 @@ class RandomRotation(object):
 
 def speed_bench():
     conf = default_conf.copy()
-    conf['num_worker'] = 8
+    conf['num_worker'] = 4
     batch_size = 4
     num_examples = 25
 
@@ -919,7 +933,7 @@ def speed_bench():
 
 if __name__ == '__main__':  # NOQA
 
-    if True:
+    if False:
 
         speed_bench()
 
@@ -928,6 +942,10 @@ if __name__ == '__main__':  # NOQA
         loader = DirLoader(conf=conf)
         loader = DirLoader(conf=conf, split='val')
         test = loader[1]
+
+        import ipdb # NOQA
+        ipdb.set_trace()
+        pass
 
     exit(0)
     '''

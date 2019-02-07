@@ -8,8 +8,9 @@
     },
 
     "dataset" : {
-        "dataset": "sincity",
-        "sequence": "",
+        "dataset": "SinCity",
+        "data_root": "sincity/sincity_100",
+
         "train_file": "train",
         "val_file": "val",
 
@@ -17,17 +18,16 @@
         "idx_offset": 1,
         "num_classes": null,
 
+        "subsample": 0,
+
         "label_encoding": "dense",
         "root_classes": 0,
 
-        "3d_label": "points_3d_sphere",
-
-        "subsample": 0,
-
-        "dist_mask": 6.4,
-
         "grid_size": 10,
         "grid_dims": 3,
+
+        "dist_mask": 6.4,
+        "do_split": true,
 
         "transform": {
             "equirectangular": false,
@@ -39,7 +39,8 @@
                 "wrap": true,
                 "plane_f": 0.05
                 },
-            "presize": null,
+            "presize": 0.5,
+            "npz_factor": 2,
             "color_augmentation_level": 1,
             "fix_shape": true,
             "reseize_image": false,
@@ -58,7 +59,7 @@
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 8
+        "num_worker": 4
     },
 
     "encoder": {
@@ -95,7 +96,7 @@
             }
         },
         "weights": {
-            "xentropy": 3,
+            "xentropy": 0,
             "triplet": 1
         },
         "corner": false,
@@ -122,7 +123,7 @@
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": null,
-        "max_epochs": 20000,
+        "max_epochs": 5000,
         "pre_eval": false,
         "cnn_gpus": null,
         "max_epoch_steps": null,
@@ -137,31 +138,32 @@
         "default_level": "minor",
         "reduce_val_bs": true,
         "has_flow": false,
-        "train_loader_split": "val",
-        "scale": 0.02
+        "train_do_agumentation": false,
+        "scale": 0.01
     },
 
     "logging": {
-        "display_iter": 150,
+        "display_iter": 10,
         "eval_iter": 20,
         "max_val_examples": null,
-        "max_train_examples": 100,
+        "max_train_examples": null,
         "log": true,
-        "checkpoint_backup": 100,
+        "checkpoint_backup": 100000,
         "mayor_eval": 1000
     },
 
     "plotting": {
         "defaults": {
-            "plot": ["mIoU", "accuracy", "mIoU", "Acc @6", "Acc @12", "Acc @12"],
-            "prefixes": ["val", "val", "train", "val", "val", "train"],
-            "titles": ["Validation mIoU", "Validation Accuracy", "Train mIoU", "Acc @6", "Acc @12", "Train Acc @12"]
+            "plot": ["mIoU", "mIoU", "Acc @6", "Acc @12", "Acc @12", "Dist Mean", "CDM"],
+            "prefixes": ["val", "train", "val", "val", "train", "train", "train"],
+            "titles": ["Validation mIoU", "Validation Accuracy", "Train mIoU", "Acc @6", "Acc @12", "Train Acc @12",
+                       "Dist Mean (train)", "Clipped Dist Mean (train)"]
         }
     },
 
     "pyvision": {
-        "project_name": "localsegICCV",
-        "entry_point": "../localseg/segmodel.py",
+        "project_name": "localsegSIN",
+        "entry_point": "../localseg/segmodel2.py",
         "plotter": "../localseg/plotting/segplotter.py",
         "required_packages": ["../localseg"],
         "optional_packages": ["../pyvision/pyvision"],

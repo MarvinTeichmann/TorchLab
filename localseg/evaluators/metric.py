@@ -38,6 +38,8 @@ class CombinedMetric(object):
         pp_names = []
 
         for i, metric in enumerate(self.metriclist):
+            if metric is None:
+                continue
             if i > 0:
                 pp_names.append('class_seperator')
             pp_names += metric.get_pp_names(
@@ -51,6 +53,8 @@ class CombinedMetric(object):
         pp_values = []
 
         for i, metric in enumerate(self.metriclist):
+            if metric is None:
+                continue
             if i > 0:
                 pp_values.append(pp.NEW_TABLE_LINE_MARKER)
             pp_values += metric.get_pp_values(

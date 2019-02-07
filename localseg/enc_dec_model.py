@@ -160,6 +160,11 @@ def _get_encoder(conf):
                 pretrained=pretrained, dilated=dilated,
                 batched_dilation=batched_dilation,
                 bn=bn).cuda()
+        elif conf['encoder']['num_layer'] == 34:
+            encoder = resnet.resnet34(
+                pretrained=pretrained, dilated=dilated,
+                batched_dilation=batched_dilation,
+                bn=bn).cuda()
         else:
             raise NotImplementedError
             # further implementation are available; see encoder.resnet

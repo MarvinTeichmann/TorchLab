@@ -148,34 +148,60 @@ class MetaEvaluator(object):
                                             ignore_first=False)
             self.logger.add_values(value_dict=tdic, step=epoch, prefix='train')
 
-            runname = os.path.basename(self.model.logdir)
-            if len(runname.split("_")) > 2:
-                runname = "{}_{}_{}".format(runname.split("_")[0],
-                                            runname.split("_")[1],
-                                            runname.split("_")[2])
+        self._print_summery_string(epoch)
 
-            if runname == '':
-                runname = "ResNet50"
+    def _print_summery_string(self, epoch):
 
-            def median(data, weight=20):
-                return np.median(data[- weight:])
+        max_epochs = self.model.trainer.max_epochs
 
-            max_epochs = self.model.trainer.max_epochs
+        def median(data, weight=20):
+            return np.median(data[- weight:])
 
-            out_str = ("Summary:   [{:17}](mIoU: {:.2f} | {:.2f}    "
-                       "accuracy: {:.2f} | {:.2f}   dist: {:.2f} | "
-                       "{:.2f} | {:.2f})    Epoch: {} / {}").format(
-                runname[0:22],
-                100 * median(self.logger.data['val\\mIoU']),
-                100 * median(self.logger.data['train\\mIoU']),
-                100 * median(self.logger.data['val\\accuracy']),
-                100 * median(self.logger.data['train\\accuracy']),
-                100 * median(self.logger.data['val\\Acc @6']),
-                100 * median(self.logger.data['val\\Acc @6']),
-                100 * median(self.logger.data['train\\Acc @12']),
-                epoch, max_epochs)
+        runname = os.path.basename(self.model.logdir)
+        if len(runname.split("_")) > 2:
+            runname = "{}_{}_{}".format(runname.split("_")[0],
+                                        runname.split("_")[1],
+                                        runname.split("_")[2])
 
-            logging.info(out_str)
+        if runname == '':
+            runname = "ResNet50"
+
+        if self.conf['evaluation']['do_segmentation_eval']:
+            if self.conf['evaluation']['do_dist_eval']:
+                out_str = ("Summary:   [{:17}](mIoU: {:.2f} | {:.2f}    "
+                           "accuracy: {:.2f} | {:.2f}   dist: {:.2f} | "
+                           "{:.2f} | {:.2f})    Epoch: {} / {}").format(
+                    runname[0:22],
+                    100 * median(self.logger.data['val\\mIoU']),
+                    100 * median(self.logger.data['train\\mIoU']),
+                    100 * median(self.logger.data['val\\accuracy']),
+                    100 * median(self.logger.data['train\\accuracy']),
+                    100 * median(self.logger.data['val\\Acc @6']),
+                    100 * median(self.logger.data['val\\Acc @12']),
+                    100 * median(self.logger.data['train\\Acc @12']),
+                    epoch, max_epochs)
+            else:
+                raise NotImplementedError
+
+        else:
+            if self.conf['evaluation']['do_dist_eval']:
+                if self.conf['evaluation']['do_dist_eval']:
+                    out_str = ("Summary:   [{:17}](CDM: {:.2f} | {:.2f}    "
+                               "dist: {:.2f} | {:.2f}   dist acc: {:.2f} | "
+                               "{:.2f} | {:.2f})    Epoch: {} / {}").format(
+                        runname[0:22],
+                        100 * median(self.logger.data['val\\CDM min']),
+                        100 * median(self.logger.data['train\\CDM min']),
+                        100 * median(self.logger.data['val\\Dist Mean']),
+                        100 * median(self.logger.data['train\\Dist Mean']),
+                        100 * median(self.logger.data['val\\Acc @6']),
+                        100 * median(self.logger.data['val\\Acc @6']),
+                        100 * median(self.logger.data['train\\Acc @12']),
+                        epoch, max_epochs)
+            else:
+                raise NotImplementedError
+
+        logging.info(out_str)
 
 
 class Evaluator():
@@ -187,7 +213,7 @@ class Evaluator():
         self.name = name
         self.imgdir = imgdir
 
-        self.imgs_minor = conf['evaluation']['imgs_minor']
+        self.imgs_minor = conf['evaluation']['imgs_minor'][split]
 
         self.label_coder = self.model.label_coder
 
@@ -227,9 +253,12 @@ class Evaluator():
 
         self.smoother = pyvision.utils.MedianSmoother(20)
 
+        self.threeDFiles = {}
+
     def evaluate(self, epoch=None, eval_fkt=None, level='minor'):
 
-        if level == 'mayor' or level == 'full':
+        if (level == 'mayor' or level == 'full') and \
+                self.conf['evaluation']['do_segmentation_eval']:
             self.epochdir = os.path.join(self.imgdir, "epoch{}_{}".format(
                 epoch, self.name))
             if not os.path.exists(self.epochdir):
@@ -242,9 +271,17 @@ class Evaluator():
                 os.mkdir(self.scatter_edir)
 
         assert eval_fkt is None
-        metric = IoU(self.num_classes + 1, self.names)
-        dmetric = distmetric.DistMetric(
-            scale=self.conf['evaluation']['scale'])
+
+        if self.conf['evaluation']['do_segmentation_eval']:
+            metric = IoU(self.num_classes + 1, self.names)
+        else:
+            metric = None
+
+        if self.conf['evaluation']['do_dist_eval']:
+            dmetric = distmetric.DistMetric(
+                scale=self.conf['evaluation']['scale'])
+        else:
+            dmetric = None
 
         self.trans = self.conf['evaluation']['transparency']
 
@@ -278,64 +315,62 @@ class Evaluator():
                     continue
 
             # bpred_np = bpred.cpu().numpy()
-            logits = semlogits.cpu().numpy()
 
-            duration = (time.time() - start_time)
+            duration = 0.1
 
-            if level == 'mayor' and step * self.bs < 300 or level == 'full':
-                self._do_plotting_mayor(cur_bs, sample,
-                                        logits, epoch, level)
+            if self.conf['evaluation']['do_segmentation_eval']:
 
-            if self.conf['modules']['loader'] == 'geometry':
-                if step == self.imgs_minor[0]:
-                    self._write_3d_output(step, add_dict, sample, epoch)
+                logits = semlogits.cpu().numpy()
 
-            if level != 'none' and step in self.imgs_minor\
-                    or level == 'one_image':
-                self._do_plotting_minor(step, logits,
-                                        sample, epoch)
-                if level == "one_image":
-                    # plt.show(block=False)
-                    # plt.pause(0.01)
-                    return None
+                duration = (time.time() - start_time)
+                if level == 'mayor' and step * self.bs < 300 \
+                        or level == 'full':
+                    self._do_plotting_mayor(cur_bs, sample,
+                                            logits, epoch, level)
 
-            pred_world_np = add_dict['world'].cpu().numpy()
-            label_world_np = sample['geo_world'].cpu().numpy()
+                if level != 'none' and step in self.imgs_minor\
+                        or level == 'one_image':
+                    self._do_plotting_minor(step, logits,
+                                            sample, epoch)
+                    if level == "one_image":
+                        # plt.show(block=False)
+                        # plt.pause(0.01)
+                        return None
 
-            geo_mask = sample['geo_mask'].cuda().byte()
-            class_mask = sample['class_mask'].cuda().byte()
+                # Analyze output
+                for d in range(logits.shape[0]):
+                    pred = logits[d]
 
-            total_mask = torch.all(
-                torch.stack([geo_mask, class_mask]), dim=0)
-
-            total_mask_np = total_mask.cpu().numpy().astype(np.bool)
-
-            for d in range(pred_world_np.shape[0]):
-                dmetric.add(
-                    pred_world_np[d], label_world_np[d], total_mask_np[d])
-
-            # Analyze output
-            for d in range(logits.shape[0]):
-                pred = logits[d]
-
-                if self.conf['dataset']['label_encoding'] == 'dense':
                     hard_pred = np.argmax(pred, axis=0)
 
                     label = sample['label'][d].numpy()
                     mask = label != self.ignore_idx
-                elif self.conf['dataset']['label_encoding'] == 'spatial_2d':
 
-                    hard_pred = np.argmax(pred, axis=0)
+                    metric.add(label, mask, hard_pred, time=duration / self.bs,
+                               ignore_idx=self.ignore_idx)
 
-                    label = sample['label'][d].numpy()
-                    mask = label[0] != self.ignore_idx
+            if self.conf['evaluation']['do_dist_eval']:
 
-                    label = self.label_coder.space2id(label)
+                pred_world_np = add_dict['world'].cpu().numpy()
+                label_world_np = sample['geo_world'].cpu().numpy()
 
-                    label[~mask] = 0
+                if not self.conf['evaluation']['do_segmentation_eval']:
+                    duration = (time.time() - start_time)
 
-                metric.add(label, mask, hard_pred, time=duration / self.bs,
-                           ignore_idx=self.ignore_idx)
+                if step in self.imgs_minor:
+                    self._write_3d_output(step, add_dict, sample, epoch)
+
+                geo_mask = sample['geo_mask'].cuda().byte()
+                class_mask = sample['class_mask'].cuda().byte()
+
+                total_mask = torch.all(
+                    torch.stack([geo_mask, class_mask]), dim=0)
+
+                total_mask_np = total_mask.cpu().numpy().astype(np.bool)
+
+                for d in range(pred_world_np.shape[0]):
+                    dmetric.add(
+                        pred_world_np[d], label_world_np[d], total_mask_np[d])
 
             # Print Information
             if step % self.display_iter == 0:
@@ -370,8 +405,6 @@ class Evaluator():
     def _write_3d_output(self, step, add_dict, sample, epoch):
         stepdir = os.path.join(self.imgdir, "meshplot{}_{}".format(
             step, self.name))
-        if not os.path.exists(stepdir):
-            os.mkdir(stepdir)
 
         colours = sample['image'][0].cpu().numpy().transpose() * 255
 
@@ -380,8 +413,56 @@ class Evaluator():
 
         total_mask = torch.all(
             torch.stack([geo_mask, class_mask]), dim=0).squeeze(1)[0]
-
         total_mask = total_mask.numpy().transpose().astype(np.bool)
+
+        img_name = literal_eval(sample['load_dict'][0])['image_file']
+        img_name = os.path.basename(img_name)
+
+        iterdir = os.path.join(stepdir, 'iters')
+
+        if not os.path.exists(stepdir):
+            os.mkdir(stepdir)
+
+            os.mkdir(iterdir)
+
+            self.threeDFiles[stepdir] = img_name
+
+            image = sample['image'][0].cpu().numpy().transpose([1, 2, 0])
+
+            scp.misc.imsave(arr=image, name=os.path.join(stepdir, img_name))
+
+            world_points = sample['geo_world'][0].cpu().numpy().transpose()
+            fname = os.path.join(stepdir, "label_world.ply")
+            write_ply_file(fname, world_points[total_mask],
+                           colours[total_mask])
+
+            world_points = sample['geo_sphere'][0].cpu().numpy().transpose()
+            fname = os.path.join(stepdir, "label_sphere.ply")
+            write_ply_file(fname, world_points[total_mask],
+                           colours[total_mask])
+
+            world_points = sample['geo_camera'][0].cpu().numpy().transpose()
+            fname = os.path.join(stepdir, "label_camera.ply")
+            write_ply_file(fname, world_points[total_mask],
+                           colours[total_mask])
+
+        assert self.threeDFiles[stepdir] == img_name
+
+        world_points = add_dict['world'][0].cpu().numpy().transpose()
+        fname = os.path.join(iterdir, "pred_world_epoch_{:05d}.ply".format(
+            epoch))
+        write_ply_file(fname, world_points[total_mask], colours[total_mask])
+
+        fname = os.path.join(stepdir, "pred_world.ply")
+        write_ply_file(fname, world_points[total_mask], colours[total_mask])
+
+        world_points = add_dict['camera'][0].cpu().numpy().transpose()
+        fname = os.path.join(stepdir, "pred_camera.ply")
+        write_ply_file(fname, world_points[total_mask], colours[total_mask])
+
+        world_points = add_dict['sphere'][0].cpu().numpy().transpose()
+        fname = os.path.join(stepdir, "pred_sphere.ply")
+        write_ply_file(fname, world_points[total_mask], colours[total_mask])
 
         """
         worlddir = os.path.join(stepdir, "world")
@@ -406,30 +487,6 @@ class Evaluator():
             newfile = filename.split(".")[0] + "_epoch_{num:05d}.ply"\
                 .format(num=epoch)
         """
-        world_points = add_dict['world'][0].cpu().numpy().transpose()
-        fname = os.path.join(stepdir, "pred_world.ply")
-
-        write_ply_file(fname, world_points[total_mask], colours[total_mask])
-
-        world_points = add_dict['camera'][0].cpu().numpy().transpose()
-        fname = os.path.join(stepdir, "pred_camera.ply")
-        write_ply_file(fname, world_points[total_mask], colours[total_mask])
-
-        world_points = add_dict['sphere'][0].cpu().numpy().transpose()
-        fname = os.path.join(stepdir, "pred_sphere.ply")
-        write_ply_file(fname, world_points[total_mask], colours[total_mask])
-
-        world_points = sample['geo_world'][0].cpu().numpy().transpose()
-        fname = os.path.join(stepdir, "label_world.ply")
-        write_ply_file(fname, world_points[total_mask], colours[total_mask])
-
-        world_points = sample['geo_sphere'][0].cpu().numpy().transpose()
-        fname = os.path.join(stepdir, "label_sphere.ply")
-        write_ply_file(fname, world_points[total_mask], colours[total_mask])
-
-        world_points = sample['geo_camera'][0].cpu().numpy().transpose()
-        fname = os.path.join(stepdir, "label_camera.ply")
-        write_ply_file(fname, world_points[total_mask], colours[total_mask])
 
     def _do_plotting_minor(self, step, bprob_np,
                            sample, epoch):
