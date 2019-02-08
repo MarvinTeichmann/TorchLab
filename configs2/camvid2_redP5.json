@@ -77,6 +77,7 @@
     "decoder": {
         "skip_connections": false,
         "scale_down": 0.01,
+        "geo_scale": null,
         "dropout": true,
         "bottleneck": null,
         "upsample": true
@@ -95,14 +96,14 @@
             }
         },
         "weights": {
-            "xentropy": 0,
+            "xentropy": 3,
             "triplet": 1
         },
         "corner": false,
         "spatial": false,
         "embedding_loss": null,
-        "sqrt": true,
         "squeeze": false,
+        "sqrt": true,
         "dist_loss": true,
         "warp_dist": 32,
         "squeze_weight": 0,
@@ -139,7 +140,7 @@
         },
         "transparency": 0,
         "default_level": "minor",
-        "do_segmentation_eval": false,
+        "do_segmentation_eval": true,
         "do_dist_eval": true,
         "reduce_val_bs": true,
         "has_flow": false,
@@ -159,11 +160,10 @@
 
     "plotting": {
         "defaults": {
-            "plot": ["Dist Mean", "CDM min", "Dist Mean", "CDM min", "Acc @12", "Acc @12"],
-            "prefixes": ["train", "train", "train", "val", "val", "val", "train","val"],
-            "titles": ["Dist Mean (train)", "Clipped Dist Mean (train)",
-                       "Dist Mean (val)", "Clipped Dist Mean (val)",
-                       "Accuracy @12 (train)", "Accuracy @12 (val)"]
+            "plot": ["mIoU", "mIoU", "Acc @6", "Acc @12", "Acc @12", "Dist Mean", "CDM min"],
+            "prefixes": ["val", "train", "val", "val", "train", "val", "val"],
+            "titles": ["Validation mIoU", "Validation Accuracy", "Train mIoU", "Acc @6", "Acc @12", "Train Acc @12",
+                       "Dist Mean (val)", "Clipped Dist Mean (val)"]
         }
     },
 
