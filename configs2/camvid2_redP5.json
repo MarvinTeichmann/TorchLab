@@ -143,6 +143,8 @@
         "do_segmentation_eval": true,
         "do_dist_eval": true,
         "reduce_val_bs": true,
+        "val_subsample": null,
+        "train_subsample": 5,
         "has_flow": false,
         "train_do_agumentation": false,
         "scale": 1
@@ -151,8 +153,6 @@
     "logging": {
         "display_iter": 15,
         "eval_iter": 20,
-        "max_val_examples": null,
-        "max_train_examples": null,
         "log": true,
         "checkpoint_backup": 2500,
         "mayor_eval": 1000

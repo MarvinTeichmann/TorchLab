@@ -9,7 +9,7 @@
 
     "dataset" : {
         "dataset": "SinCity",
-        "data_root": "sincity/sincity2_80",
+        "data_root": "sincity/sincity_80",
 
         "train_file": "train",
         "val_file": "val",
@@ -39,12 +39,12 @@
                 "wrap": true,
                 "plane_f": 0.05
                 },
-            "presize": 0.5,
+            "presize": 0.25,
             "npz_factor": 2,
             "color_augmentation_level": 1,
             "fix_shape": true,
             "reseize_image": false,
-            "patch_size": [448, 448],
+            "patch_size": [224, 224],
             "random_crop": false,
             "random_roll": true,
             "max_crop": 4,
@@ -59,7 +59,7 @@
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 4
+        "num_worker": 10
     },
 
     "encoder": {
@@ -144,6 +144,8 @@
         "do_segmentation_eval": false,
         "do_dist_eval": true,
         "reduce_val_bs": true,
+        "val_subsample": null,
+        "train_subsample": 5,
         "has_flow": false,
         "train_do_agumentation": false,
         "scale": 0.01
@@ -152,8 +154,6 @@
     "logging": {
         "display_iter": 10,
         "eval_iter": 20,
-        "max_val_examples": null,
-        "max_train_examples": null,
         "log": true,
         "checkpoint_backup": 100000,
         "mayor_eval": 1000
