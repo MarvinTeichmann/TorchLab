@@ -229,9 +229,8 @@ class SegmentationTrainer():
             epoche_time = time.time()
             self.losses = []
 
-            self.start_time = time.time()
-
             gc.collect()
+            self.start_time = time.time()
 
             for step, sample in zip(count_steps, self.loader):
                 self.do_training_step(step, sample)

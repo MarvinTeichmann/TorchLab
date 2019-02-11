@@ -107,8 +107,8 @@ class EncoderDecoder(nn.Module):
             world_pred = three_pred
 
         camera_points = geodec.world_to_camera(
-            world_pred, geo_dict['rotation'].float().cuda(),
-            geo_dict['translation'].float().cuda())
+            world_pred, world_pred.new(geo_dict['rotation']),
+            world_pred.new(geo_dict['translation']))
 
         sphere_points = geodec.sphere_normalization(
             camera_points)

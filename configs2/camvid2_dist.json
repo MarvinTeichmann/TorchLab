@@ -96,7 +96,7 @@
             }
         },
         "weights": {
-            "xentropy": 3,
+            "xentropy": 0,
             "triplet": 1
         },
         "corner": false,
@@ -129,7 +129,7 @@
         "max_epoch_steps": null,
         "init_weights_from_checkpoint": false,
         "wd_policy": 2,
-        "num_gpus": 4
+        "num_gpus": 2
     },
 
     "evaluation": {
@@ -140,7 +140,7 @@
         },
         "transparency": 0,
         "default_level": "minor",
-        "do_segmentation_eval": true,
+        "do_segmentation_eval": false,
         "do_dist_eval": true,
         "reduce_val_bs": true,
         "val_subsample": null,
@@ -160,10 +160,11 @@
 
     "plotting": {
         "defaults": {
-            "plot": ["mIoU", "mIoU", "Acc @6", "Acc @12", "Acc @12", "Dist Mean", "CDM min"],
-            "prefixes": ["val", "train", "val", "val", "train", "val", "val"],
-            "titles": ["Validation mIoU", "Validation Accuracy", "Train mIoU", "Acc @6", "Acc @12", "Train Acc @12",
-                       "Dist Mean (val)", "Clipped Dist Mean (val)"]
+            "plot": ["Dist Mean", "CDM min", "Dist Mean", "CDM min", "Acc @12", "Acc @12"],
+            "prefixes": ["train", "train", "train", "val", "val", "val", "train","val"],
+            "titles": ["Dist Mean (train)", "Clipped Dist Mean (train)",
+                       "Dist Mean (val)", "Clipped Dist Mean (val)",
+                       "Accuracy @12 (train)", "Accuracy @12 (val)"]
         }
     },
 

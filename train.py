@@ -75,7 +75,7 @@ def handle_args():
                         help="Wait till gpus are available.")
 
     parser.add_argument('--restarts', type=int,
-                        default=5,
+                        default=0,
                         help="Restart training [num] times when crashed.")
 
     parser.add_argument("--bench", type=str, default='debug',

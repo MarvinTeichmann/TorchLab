@@ -62,8 +62,8 @@ class MetaEvaluator(object):
         if not os.path.exists(self.imgdir):
             os.mkdir(self.imgdir)
 
-        val_iter = self.conf['logging']["max_val_examples"]
-        train_iter = self.conf['logging']["max_train_examples"]
+        val_iter = self.conf['evaluation']["val_subsample"]
+        train_iter = self.conf['evaluation']["train_subsample"]
         tdo_agumentation = self.conf['evaluation']["train_do_agumentation"]
 
         self.val_evaluator = Evaluator(
@@ -206,7 +206,7 @@ class MetaEvaluator(object):
 
 class Evaluator():
 
-    def __init__(self, conf, model, max_examples=None,
+    def __init__(self, conf, model, subsample=None,
                  name='', split=None, imgdir=None, do_augmentation=False):
         self.model = model
         self.conf = conf
@@ -225,7 +225,7 @@ class Evaluator():
         if split == 'val' and batch_size > 8:
             batch_size = 8
 
-        if split == 'val' and conf['evaluation']['reduce_val_bs']:
+        if conf['evaluation']['reduce_val_bs']:
             batch_size = conf['training']['num_gpus']
 
         self.loader = loader.get_data_loader(
@@ -237,13 +237,10 @@ class Evaluator():
             class_file, conf=conf['dataset'], label_coder=self.label_coder)
         self.bs = batch_size
 
-        if max_examples is None:
-            self.num_step = len(self.loader)
-            self.count = range(1, len(self.loader) + 5)
-        else:
-            max_iter = max_examples // self.bs + 1
-            self.count = range(1, max_iter + 1)
-            self.num_step = max_iter
+        self.num_step = len(self.loader)
+        self.count = range(1, len(self.loader) + 5)
+
+        self.subsample = subsample
 
         self.names = None
         self.num_classes = self.loader.dataset.num_classes
@@ -286,6 +283,9 @@ class Evaluator():
         self.trans = self.conf['evaluation']['transparency']
 
         for step, sample in zip(self.count, self.loader):
+
+            if self.subsample is not None and step % self.subsample:
+                continue
 
             # Run Model
             start_time = time.time()
