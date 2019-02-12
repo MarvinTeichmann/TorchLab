@@ -105,18 +105,33 @@ DEBUG = False
 
 def get_data_loader(conf=default_conf, split='train',
                     batch_size=4, dataset=None, do_augmentation=True,
-                    pin_memory=True, shuffle=True):
+                    pin_memory=True, shuffle=True, sampler=None):
 
     dataset = DirLoader(
         conf=conf, split=split, dataset=dataset,
         do_augmentation=do_augmentation)
 
+    if sampler is not None:
+        shuffle = None
+        mysampler = sampler(dataset)
+    else:
+        mysampler = None
+
     data_loader = data.DataLoader(dataset, batch_size=batch_size,
+                                  sampler=mysampler,
                                   shuffle=shuffle,
                                   num_workers=conf['num_worker'],
-                                  pin_memory=pin_memory)
+                                  pin_memory=pin_memory,
+                                  drop_last=True)
 
     return data_loader
+
+
+def get_dataset(conf=default_conf, split='train',
+                batch_size=4, dataset=None, do_augmentation=True):
+
+    return DirLoader(conf=conf, split=split, dataset=dataset,
+                     do_augmentation=do_augmentation)
 
 
 class DirLoader(data.Dataset):

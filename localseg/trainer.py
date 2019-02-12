@@ -15,6 +15,7 @@ import numpy as np
 import scipy as scp
 
 import logging
+from functools import partial
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -33,19 +34,40 @@ import time
 
 from localseg.utils import warp
 
+from torch.utils import data
+from localseg.data_generators import sampler
+from torch.utils.data.sampler import RandomSampler
+
 
 class SegmentationTrainer():
 
     def __init__(self, conf, model, data_loader, logger=None):
         self.model = model
         self.conf = conf
-        self.loader = data_loader
 
         self.bs = conf['training']['batch_size']
         self.lr = conf['training']['learning_rate']
         self.wd = conf['training']['weight_decay']
         self.clip_norm = conf['training']['clip_norm']
         # TODO: implement clip norm
+
+        self.max_epochs = conf['training']['max_epochs']
+        self.eval_iter = conf['logging']['eval_iter']
+        self.mayor_eval = conf['logging']['mayor_eval']
+        self.checkpoint_backup = conf['logging']['checkpoint_backup']
+        self.max_epoch_steps = conf['training']['max_epoch_steps']
+
+        assert not self.max_epochs % self.eval_iter
+
+        mulsampler = partial(
+            sampler.RandomMultiEpochSampler, multiplicator=self.eval_iter)
+
+        self.loader = data_loader.get_data_loader(
+            conf['dataset'], split='train', batch_size=self.bs,
+            sampler=mulsampler)
+
+        # mysampler = sampler.RandomMultiEpochSampler(dataset, self.eval_iter)
+        # mysampler = RandomSampler(dataset)
 
         if logger is None:
             self.logger = model.logger
@@ -65,13 +87,6 @@ class SegmentationTrainer():
 
         else:
             raise NotImplementedError
-
-        self.max_epochs = conf['training']['max_epochs']
-        self.display_iter = conf['logging']['display_iter']
-        self.eval_iter = conf['logging']['eval_iter']
-        self.mayor_eval = conf['logging']['mayor_eval']
-        self.checkpoint_backup = conf['logging']['checkpoint_backup']
-        self.max_epoch_steps = conf['training']['max_epoch_steps']
 
         self.checkpoint_name = os.path.join(self.model.logdir,
                                             'checkpoint.pth.tar')
@@ -200,21 +215,22 @@ class SegmentationTrainer():
         if max_epochs is None:
             max_epochs = self.max_epochs
 
-        if self.max_epoch_steps is None:
-            epoch_steps = len(self.loader)
-            if epoch_steps > 1:
-                epoch_steps = epoch_steps - 1
-            count_steps = range(1, epoch_steps + 1)
-        else:
-            count_steps = range(1, self.max_epoch_steps + 1)
-            epoch_steps = self.max_epoch_steps
+        epoch_steps = len(self.loader)
+
+        if self.max_epoch_steps is not None:
+            epoch_steps = min(epoch_steps, self.max_epoch_steps)
+
+        count_steps = range(1, epoch_steps + 1)
 
         self.epoch_steps = epoch_steps
-        self.max_steps = epoch_steps * max_epochs
+        self.max_steps = epoch_steps * max_epochs // self.eval_iter
         self.max_steps_lr = epoch_steps * \
             (max_epochs + self.conf['training']['lr_offset_epochs'])
 
         assert(self.step >= self.epoch)
+
+        self.display_iter = self.epoch_steps // \
+            self.conf['logging']['disp_per_epoch']
 
         if self.epoch > 0:
             logging.info('Continue Training from {}'.format(self.epoch))
@@ -225,7 +241,10 @@ class SegmentationTrainer():
             level = self.conf['evaluation']['default_level']
             self.model.evaluate(level=level)
 
-        for epoch in range(self.epoch, max_epochs):
+        for epoch in range(self.epoch, max_epochs, self.eval_iter):
+            self.epoch = epoch
+            self.model.epoch = epoch
+
             epoche_time = time.time()
             self.losses = []
 
@@ -241,10 +260,8 @@ class SegmentationTrainer():
             duration = (time.time() - epoche_time) / 60
             logging.info("Finished Epoch {} in {} minutes"
                          .format(epoch, duration))
-            self.epoch = epoch + 1
-            self.model.epoch = epoch + 1
 
-            if self.epoch % self.eval_iter == 0 or self.epoch == max_epochs:
+            if not self.epoch % self.eval_iter or self.epoch == max_epochs:
 
                 level = self.conf['evaluation']['default_level']
                 if self.epoch % self.mayor_eval == 0 or \
@@ -259,7 +276,7 @@ class SegmentationTrainer():
                     # Save Checkpoint
                     self.logger.save(filename=self.log_file)
                     state = {
-                        'epoch': epoch + 1,
+                        'epoch': epoch,
                         'step': self.step,
                         'conf': self.conf,
                         'state_dict': self.model.state_dict(),
@@ -573,7 +590,7 @@ class WarpingSegTrainer(SegmentationTrainer):
             mmean = torch.mean(mask.float()).item()
 
             for_str = log_str.format(
-                self.epoch + 1, self.max_epochs, step, self.epoch_steps,
+                self.epoch, self.max_epochs, step, self.epoch_steps,
                 loss.item(),
                 loss_name, triplet_loss.item(), mmean, lr,
                 imgs_per_sec, duration)

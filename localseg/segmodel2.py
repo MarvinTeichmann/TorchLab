@@ -163,13 +163,10 @@ class SegModel(nn.Module):
 
         self.logger = pyvision.logger.Logger()
 
-        # Load Dataset
-        bs = conf['training']['batch_size']
-
         self.loader = dir_loader
-        self.trainloader = dir_loader.get_data_loader(
-            conf['dataset'], split='train', batch_size=bs)
+
         Trainer = WarpingSegTrainer # NOQA
+        self.trainer = Trainer(conf, self, self.loader)
 
         if self.conf['loss']['type'] == 'magic':
             self.magic = True
@@ -178,7 +175,7 @@ class SegModel(nn.Module):
 
         assert conf['dataset']['label_encoding'] in ['dense', 'spatial_2d']
         self.label_encoding = conf['dataset']['label_encoding']
-        self.num_classes = self.trainloader.dataset.num_classes
+        self.num_classes = self.trainer.loader.dataset.num_classes
 
         assert conf['modules']['model'] in ['mapillary', 'end_dec']
 
@@ -194,8 +191,6 @@ class SegModel(nn.Module):
             conf['encoder']['num_classes'] = self._get_decoder_classes(conf)
             self.model, device_ids = enc_dec_model.get_network(conf=conf)
             self.model.cuda()
-
-        self.trainer = Trainer(conf, self, self.trainloader)
 
         torch.backends.cudnn.benchmark = True
 
@@ -340,7 +335,7 @@ class SegModel(nn.Module):
         num_gpus = conf['training']['num_gpus']
         conf['training']['batch_size'] *= num_gpus
         conf['training']['learning_rate'] *= num_gpus
-        conf['logging']['display_iter'] //= num_gpus
+        # conf['logging']['display_iter'] //= num_gpus
 
         conf['dataset']['num_worker'] *= num_gpus
 

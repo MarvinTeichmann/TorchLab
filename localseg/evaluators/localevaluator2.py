@@ -230,7 +230,7 @@ class Evaluator():
 
         self.loader = loader.get_data_loader(
             conf['dataset'], split=split, batch_size=batch_size,
-            shuffle=False, pin_memory=False, do_augmentation=do_augmentation)
+            shuffle=False, do_augmentation=do_augmentation)
 
         class_file = self.loader.dataset.vis_file
         self.vis = visualizer.LocalSegVisualizer(
@@ -246,7 +246,8 @@ class Evaluator():
         self.num_classes = self.loader.dataset.num_classes
         self.ignore_idx = -100
 
-        self.display_iter = conf['logging']['display_iter']
+        self.display_iter = len(self.loader) // \
+            self.conf['logging']['disp_per_epoch']
 
         self.smoother = pyvision.utils.MedianSmoother(20)
 
