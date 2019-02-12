@@ -29,7 +29,7 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 
 
 class RandomMultiEpochSampler(Sampler):
-    r"""Samples elements randomly. If without replacement, then sample from 
+    r"""Samples elements randomly. If without replacement, then sample from
     a shuffled dataset.
     If with replacement, then user can specify ``num_samples`` to draw.
 
@@ -54,6 +54,28 @@ class RandomMultiEpochSampler(Sampler):
 
     def __len__(self):
         return self.mult * len(self.data_source)
+
+
+class SubSampler(Sampler):
+    r"""Samples elements sequentially, always in the same order.
+
+    Arguments:
+        data_source (Dataset): dataset to sample from
+    """
+
+    def __init__(self, data_source, subsample):
+        self.data_source = data_source
+        self.subsample = subsample
+
+    def __iter__(self):
+        return iter(range(0, len(self.data_source), self.subsample))
+
+    def __len__(self):
+
+        if self.subsample is None:
+            return len(self.data_source)
+        else:
+            return len(self.data_source) // self.subsample
 
 
 if __name__ == '__main__':

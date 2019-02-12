@@ -42,6 +42,22 @@ def test_random_multi_epoch_sampler():
         assert i < size
 
 
+def test_sub_sampler():
+    size = 100
+    sub = 10
+
+    dataset = range(size)
+
+    mysampler = sampler.SubSampler(dataset, subsample=sub)
+
+    assert len(mysampler) == size // sub
+    assert len(list(iter(mysampler))) == len(mysampler)
+
+    for i, r in zip(mysampler, range(0, 100, 10)):
+        assert i == r
+
+
 if __name__ == '__main__':
+    test_sub_sampler()
     test_random_multi_epoch_sampler()
     logging.info("Hello World.")
