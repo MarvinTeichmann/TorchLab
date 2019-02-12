@@ -9,10 +9,10 @@
 
     "dataset" : {
         "dataset": "Camvid360",
-        "data_root": "camvid360/Part3",
+        "data_root": "camvid360/Part4",
 
-        "train_file": "camvid360/Part3",
-        "val_file": "camvid360/Part3",
+        "train_file": "camvid360/Part4",
+        "val_file": "camvid360/Part4",
 
         "ignore_label": 0,
         "idx_offset": 1,

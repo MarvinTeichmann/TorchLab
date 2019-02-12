@@ -48,7 +48,7 @@
             "random_roll": true,
             "max_crop": 4,
             "crop_chance": 0.6,
-            "random_resize": false,
+            "random_resize": true,
             "lower_fac": 0.5,
             "upper_fac": 2,
             "resize_sig": 0.4,
@@ -58,7 +58,7 @@
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 4
+        "num_worker": 5
     },
 
     "encoder": {
@@ -151,7 +151,7 @@
     },
 
     "logging": {
-        "display_iter": 15,
+        "display_iter": 5,
         "eval_iter": 20,
         "log": true,
         "checkpoint_backup": 2500,

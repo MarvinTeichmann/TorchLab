@@ -27,7 +27,8 @@ import scipy.ndimage
 import scipy.misc
 import skimage
 
-from skimage import transform as tf
+from skimage import transform as skt
+
 import imageio
 
 import time
@@ -43,6 +44,8 @@ from PIL import Image
 import warnings
 
 from torch.utils import data
+
+import matplotlib.pyplot as plt
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -87,8 +90,8 @@ default_conf = {
         'lower_fac': 0.5,
         'upper_fac': 2,
         'resize_sig': 0.4,
-        'random_flip': True,
-        'random_rotation': False,
+        'random_flip': False,
+        'random_rotation': True,
         'equirectangular': False,
         'normalize': False,
         'mean': [0.485, 0.456, 0.406],
@@ -211,6 +214,10 @@ class DirLoader(data.Dataset):
 
         if self._debug_interrupt == "only_read_data":
             return [image, ids_image, label_dict, load_dict]
+
+        if self._debug_interrupt == "no_augmentation":
+            self.do_augmentation = False
+            self._debug_interrupt = "only_transform"
 
         image, label_dict, load_dict = self.transform(
             image, label_dict, load_dict)
@@ -491,9 +498,12 @@ class DirLoader(data.Dataset):
             shape_distorted = True
 
             if transform['random_rotation']:
-                assert False
-                image, gt_image, warp_img = random_rotation( # NOQA
-                    image, label_dict)
+                if random.random() < 0.6:
+                    image, label_dict = random_shear(
+                        image, label_dict)
+                else:
+                    image, label_dict = random_rotation(
+                        image, label_dict)
                 shape_distorted = True
 
             if transform['random_resize']:
@@ -630,6 +640,45 @@ def crop_to_size(image, label_dict, patch_size):
     return image, label_dict
 
 
+def random_rotation(image, label_dict,
+                    std=2, lower=-6, upper=6, expand=True):
+
+    if random.random() < 0.5:
+        return image, label_dict
+
+    angle = truncated_normal(std=std, lower=lower, upper=upper)
+
+    image = skimage.transform.rotate(image, angle,
+                                     preserve_range=True, order=3)
+
+    for key, item in label_dict.items():
+        label_dict[key] = skimage.transform.rotate(
+            item, angle, preserve_range=True, order=0)
+
+    return image, label_dict
+
+
+def random_shear(image, label_dict,
+                 std=1.5, lower=-5, upper=5, expand=True):
+
+    if random.random() < 0.55:
+        return image, label_dict
+
+    angle_r = truncated_normal(std=std, lower=lower, upper=upper) * np.pi / 180
+    angle_s = truncated_normal(std=std, lower=lower, upper=upper) * np.pi / 180
+
+    afine_matrix = skt.AffineTransform(shear=angle_s, rotation=angle_r)
+
+    image = skt.warp(image, inverse_map=afine_matrix,
+                     preserve_range=True, order=3)
+
+    for key, item in label_dict.items():
+        label_dict[key] = skt.warp(
+            item, inverse_map=afine_matrix, preserve_range=True, order=0)
+
+    return image, label_dict
+
+
 def random_resize(image, label_dict, lower_size, upper_size, sig):
 
     factor = skewed_normal(mean=1, std=sig, lower=lower_size, upper=upper_size)
@@ -661,7 +710,10 @@ def skewed_normal(mean=1, std=0, lower=0.5, upper=2):
     return factor
 
 
-def truncated_normal(mean=0, std=0, lower=-0.5, upper=0.5):
+def truncated_normal(mean=0, std=1, lower=-0.5, upper=0.5):
+
+    assert lower < upper
+    assert std > 0
 
     while True:
 
@@ -898,7 +950,7 @@ class RandomRotation(object):
 
 def speed_bench():
     conf = default_conf.copy()
-    conf['num_worker'] = 4
+    conf['num_worker'] = 5
     batch_size = 4
     num_examples = 25
 
@@ -908,7 +960,8 @@ def speed_bench():
 
     logging.info("")
 
-    modes = ["only_read_png", "only_read_data", "only_transform", None]
+    modes = ["only_read_png", "only_read_data", "no_augmentation",
+             "only_transform", None]
 
     for mode in modes:
 
@@ -933,19 +986,18 @@ def speed_bench():
 
 if __name__ == '__main__':  # NOQA
 
-    if False:
+    if True:
 
         speed_bench()
 
     else:
         conf = default_conf.copy()
         loader = DirLoader(conf=conf)
-        loader = DirLoader(conf=conf, split='val')
-        test = loader[1]
+        # loader = DirLoader(conf=conf, split='val')
 
-        import ipdb # NOQA
-        ipdb.set_trace()
-        pass
+        for i in range(10):
+            test = loader[0]
+            scp.misc.imshow(test['image'])
 
     exit(0)
     '''
