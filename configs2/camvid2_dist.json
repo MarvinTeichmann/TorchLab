@@ -133,11 +133,7 @@
     },
 
     "evaluation": {
-        "imgs_minor": {
-            "train": [5, 10, 15, 20, 30],
-            "val": [0, 1, 2, 3, 4, 5],
-            "test": [10, 20, 30, 40, 50]
-        },
+        "num_minor_imgs": 5,
         "transparency": 0,
         "default_level": "minor",
         "do_segmentation_eval": false,

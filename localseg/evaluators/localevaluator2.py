@@ -20,6 +20,8 @@ import torch.nn as nn
 
 import time
 
+from functools import partial
+
 from localseg.evaluators.metric import SegmentationMetric as IoU
 from localseg.evaluators.metric import CombinedMetric
 from localseg.evaluators.warpeval import WarpEvaluator
@@ -31,6 +33,7 @@ from torch.autograd import Variable
 from pprint import pprint
 
 from localseg.data_generators import visualizer
+from localseg.data_generators import sampler
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -213,8 +216,6 @@ class Evaluator():
         self.name = name
         self.imgdir = imgdir
 
-        self.imgs_minor = conf['evaluation']['imgs_minor'][split]
-
         self.label_coder = self.model.label_coder
 
         if split is None:
@@ -228,9 +229,20 @@ class Evaluator():
         if conf['evaluation']['reduce_val_bs']:
             batch_size = conf['training']['num_gpus']
 
+        subsampler = partial(
+            sampler.SubSampler, subsample=subsample)
+
+        if subsample is not None:
+            self.subsample = subsample
+        else:
+            self.subsample = 1
+
         self.loader = loader.get_data_loader(
             conf['dataset'], split=split, batch_size=batch_size,
-            shuffle=False, do_augmentation=do_augmentation)
+            sampler=subsampler, do_augmentation=do_augmentation)
+
+        self.minor_iter = max(
+            1, len(self.loader) // conf['evaluation']['num_minor_imgs'])
 
         class_file = self.loader.dataset.vis_file
         self.vis = visualizer.LocalSegVisualizer(
@@ -240,14 +252,12 @@ class Evaluator():
         self.num_step = len(self.loader)
         self.count = range(1, len(self.loader) + 5)
 
-        self.subsample = subsample
-
         self.names = None
         self.num_classes = self.loader.dataset.num_classes
         self.ignore_idx = -100
 
-        self.display_iter = len(self.loader) // \
-            self.conf['logging']['disp_per_epoch']
+        self.display_iter = max(
+            1, len(self.loader) // self.conf['logging']['disp_per_epoch'])
 
         self.smoother = pyvision.utils.MedianSmoother(20)
 
@@ -284,9 +294,6 @@ class Evaluator():
         self.trans = self.conf['evaluation']['transparency']
 
         for step, sample in zip(self.count, self.loader):
-
-            if self.subsample is not None and step % self.subsample:
-                continue
 
             # Run Model
             start_time = time.time()
@@ -329,10 +336,11 @@ class Evaluator():
                     self._do_plotting_mayor(cur_bs, sample,
                                             logits, epoch, level)
 
-                if level != 'none' and step in self.imgs_minor\
+                if level != 'none' and not step % self.minor_iter \
                         or level == 'one_image':
-                    self._do_plotting_minor(step, logits,
-                                            sample, epoch)
+                    self._do_plotting_minor(
+                        self.subsample * step,
+                        logits, sample, epoch)
                     if level == "one_image":
                         # plt.show(block=False)
                         # plt.pause(0.01)
@@ -358,8 +366,9 @@ class Evaluator():
                 if not self.conf['evaluation']['do_segmentation_eval']:
                     duration = (time.time() - start_time)
 
-                if step in self.imgs_minor:
-                    self._write_3d_output(step, add_dict, sample, epoch)
+                if not step % self.minor_iter:
+                    self._write_3d_output(
+                        self.subsample * step, add_dict, sample, epoch)
 
                 geo_mask = sample['geo_mask'].cuda().byte()
                 class_mask = sample['class_mask'].cuda().byte()

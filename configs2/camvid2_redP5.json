@@ -51,7 +51,7 @@
             "random_resize": true,
             "lower_fac": 0.5,
             "upper_fac": 2,
-            "resize_sig": 0.4,
+            "resize_sig": 0.3,
             "random_flip": false,
             "random_rotation": false,
             "normalize": false,
@@ -87,8 +87,8 @@
         "type": "magic",
         "geometric_type": {
             "spherical": false,
-            "camera": true,
-            "world": false,
+            "camera": false,
+            "world": true,
             "weights": {
                 "spherical": 1,
                 "camera": 1,
@@ -133,11 +133,7 @@
     },
 
     "evaluation": {
-        "imgs_minor": {
-            "train": [5, 10, 15, 20, 30],
-            "val": [0, 1, 2, 3, 4, 5],
-            "test": [10, 20, 30, 40, 50]
-        },
+        "num_minor_imgs": 5,
         "transparency": 0,
         "default_level": "minor",
         "do_segmentation_eval": true,
@@ -151,7 +147,7 @@
     },
 
     "logging": {
-        "display_iter": 5,
+        "disp_per_epoch": 4,
         "eval_iter": 20,
         "log": true,
         "checkpoint_backup": 2500,

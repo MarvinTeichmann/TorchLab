@@ -68,6 +68,10 @@ class SubSampler(Sampler):
         self.subsample = subsample
 
     def __iter__(self):
+
+        if self.subsample is None:
+            return iter(range(len(self.data_source)))
+
         return iter(range(0, len(self.data_source), self.subsample))
 
     def __len__(self):

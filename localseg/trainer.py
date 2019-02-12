@@ -10,6 +10,7 @@ from __future__ import print_function
 
 import os
 import sys
+import math
 
 import numpy as np
 import scipy as scp
@@ -56,8 +57,6 @@ class SegmentationTrainer():
         self.mayor_eval = conf['logging']['mayor_eval']
         self.checkpoint_backup = conf['logging']['checkpoint_backup']
         self.max_epoch_steps = conf['training']['max_epoch_steps']
-
-        assert not self.max_epochs % self.eval_iter
 
         mulsampler = partial(
             sampler.RandomMultiEpochSampler, multiplicator=self.eval_iter)
@@ -223,7 +222,7 @@ class SegmentationTrainer():
         count_steps = range(1, epoch_steps + 1)
 
         self.epoch_steps = epoch_steps
-        self.max_steps = epoch_steps * max_epochs // self.eval_iter
+        self.max_steps = epoch_steps * math.ceil(max_epochs / self.eval_iter)
         self.max_steps_lr = epoch_steps * \
             (max_epochs + self.conf['training']['lr_offset_epochs'])
 
