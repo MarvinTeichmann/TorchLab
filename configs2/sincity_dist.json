@@ -59,7 +59,7 @@
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 8
+        "num_worker": 6
     },
 
     "encoder": {
@@ -88,8 +88,8 @@
         "type": "magic",
         "geometric_type": {
             "spherical": false,
-            "camera": true,
-            "world": false,
+            "camera": false,
+            "world": true,
             "weights": {
                 "spherical": 1,
                 "camera": 1,
@@ -124,7 +124,7 @@
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": null,
-        "max_epochs": 5000,
+        "max_epochs": 8000,
         "pre_eval": false,
         "cnn_gpus": null,
         "max_epoch_steps": null,
@@ -149,7 +149,7 @@
 
     "logging": {
         "disp_per_epoch": 4,
-        "eval_iter": 30,
+        "eval_iter": 40,
         "log": true,
         "checkpoint_backup": 100000,
         "mayor_eval": 1000

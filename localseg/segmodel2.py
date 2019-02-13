@@ -231,6 +231,8 @@ class SegModel(nn.Module):
 
         self._load_pretrained_weights(conf)
 
+        self.trainer.init_optimizer()
+
         # self.visualizer = pvis.PascalVisualizer()
 
         self.translation = torch.Tensor([self.num_classes, 3])

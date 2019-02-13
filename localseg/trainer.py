@@ -73,20 +73,6 @@ class SegmentationTrainer():
         else:
             self.logger = logger
 
-        weight_dicts = self.model.get_weight_dicts()
-
-        if self.conf['modules']['optimizer'] == 'adam':
-
-            self.optimizer = torch.optim.Adam(weight_dicts, lr=self.lr)
-
-        elif self.conf['modules']['optimizer'] == 'SGD':
-            momentum = self.conf['training']['momentum']
-            self.optimizer = torch.optim.SGD(weight_dicts, lr=self.lr,
-                                             momentum=momentum)
-
-        else:
-            raise NotImplementedError
-
         self.checkpoint_name = os.path.join(self.model.logdir,
                                             'checkpoint.pth.tar')
 
@@ -119,6 +105,21 @@ class SegmentationTrainer():
 
         duration = time.time() - start_time
         logging.info("Loading 100 examples took: {}".format(duration))
+
+    def init_optimizer(self):
+        weight_dicts = self.model.get_weight_dicts()
+
+        if self.conf['modules']['optimizer'] == 'adam':
+
+            self.optimizer = torch.optim.Adam(weight_dicts, lr=self.lr)
+
+        elif self.conf['modules']['optimizer'] == 'SGD':
+            momentum = self.conf['training']['momentum']
+            self.optimizer = torch.optim.SGD(weight_dicts, lr=self.lr,
+                                             momentum=momentum)
+
+        else:
+            raise NotImplementedError
 
     def update_lr(self):
 

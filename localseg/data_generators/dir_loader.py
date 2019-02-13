@@ -830,8 +830,8 @@ class ColorJitter(object):
             [-hue, hue]. Should be >=0 and <= 0.5.
     """
 
-    def __init__(self, brightness=0.3,
-                 contrast=0.25, saturation=0.3, hue=0.02):
+    def __init__(self, brightness=0.22,
+                 contrast=0.18, saturation=0.22, hue=0.015):
 
         self.brightness = brightness
         self.contrast = contrast

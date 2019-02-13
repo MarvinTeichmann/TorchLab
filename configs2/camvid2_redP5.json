@@ -48,7 +48,7 @@
             "random_roll": true,
             "max_crop": 4,
             "crop_chance": 0.6,
-            "random_resize": true,
+            "random_resize": false,
             "lower_fac": 0.5,
             "upper_fac": 2,
             "resize_sig": 0.3,
