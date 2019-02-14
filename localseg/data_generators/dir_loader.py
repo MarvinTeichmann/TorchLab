@@ -238,7 +238,9 @@ class DirLoader(data.Dataset):
             image, label_dict, load_dict)
 
         if self._debug_interrupt == "only_transform":
-            sample = {'image': image, 'label_dict': label_dict}
+            sample = {'image': image,
+                      'geo_world':
+                      label_dict["geo_world"].astype(np.float32)}
             return sample
 
         ids_image = label_dict['ids_image']
@@ -250,14 +252,15 @@ class DirLoader(data.Dataset):
         sample = {
             'image': image,
             'label': label,
-            'geo_mask': geo_mask,
+            'geo_mask': geo_mask.astype(np.uint8),
             'class_mask': class_mask,
             'rotation': npz_file['R'],
             'translation': npz_file['T'],
             'load_dict': str(load_dict)}
 
         for key in ["geo_world", "geo_sphere", "geo_camera"]:
-            sample[key] = label_dict[key].transpose([2, 0, 1])
+            sample[key] = label_dict[key].transpose([2, 0, 1]).astype(
+                np.float32)
 
         assert self._debug_interrupt is None
 
@@ -658,7 +661,7 @@ def crop_to_size(image, label_dict, patch_size):
 def random_rotation(image, label_dict,
                     std=2, lower=-6, upper=6, expand=True):
 
-    if random.random() < 0.5:
+    if random.random() < 0.75:
         return image, label_dict
 
     angle = truncated_normal(std=std, lower=lower, upper=upper)
@@ -676,7 +679,7 @@ def random_rotation(image, label_dict,
 def random_shear(image, label_dict,
                  std=1.5, lower=-5, upper=5, expand=True):
 
-    if random.random() < 0.55:
+    if random.random() < 0.75:
         return image, label_dict
 
     angle_r = truncated_normal(std=std, lower=lower, upper=upper) * np.pi / 180
@@ -696,6 +699,9 @@ def random_shear(image, label_dict,
 
 def random_resize(image, label_dict, lower_size, upper_size, sig):
 
+    if random.random() < 0.75:
+        return image, label_dict
+
     factor = skewed_normal(mean=1, std=sig, lower=lower_size, upper=upper_size)
 
     with warnings.catch_warnings():
@@ -704,6 +710,8 @@ def random_resize(image, label_dict, lower_size, upper_size, sig):
 
     for key, item in label_dict.items():
         label_dict[key] = resize_torch(item, factor)
+
+    label_dict['geo_world'].dtype == np.float32
 
     return image2, label_dict
 

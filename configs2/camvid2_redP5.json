@@ -97,7 +97,7 @@
         },
         "weights": {
             "xentropy": 3,
-            "triplet": 1
+            "dist": 1
         },
         "corner": false,
         "spatial": false,

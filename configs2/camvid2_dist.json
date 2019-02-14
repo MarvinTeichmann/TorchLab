@@ -51,7 +51,7 @@
             "random_resize": false,
             "lower_fac": 0.5,
             "upper_fac": 2,
-            "resize_sig": 0.4,
+            "resize_sig": 0.3,
             "random_flip": false,
             "random_rotation": false,
             "normalize": false,
