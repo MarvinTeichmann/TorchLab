@@ -38,9 +38,8 @@ import localseg
 from localseg.data_generators import dir_loader
 
 from localseg import decoder as segdecoder
-from localseg import loss
-from localseg.trainer import SegmentationTrainer
-from localseg.trainer import WarpingSegTrainer
+from localseg.loss import localloss
+from localseg.trainer2 import SegmentationTrainer
 
 from localseg.evaluators import segevaluator as evaluator
 from localseg.evaluators import localevaluator2 as localevaluator2
@@ -165,7 +164,7 @@ class SegModel(nn.Module):
 
         self.loader = dir_loader
 
-        Trainer = WarpingSegTrainer # NOQA
+        Trainer = SegmentationTrainer # NOQA
         self.trainer = Trainer(conf, self, self.loader)
 
         if self.conf['loss']['type'] == 'magic':
@@ -196,36 +195,7 @@ class SegModel(nn.Module):
 
         self.epoch = 0
 
-        self.loss = self._make_loss(conf, device_ids)
-
-        if conf['modules']['loader'] == 'warping':
-            grid_size = self.conf['dataset']['grid_size']
-            inner = self.conf['loss']['inner_factor']
-            if self.conf['loss']['type'] == 'triplet' or self.magic:
-                if self.conf['loss']['squeeze']:
-                    self.triplet_loss = loss.TripletSqueezeLoss(
-                        grid_size=grid_size, inner_factor=inner)
-                else:
-                    self.triplet_loss = loss.TripletLossWithMask(
-                        grid_size=grid_size)
-            elif self.conf['loss']['type'] == 'squeeze':
-                self.squeeze_loss = loss.TruncatedHingeLoss2dMask(
-                    grid_size=grid_size, inner_factor=inner)
-            else:
-                raise NotImplementedError
-
-        elif conf['modules']['loader'] == 'geometry':
-            self.dist_loss = parallel.CriterionDataParallel(
-                loss.MSELoss(sqrt=conf['loss']['sqrt']))
-
-            grid_size = self.conf['dataset']['grid_size']
-            inner = self.conf['loss']['inner_factor']
-
-            squeeze_loss = loss.TruncatedHingeLoss2dMask(
-                grid_size=grid_size, inner_factor=inner)
-
-            self.squeeze_loss = parallel.CriterionDataParallel(
-                squeeze_loss)
+        self.loss = localloss.make_loss(conf, self)
 
         self.label_coder = LabelCoding(conf['dataset'])
 
@@ -242,31 +212,6 @@ class SegModel(nn.Module):
         else:
             self.evaluator = evaluator.MetaEvaluator(conf, self)
 
-    def _make_loss(self, conf, device_ids):
-
-        if self.label_encoding == 'dense':
-            par_loss = loss.CrossEntropyLoss2d()
-
-            border = self.conf['loss']['border']
-            grid_size = self.conf['dataset']['grid_size']
-
-            self.corner_loss = loss.CornerLoss(
-                border=border, grid_size=grid_size)
-        elif self.magic:
-            return self._magic_loss(conf, device_ids)
-        elif self.label_encoding == 'spatial_2d':
-            border = self.conf['loss']['border']
-            grid_size = self.conf['dataset']['grid_size']
-            myloss = loss.HingeLoss2d(border=border, grid_size=grid_size)
-            par_loss = myloss
-        else:
-            raise NotImplementedError
-
-        par_loss = parallel.CriterionDataParallel(
-            par_loss, device_ids=device_ids)
-
-        return par_loss
-
     def _get_decoder_classes(self, conf):
         if self.magic:
             return self.num_classes + conf['dataset']['grid_dims']
@@ -274,57 +219,6 @@ class SegModel(nn.Module):
             return self.num_classes
         elif conf['dataset']['label_encoding'] == 'spatial_2d':
             return conf['dataset']['grid_dims']
-
-    def _magic_loss(self, conf, device_ids):
-
-        num_classes = self.num_classes
-        rclasses = self.conf['dataset']['root_classes']
-        grid_size = self.conf['dataset']['grid_size']
-
-        if self.conf['dataset']['label_encoding'] == 'dense':
-            xentropy = loss.CrossEntropyLoss2d(ignore_index=-100)
-        else:
-
-            if self.conf['dataset']['grid_dims'] == 2:
-                ignore_idx = (-100 + rclasses * -100)
-                ignore_idx = ignore_idx // grid_size
-            elif self.conf['dataset']['grid_dims'] == 3:
-                ignore_idx = (-100 + rclasses * -100 + rclasses * rclasses * -100) # NOQA
-                ignore_idx = ignore_idx // grid_size
-
-            border = self.conf['loss']['border']
-            grid_size = self.conf['dataset']['grid_size']
-
-            corner = loss.CornerLoss(border=border, grid_size=grid_size)
-
-        def total_loss(input, target):
-
-            self.num_classes
-
-            class_pred = input[:, :num_classes]
-
-            if self.conf['dataset']['label_encoding'] == 'dense':
-                return xentropy(class_pred, target)
-
-            norm_target = target / grid_size
-
-            if self.conf['dataset']['grid_dims'] == 2:
-                class_target = norm_target[:, 0].int() + \
-                    rclasses * norm_target[:, 1].int()
-            elif self.conf['dataset']['grid_dims'] == 3:
-                class_target = norm_target[:, 0].int() + \
-                    rclasses * norm_target[:, 1].int() + \
-                    rclasses * rclasses * norm_target[:, 2].int()
-
-            triplet_logits = input[:, num_classes:]
-
-            loss1 = xentropy(class_pred, class_target.long())
-
-            loss2 = corner(triplet_logits)
-
-            return loss1 + loss2
-
-        return total_loss
 
     def _assert_num_gpus(self, conf):
         if conf['training']['num_gpus']:
@@ -352,7 +246,7 @@ class SegModel(nn.Module):
 
             self.load_state_dict(checkpoint['state_dict'])
 
-    def forward(self, imgs, geo_dict=None, fakegather=True, softmax=False):
+    def forward(self, imgs, geo_dict=None, fakegather=False, softmax=False):
         # Expect input to be in range [0, 1]
         # and of type float
 
