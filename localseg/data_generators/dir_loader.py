@@ -148,7 +148,12 @@ class DirLoader(data.Dataset):
         self.split = split
 
         if dataset is None:
-            self.data_root = conf['data_root']
+            if split == 'train':
+                self.data_root = conf['train_root']
+            elif split == 'val':
+                self.data_root = conf['val_root']
+            else:
+                raise NotImplementedError
         else:
             self.data_root = dataset
 

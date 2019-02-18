@@ -34,6 +34,8 @@ from torch.nn.parallel.parallel_apply import parallel_apply
 from localseg.loss import loss
 from torch.nn.modules.loss import NLLLoss
 
+from collections import OrderedDict
+
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
@@ -68,7 +70,8 @@ class LocalLoss(nn.Module):
         sample_gpu = scatter(sample, device_ids)
 
         if len(device_ids) == 1:
-            tloss = self.compute_loss_single_gpu(prediction, sample_gpu[0])
+            tloss, loss_dict = self.compute_loss_single_gpu(
+                prediction, sample_gpu[0])
         else:
 
             if not self.threaded:
@@ -85,10 +88,13 @@ class LocalLoss(nn.Module):
                 losses = parallel_apply(
                     modules, inputs)
 
-            gathered = gather(losses, target_device=0)
-            tloss = sum(gathered) / len(gathered)
+            tloss, loss_dict = gather(losses, target_device=0)
+            tloss = sum(tloss) / len(tloss)
 
-        return tloss
+            for key, value in loss_dict.items():
+                loss_dict[key] = sum(value) / len(value)
+
+        return tloss, loss_dict
 
     def gather(self, outputs):
         gathered = [output.cuda(self.output_device) for output in outputs]
@@ -107,7 +113,14 @@ class LocalLoss(nn.Module):
 
         total_loss = class_loss + dist_loss
 
-        return total_loss
+        output_dict = OrderedDict()
+
+        output_dict['Loss'] = total_loss
+        output_dict['ClassLoss'] = class_loss
+        output_dict['DistLoss'] = dist_loss
+        output_dict['MaskMean'] = torch.mean(total_mask)
+
+        return total_loss, output_dict
 
     def _compute_geo_loss(self, geo_pred, sample):
 

@@ -39,6 +39,8 @@ from torch.utils import data
 from localseg.data_generators import sampler
 from torch.utils.data.sampler import RandomSampler
 
+import itertools as it
+
 
 class SegmentationTrainer():
 
@@ -165,7 +167,7 @@ class SegmentationTrainer():
         pred = self.model(img_var, geo_dict=sample)
 
         # Compute and print loss.
-        total_loss = self.model.loss(pred, sample)
+        total_loss, loss_dict = self.model.loss(pred, sample)
 
         # Do backward and weight update
         self.update_lr()
@@ -184,7 +186,7 @@ class SegmentationTrainer():
                 norm_type = 2
                 param_norm = p.grad.data.norm(norm_type)
                 totalnorm += param_norm.item() ** norm_type
-            totalnorm = - totalnorm ** (1. / norm_type)
+            totalnorm = totalnorm ** (1. / norm_type)
 
         self.optimizer.step()
 
@@ -193,27 +195,30 @@ class SegmentationTrainer():
             duration = (time.time() - self.start_time) / self.display_iter
             imgs_per_sec = self.bs / duration
 
-            log_str = ("Epoch [{:3d}/{:3d}][{:4d}/{:4d}] "
-                       " ClassLoss: {:.2f} {}: {:.2f}"
-                       " MaskMean: {:.2f}"
-                       "  LR: {:.3E} Speed: {:.1f}"
-                       " imgs/sec ({:.3f} s/batch)")
-
             self.losses.append(total_loss.item())
+
+            epoch_string = "Epoch [{:5d}/{:5d}][{:4d}/{:4d}]  ".format(
+                self.epoch, self.max_epochs, step, self.epoch_steps)
+
+            log_str1 = (" LR: {:.3E}"
+                        " Speed: {:.1f} imgs/sec ({:.3f} s/batch)"
+                        " GradNorm: {:6.2f}")
 
             lr = self.get_lr()
 
-            mmean = torch.mean(total_loss.float()).item()
+            for_str = log_str1.format(
+                lr, imgs_per_sec, duration, totalnorm)
 
-            loss_name = total_loss
+            " " * len(epoch_string)
 
-            for_str = log_str.format(
-                self.epoch, self.max_epochs, step, self.epoch_steps,
-                total_loss.item(),
-                loss_name, total_loss.item(), mmean, lr,
-                imgs_per_sec, duration)
+            loss_names = [key for key in loss_dict.keys()]
+            loss_vals = [value.item() for value in loss_dict.values()]
 
-            logging.info(for_str)
+            loss_str = (len(loss_names) * "{:}: {:5.2f}  ")
+            formatted = loss_str.format(
+                *it.chain(*zip(loss_names, loss_vals)))
+
+            logging.info(epoch_string + formatted + for_str)
 
             self.start_time = time.time()
 

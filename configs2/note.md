@@ -1,5 +1,7 @@
 Up-to-date configs:
 
+sincity.json
+
 camvid2_redP5.json
 sincity_dist.json
 

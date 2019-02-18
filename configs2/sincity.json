@@ -9,7 +9,8 @@
 
     "dataset" : {
         "dataset": "SinCity",
-        "data_root": "sincity/sincity_100",
+        "train_root": "sincity/sincity_full",
+        "val_root": "sincity/sincity_test",
 
         "train_file": "train",
         "val_file": "val",
@@ -27,7 +28,7 @@
 
         "dist_mask": 6.4,
         "subsample": 0,
-        "do_split": true,
+        "do_split": false,
 
         "transform": {
             "equirectangular": false,
@@ -48,10 +49,10 @@
             "random_roll": true,
             "max_crop": 4,
             "crop_chance": 0.6,
-            "random_resize": false,
+            "random_resize": true,
             "lower_fac": 0.5,
             "upper_fac": 2,
-            "resize_sig": 0.4,
+            "resize_sig": 0.3,
             "random_flip": false,
             "random_rotation": false,
             "normalize": false,
@@ -87,8 +88,8 @@
         "type": "magic",
         "geometric_type": {
             "spherical": false,
-            "camera": true,
-            "world": false,
+            "camera": false,
+            "world": true,
             "weights": {
                 "spherical": 1,
                 "camera": 1,
@@ -96,8 +97,8 @@
             }
         },
         "weights": {
-            "xentropy": 0,
-            "triplet": 1
+            "xentropy": 3,
+            "dist": 1
         },
         "corner": false,
         "spatial": false,
@@ -123,25 +124,23 @@
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": null,
-        "max_epochs": 5000,
+        "max_epochs": 8000,
         "pre_eval": false,
         "cnn_gpus": null,
         "max_epoch_steps": null,
         "init_weights_from_checkpoint": false,
         "wd_policy": 2,
-        "num_gpus": 1
+        "num_gpus": 4
     },
 
     "evaluation": {
-        "imgs_minor": {
-            "train": [5, 10, 15, 20, 30],
-            "val": [0, 1, 2, 3, 4, 5],
-            "test": [10, 20, 30, 40, 50]
-        },
+        "num_minor_imgs": 9,
         "transparency": 0,
         "default_level": "minor",
-        "do_segmentation_eval": false,
+        "do_segmentation_eval": true,
         "do_dist_eval": true,
+        "val_subsample": 5,
+        "train_subsample": 10,
         "reduce_val_bs": true,
         "has_flow": false,
         "train_do_agumentation": false,
@@ -149,10 +148,8 @@
     },
 
     "logging": {
-        "display_iter": 10,
-        "eval_iter": 20,
-        "max_val_examples": null,
-        "max_train_examples": null,
+        "disp_per_epoch": 10,
+        "eval_iter": 30,
         "log": true,
         "checkpoint_backup": 100000,
         "mayor_eval": 1000
