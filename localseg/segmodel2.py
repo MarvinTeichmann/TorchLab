@@ -452,7 +452,7 @@ class SegModel(nn.Module):
 
         return weight_list
 
-    def evaluate(self, epoch=None, verbose=True, level='minor'):
+    def evaluate(self, epoch=None, verbose=True, level='minor', dataset=None):
 
         self.evaluator.evaluate(epoch=epoch, verbose=verbose, level=level)
 

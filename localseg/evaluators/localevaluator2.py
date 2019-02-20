@@ -79,6 +79,10 @@ class TestEvaluator(object):
 
         self.display_iter = 10
 
+        class_file = self.model.trainer.loader.dataset.vis_file
+        self.vis = visualizer.LocalSegVisualizer(
+            class_file, conf=conf['dataset'])
+
         self.loader = loader.get_data_loader(
             conf['dataset'], split="test",
             batch_size=torch.cuda.device_count(),
@@ -94,10 +98,9 @@ class TestEvaluator(object):
         start_time = time.time()
 
         if self.conf['evaluation']['do_segmentation_eval']:
-            self.epochdir = os.path.join(self.imgdir, "images_{}".format(
-                self.name))
-        if not os.path.exists(self.epochdir):
-            os.mkdir(self.epochdir)
+            self.epochdir = os.path.join(self.imgdir, "images")
+            if not os.path.exists(self.epochdir):
+                os.mkdir(self.epochdir)
 
         self.npzdir = os.path.join(self.imgdir, "output")
         if not os.path.exists(self.npzdir):
@@ -132,7 +135,7 @@ class TestEvaluator(object):
                 logits = output['classes'].cpu().numpy()
 
                 self._do_segmentation_plotting(
-                    self.bs, sample, logits, epoch, level)
+                    self.bs, sample, logits)
 
             self._write_npz_output(add_dict, sample)
 
@@ -160,12 +163,11 @@ class TestEvaluator(object):
             duration / 60))
         logging.info("")
 
-    def _do_segmentation_plotting(self, cur_bs, sample, bprob_np,
-                                  epoch, level):
-        return
+    def _do_segmentation_plotting(self, cur_bs, sample, logits):
         for d in range(cur_bs):
-            fig = self.vis.plot_prediction(
-                sample, bprob_np, trans=self.trans, idx=d)
+            fig = self.vis.plot_prediction_no_label(
+                sample, prediction=logits, trans=self.trans, idx=d)
+
             filename = literal_eval(
                 sample['load_dict'][d])['image_file']
             new_name = os.path.join(self.epochdir,
