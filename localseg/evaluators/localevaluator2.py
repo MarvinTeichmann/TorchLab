@@ -12,6 +12,7 @@ import logging
 
 import matplotlib.pyplot as plt
 
+
 from pyvision.logger import Logger
 from ast import literal_eval
 
@@ -316,7 +317,7 @@ class Evaluator():
                         output = torch.nn.parallel.gather( # NOQA
                             output, target_device=0)
 
-                    semlogits, add_dict = output
+                    add_dict = output
 
                 else:
                     # last batch makes troubles in parallel mode
@@ -328,7 +329,7 @@ class Evaluator():
 
             if self.conf['evaluation']['do_segmentation_eval']:
 
-                logits = semlogits.cpu().numpy()
+                logits = output['classes'].cpu().numpy()
 
                 duration = (time.time() - start_time)
                 if level == 'mayor' and step * self.bs < 300 \
@@ -370,11 +371,15 @@ class Evaluator():
                     self._write_3d_output(
                         self.subsample * step, add_dict, sample, epoch)
 
-                geo_mask = sample['geo_mask'].cuda().byte()
-                class_mask = sample['class_mask'].cuda().byte()
+                """
+                geo_mask = sample['geo_mask'].unsqueeze(1).byte()
+                class_mask = sample['class_mask'].unsqueeze(1).byte()
 
                 total_mask = torch.all(
-                    torch.stack([geo_mask, class_mask]), dim=0)
+                    torch.stack([geo_mask, class_mask]), dim=0).float()
+                """
+
+                total_mask = sample['total_mask'].float()
 
                 total_mask_np = total_mask.cpu().numpy().astype(np.bool)
 
@@ -418,11 +423,17 @@ class Evaluator():
 
         colours = sample['image'][0].cpu().numpy().transpose() * 255
 
+        """
         geo_mask = sample['geo_mask'].unsqueeze(1).byte()
         class_mask = sample['class_mask'].unsqueeze(1).byte()
 
         total_mask = torch.all(
-            torch.stack([geo_mask, class_mask]), dim=0).squeeze(1)[0]
+            torch.stack([geo_mask, class_mask]), dim=0).float()
+        """
+
+        total_mask = sample['total_mask'].unsqueeze(1).float()
+
+        total_mask = total_mask.squeeze(1)[0]
         total_mask = total_mask.numpy().transpose().astype(np.bool)
 
         img_name = literal_eval(sample['load_dict'][0])['image_file']

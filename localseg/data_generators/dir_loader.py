@@ -45,7 +45,10 @@ import warnings
 
 from torch.utils import data
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except:
+    pass
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -55,7 +58,8 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 default_conf = {
     'dataset': 'SinCity',
 
-    'data_root': 'sincity/sincity_100',
+    'train_root': 'sincity/sincity_100',
+    'val_root': 'sincity/sincity_100',
 
     'ignore_label': 0,
     'idx_offset': 1,
@@ -254,11 +258,12 @@ class DirLoader(data.Dataset):
 
         label, class_mask = self.decode_ids(ids_image)
 
+        total_mask = (geo_mask * class_mask).astype(np.uint8)
+
         sample = {
             'image': image,
             'label': label,
-            'geo_mask': geo_mask.astype(np.uint8),
-            'class_mask': class_mask,
+            'total_mask': total_mask,
             'rotation': npz_file['R'],
             'translation': npz_file['T'],
             'load_dict': str(load_dict)}
@@ -521,7 +526,7 @@ class DirLoader(data.Dataset):
             shape_distorted = True
 
             if transform['random_rotation']:
-                if random.random() < 0.6:
+                if random.random() < 0.7:
                     image, label_dict = random_shear(
                         image, label_dict)
                 else:
@@ -666,7 +671,7 @@ def crop_to_size(image, label_dict, patch_size):
 def random_rotation(image, label_dict,
                     std=2, lower=-6, upper=6, expand=True):
 
-    if random.random() < 0.75:
+    if random.random() < 0.8:
         return image, label_dict
 
     angle = truncated_normal(std=std, lower=lower, upper=upper)
@@ -684,7 +689,7 @@ def random_rotation(image, label_dict,
 def random_shear(image, label_dict,
                  std=1.5, lower=-5, upper=5, expand=True):
 
-    if random.random() < 0.75:
+    if random.random() < 0.8:
         return image, label_dict
 
     angle_r = truncated_normal(std=std, lower=lower, upper=upper) * np.pi / 180
@@ -704,7 +709,7 @@ def random_shear(image, label_dict,
 
 def random_resize(image, label_dict, lower_size, upper_size, sig):
 
-    if random.random() < 0.75:
+    if random.random() < 0.8:
         return image, label_dict
 
     factor = skewed_normal(mean=1, std=sig, lower=lower_size, upper=upper_size)
@@ -978,7 +983,7 @@ class RandomRotation(object):
 
 def speed_bench():
     conf = default_conf.copy()
-    conf['num_worker'] = 5
+    conf['num_worker'] = 4
     batch_size = 4
     num_examples = 25
 

@@ -23,7 +23,10 @@ import torch.nn.functional as F
 from torch.nn.modules.loss import _WeightedLoss
 from torch.nn.modules.loss import _Loss
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except:
+    pass
 
 from localseg.encoder import parallel as parallel
 
@@ -100,35 +103,42 @@ class LocalLoss(nn.Module):
         gathered = [output.cuda(self.output_device) for output in outputs]
         return sum(gathered) / len(gathered)
 
-    def compute_loss_single_gpu(self, pred, sample):
+    def compute_loss_single_gpu(self, predictions, sample):
 
-        class_pred, geo_pred = pred
-
-        class_loss = self.XentropyLoss(class_pred, sample['label'])
-        dist_loss, total_mask = self._compute_geo_loss(geo_pred, sample)
+        class_loss = self.XentropyLoss(predictions['classes'], sample['label'])
+        dist_loss = self._compute_geo_loss(predictions, sample)
+        mask_loss = self.XentropyLoss(
+            predictions['mask'], sample['total_mask'].long())
 
         weights = self.conf['loss']['weights']
         class_loss = weights['xentropy'] * class_loss
         dist_loss = weights['dist'] * dist_loss
+        mask_loss = weights['xentropy'] * mask_loss
 
-        total_loss = class_loss + dist_loss
+        total_loss = class_loss + dist_loss + mask_loss
+        total_mask = sample['total_mask'].unsqueeze(1).float()
 
         output_dict = OrderedDict()
 
         output_dict['Loss'] = total_loss
         output_dict['ClassLoss'] = class_loss
         output_dict['DistLoss'] = dist_loss
+        output_dict['MaskLoss'] = mask_loss
         output_dict['MaskMean'] = torch.mean(total_mask)
 
         return total_loss, output_dict
 
     def _compute_geo_loss(self, geo_pred, sample):
 
+        """
         geo_mask = sample['geo_mask'].unsqueeze(1).byte()
         class_mask = sample['class_mask'].unsqueeze(1).byte()
 
         total_mask = torch.all(
             torch.stack([geo_mask, class_mask]), dim=0).float()
+        """
+
+        total_mask = sample['total_mask'].unsqueeze(1).float()
 
         confloss = self.conf['loss']
         dist_loss = 0
@@ -154,7 +164,7 @@ class LocalLoss(nn.Module):
             dist_loss += self.dist_loss(
                 dist_gt, geo_pred['world'], total_mask)
 
-        return dist_loss, total_mask
+        return dist_loss
 
 
 class CrossEntropyLoss2d(_WeightedLoss):

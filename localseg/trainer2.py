@@ -29,7 +29,10 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as functional
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except:
+    pass
 
 import time
 
@@ -135,19 +138,27 @@ class SegmentationTrainer():
         elif lr_schedule == "poly":
             self.step = self.step + 1
             base = conf['base']
+            min_lr = conf['min_lr']
             base_lr = conf['learning_rate']
             step = self.step
             mstep = self.max_steps
-            if conf['base2'] is None:
-                lr = base_lr * (1 - step / mstep)**base
-            else:
-                lr = base_lr * ((1 - step / mstep)**base)**conf['base2']
+
+            assert step <= mstep
+            assert min_lr < base_lr
+            base_lr -= min_lr
+
+            lr = base_lr * ((1 - step / mstep)**base)**conf['base2'] + min_lr
         elif lr_schedule == "exp":
             self.step = self.step + 1
             exp = conf['exp']
             base_lr = conf['learning_rate']
+            min_lr = conf['min_lr']
             step = self.step
             mstep = self.max_steps
+
+            assert step < mstep
+            assert min_lr < base_lr
+            base_lr -= min_lr
 
             lr = base_lr * 10**(- exp * step / mstep)
         else:

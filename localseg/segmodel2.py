@@ -213,12 +213,10 @@ class SegModel(nn.Module):
             self.evaluator = evaluator.MetaEvaluator(conf, self)
 
     def _get_decoder_classes(self, conf):
-        if self.magic:
+        if not conf['loss']["use_mask_loss"]:
             return self.num_classes + conf['dataset']['grid_dims']
-        elif conf['dataset']['label_encoding'] == 'dense':
-            return self.num_classes
-        elif conf['dataset']['label_encoding'] == 'spatial_2d':
-            return conf['dataset']['grid_dims']
+        else:
+            return self.num_classes + conf['dataset']['grid_dims'] + 2
 
     def _assert_num_gpus(self, conf):
         if conf['training']['num_gpus']:
