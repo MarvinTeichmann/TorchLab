@@ -154,7 +154,7 @@ class SegModel(nn.Module):
         self.conf = conf
         self.logdir = logdir
 
-        self._assert_num_gpus(conf)
+        self._assert_num_gpus(conf, warning=True)
         self._normalize_parallel(conf)
 
         self.conf['dataset']['down_label'] \
@@ -218,8 +218,16 @@ class SegModel(nn.Module):
         else:
             return self.num_classes + conf['dataset']['grid_dims'] + 2
 
-    def _assert_num_gpus(self, conf):
-        if conf['training']['num_gpus']:
+    def _assert_num_gpus(self, conf, warning=False):
+        if warning:
+            if torch.cuda.device_count() != conf['training']['num_gpus']:
+                warning_str = (
+                    'Requested: {0} GPUs   Visible: {1} GPUs.'
+                    ' Please set visible GPUs to {0}'.format(
+                        conf['training']['num_gpus'],
+                        torch.cuda.device_count()))
+                logging.warning(warning_str)
+        else:
             assert torch.cuda.device_count() == conf['training']['num_gpus'], \
                 ('Requested: {0} GPUs   Visible: {1} GPUs.'
                  ' Please set visible GPUs to {0}'.format(
@@ -340,6 +348,7 @@ class SegModel(nn.Module):
             logging.info(name)
 
     def fit(self, max_epochs=None):
+        self._assert_num_gpus(self.conf)
         self.debug()
         self.trainer.train(max_epochs)
         return

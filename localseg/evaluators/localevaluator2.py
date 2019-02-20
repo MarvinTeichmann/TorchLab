@@ -47,8 +47,148 @@ except ImportError:
     import distmetric
 
 
-def get_pyvision_evaluator(conf, model, names=None, imgdir=None):
-    return MetaEvaluator(conf, model, imgdir=imgdir)
+def get_pyvision_evaluator(conf, model, names=None, imgdir=None, dataset=None):
+
+    if dataset is None:
+        return MetaEvaluator(conf, model, imgdir=imgdir)
+    else:
+        return TestEvaluator(conf, model, imgdir=imgdir, dataset=dataset)
+
+
+class TestEvaluator(object):
+    """docstring for TestEvaluator"""
+    def __init__(self, conf, model, dataset, imgdir=None):
+        self.conf = conf
+        self.model = model
+
+        if imgdir is None:
+            self.imgdir = os.path.join(model.logdir, "images")
+        else:
+            self.imgdir = imgdir
+
+        if not os.path.exists(self.imgdir):
+            os.mkdir(self.imgdir)
+
+        loader = self.model.get_loader()
+
+        assert torch.cuda.device_count() > 0
+
+        self.bs = torch.cuda.device_count()
+
+        self.name = "Test"
+
+        self.display_iter = 10
+
+        self.loader = loader.get_data_loader(
+            conf['dataset'], split="test",
+            batch_size=torch.cuda.device_count(),
+            shuffle=False, do_augmentation=False, dataset=dataset)
+
+    def evaluate(self, epoch=None, verbose=True, level='full'):
+
+        self.model.train(False)
+
+        logging.info("Evaluating Model on the Validation Dataset.")
+
+        # logging.info("Evaluating Model on the Validation Dataset.")
+        start_time = time.time()
+
+        if self.conf['evaluation']['do_segmentation_eval']:
+            self.epochdir = os.path.join(self.imgdir, "images_{}".format(
+                self.name))
+        if not os.path.exists(self.epochdir):
+            os.mkdir(self.epochdir)
+
+        self.npzdir = os.path.join(self.imgdir, "output")
+        if not os.path.exists(self.npzdir):
+            os.mkdir(self.npzdir)
+
+        self.trans = self.conf['evaluation']['transparency']
+
+        num_step = len(self.loader)
+
+        for step, sample in enumerate(self.loader):
+
+            # Run Model
+            start_time = time.time()
+            iter_time = time.time()
+            img_var = sample['image'].cuda()
+
+            with torch.no_grad():
+
+                output = self.model(img_var)
+
+                if torch.cuda.device_count() > 1:
+                    assert type(output) is list
+                    output = torch.nn.parallel.gather( # NOQA
+                        output, target_device=0)
+
+                add_dict = output
+
+            # bpred_np = bpred.cpu().numpy()
+
+            if self.conf['evaluation']['do_segmentation_eval']:
+
+                logits = output['classes'].cpu().numpy()
+
+                self._do_segmentation_plotting(
+                    self.bs, sample, logits, epoch, level)
+
+            self._write_npz_output(add_dict, sample)
+
+            # Print Information
+            if not step % self.display_iter:
+                duration = time.time() - iter_time
+                iter_time = time.time()
+                log_str = ("    {:8} [{:3d}/{:3d}] "
+                           " Speed: {:.1f} imgs/sec ({:.3f} sec/batch)")
+
+                imgs_per_sec = self.bs / duration / self.display_iter
+
+                for_str = log_str.format(
+                    self.name, step, num_step,
+                    imgs_per_sec, duration)
+
+                logging.info(for_str)
+
+                load_dict = literal_eval(sample['load_dict'][0])
+                filename = os.path.basename(load_dict['image_file'])
+                logging.info("Wrote image: {}".format(filename))
+
+        duration = time.time() - start_time
+        logging.info("Finished Evaluation in {} minutes.".format(
+            duration / 60))
+        logging.info("")
+
+    def _do_segmentation_plotting(self, cur_bs, sample, bprob_np,
+                                  epoch, level):
+        return
+        for d in range(cur_bs):
+            fig = self.vis.plot_prediction(
+                sample, bprob_np, trans=self.trans, idx=d)
+            filename = literal_eval(
+                sample['load_dict'][d])['image_file']
+            new_name = os.path.join(self.epochdir,
+                                    os.path.basename(filename))
+            plt.tight_layout()
+            plt.savefig(new_name, format='png', bbox_inches='tight',
+                        dpi=199)
+
+            plt.close(fig=fig)
+
+    def _write_npz_output(self, out_dict, sample):
+
+        for idx in range(self.bs):
+            load_dict = literal_eval(sample['load_dict'][idx])
+            filename = os.path.basename(load_dict['image_file'])
+            fname = os.path.join(self.npzdir, os.path.basename(filename))
+
+            predictions = torch.argmax(out_dict['classes'][idx], dim=0).int()
+
+            np.savez_compressed(
+                fname,
+                world=out_dict['world'][idx].cpu(),
+                classes=predictions.cpu())
 
 
 class MetaEvaluator(object):
@@ -273,12 +413,6 @@ class Evaluator():
             if not os.path.exists(self.epochdir):
                 os.mkdir(self.epochdir)
 
-            self.scatter_edir = os.path.join(
-                self.imgdir, "escatter{}_{}".format(
-                    epoch, self.name))
-            if not os.path.exists(self.scatter_edir):
-                os.mkdir(self.scatter_edir)
-
         assert eval_fkt is None
 
         if self.conf['evaluation']['do_segmentation_eval']:
@@ -470,12 +604,13 @@ class Evaluator():
 
         assert self.threeDFiles[stepdir] == img_name
 
+        world_points = add_dict['world'][0].cpu().numpy().transpose()
         if epoch is not None:
-            world_points = add_dict['world'][0].cpu().numpy().transpose()
             fname = os.path.join(iterdir, "pred_world_epoch_{:05d}.ply".format(
                 epoch))
 
-        write_ply_file(fname, world_points[total_mask], colours[total_mask])
+            write_ply_file(
+                fname, world_points[total_mask], colours[total_mask])
 
         fname = os.path.join(stepdir, "pred_world.ply")
         write_ply_file(fname, world_points[total_mask], colours[total_mask])

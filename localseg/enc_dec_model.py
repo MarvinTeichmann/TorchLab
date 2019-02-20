@@ -104,8 +104,10 @@ class EncoderDecoder(nn.Module):
             three_pred = three_pred * self.conf['decoder']['geo_scale']
 
         if geo_dict is None:
-            assert False
-            return class_pred, three_pred
+            out_dict = {}
+            out_dict['classes'] = class_pred
+            out_dict['world'] = three_pred
+            return out_dict
 
         if self.conf['loss']['spatial']:
             world_pred = self.geo(class_pred, three_pred, geo_dict)

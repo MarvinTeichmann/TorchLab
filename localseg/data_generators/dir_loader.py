@@ -202,39 +202,45 @@ class DirLoader(data.Dataset):
     def __getitem__(self, idx):
 
         image_filename = self.imagelist[idx]
-        label_filename = self.labellist[idx]
-        ids_label_filename = self.ids_labellist[idx]
-        meta_filename = self.metalist[idx]
-
         assert os.path.exists(image_filename), \
             "File does not exist: %s" % image_filename
-        assert os.path.exists(label_filename), \
-            "File does not exist: %s" % label_filename
-        assert os.path.exists(ids_label_filename), \
-            "File does not exist: %s" % ids_label_filename
-        assert os.path.exists(meta_filename), \
-            "File does not exist: %s" % meta_filename
-
-        image = np.array(imageio.imread(image_filename))
-        ids_image = np.array(imageio.imread(ids_label_filename))
-
-        if self._debug_interrupt == "only_read_png":
-            return [image, ids_image]
-
-        npz_file = np.load(meta_filename)
-
-        label_dict = {
-            "geo_world": npz_file['points_3d_world'].astype(np.float32),
-            "geo_sphere": npz_file['points_3d_sphere'].astype(np.float32),
-            "geo_camera": npz_file['points_3d_camera'].astype(np.float32),
-            "geo_mask": npz_file['mask'],
-            "ids_image": ids_image
-        }
 
         load_dict = {}
         load_dict['idx'] = idx
         load_dict['image_file'] = image_filename
-        load_dict['label_file'] = ids_label_filename
+
+        image = np.array(imageio.imread(image_filename))
+
+        if self.metalist is not None:
+            label_filename = self.labellist[idx]
+            ids_label_filename = self.ids_labellist[idx]
+            meta_filename = self.metalist[idx]
+
+            assert os.path.exists(label_filename), \
+                "File does not exist: %s" % label_filename
+            assert os.path.exists(ids_label_filename), \
+                "File does not exist: %s" % ids_label_filename
+            assert os.path.exists(meta_filename), \
+                "File does not exist: %s" % meta_filename
+
+            ids_image = np.array(imageio.imread(ids_label_filename))
+
+            if self._debug_interrupt == "only_read_png":
+                return [image, ids_image]
+
+            npz_file = np.load(meta_filename)
+
+            label_dict = {
+                "geo_world": npz_file['points_3d_world'].astype(np.float32),
+                "geo_sphere": npz_file['points_3d_sphere'].astype(np.float32),
+                "geo_camera": npz_file['points_3d_camera'].astype(np.float32),
+                "geo_mask": npz_file['mask'],
+                "ids_image": ids_image
+            }
+
+            load_dict['label_file'] = ids_label_filename
+        else:
+            label_dict = {}
 
         if self._debug_interrupt == "only_read_data":
             return [image, ids_image, label_dict, load_dict]
@@ -245,6 +251,12 @@ class DirLoader(data.Dataset):
 
         image, label_dict, load_dict = self.transform(
             image, label_dict, load_dict)
+
+        if self.metalist is None:
+            sample = {
+                'image': image,
+                'load_dict': str(load_dict)}
+            return sample
 
         if self._debug_interrupt == "only_transform":
             sample = {'image': image,
@@ -278,13 +290,21 @@ class DirLoader(data.Dataset):
 
     def _read_meta(self):
 
+        if self.metalist is None:
+            assert self.conf['num_classes'] is not None
+            return
+
         meta_file = os.path.join(self.datadir, 'meta.json')
         self.meta_dict = json.load(open(meta_file, 'r'))
 
         mask_file = os.path.join(self.datadir, 'class_ids.json')
         self.mask_table = json.load(open(mask_file))
-        self.num_classes = self.meta_dict['num_classes']
-        self.conf['num_classes'] = self.num_classes
+
+        if self.conf['num_classes'] is None:
+            self.num_classes = self.meta_dict['num_classes']
+            self.conf['num_classes'] = self.num_classes
+        else:
+            self.num_classes = self.conf['num_classes']
 
         self.vis_file = os.path.join(self.datadir, 'colors.lst')
 
@@ -338,8 +358,16 @@ class DirLoader(data.Dataset):
 
             self.metalist = [os.path.join(metadir, meta) for meta in metalist]
         else:
-            # Handle Test Case without any meta data.
-            raise NotImplementedError
+            self.metalist = None
+            filelist = os.listdir(datadir)
+            imagelist = []
+            for file in sorted(filelist):
+                if file.endswith(".png"):
+                    imagelist.append(file)
+
+            assert len(imagelist) > 3
+            self.imagelist = [os.path.join(datadir, img) for img in imagelist]
+            return
 
         imgdir = os.path.join(datadir, 'images')
         assert os.path.exists(imgdir)
