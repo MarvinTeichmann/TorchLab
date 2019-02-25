@@ -81,6 +81,10 @@ class SegmentationTrainer():
         self.checkpoint_name = os.path.join(self.model.logdir,
                                             'checkpoint.pth.tar')
 
+        backup_dir = os.path.join(self.model.logdir, 'backup')
+        if not os.path.exists(backup_dir):
+            os.mkdir(backup_dir)
+
         self.log_file = os.path.join(self.model.logdir, 'summary.log.hdf5')
 
         self.epoch = 0
@@ -149,7 +153,7 @@ class SegmentationTrainer():
 
             lr = base_lr * ((1 - step / mstep)**base)**conf['base2'] + min_lr
         elif lr_schedule == "exp":
-            self.step = self.step + 1
+            self.step = self.step
             exp = conf['exp']
             base_lr = conf['learning_rate']
             min_lr = conf['min_lr']
@@ -248,8 +252,9 @@ class SegmentationTrainer():
 
         self.epoch_steps = epoch_steps
         self.max_steps = epoch_steps * math.ceil(max_epochs / self.eval_iter)
+        self.max_steps += 1
         self.max_steps_lr = epoch_steps * \
-            (max_epochs + self.conf['training']['lr_offset_epochs'])
+            (max_epochs + self.conf['training']['lr_offset_epochs']) + 1
 
         assert(self.step >= self.epoch)
 
@@ -311,6 +316,10 @@ class SegmentationTrainer():
                 else:
                     logging.info("Output can be found: {}".format(
                         self.model.logdir))
+
+            if not self.epoch % 20 * self.eval_iter:
+                os.path.join(self.model.logdir, 'backup',
+                             'summary.log.{}.pickle'.format(self.epoch))
 
             if self.epoch % self.checkpoint_backup == 0:
                 name = 'checkpoint_{:04d}.pth.tar'.format(self.epoch)
