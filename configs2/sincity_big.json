@@ -9,8 +9,8 @@
 
     "dataset" : {
         "dataset": "SinCity",
-        "train_root": "sincity/sincity_full",
-        "val_root": "sincity/sincity_test",
+        "train_root": "sincity/BIG",
+        "val_root": "sincity/BIG",
 
         "ignore_label": 0,
         "idx_offset": 1,
@@ -25,7 +25,7 @@
 
         "dist_mask": 6.4,
         "subsample": 0,
-        "do_split": false,
+        "do_split": true,
 
         "transform": {
             "equirectangular": false,
@@ -36,8 +36,8 @@
                 "wrap": true,
                 "plane_f": 0.05
                 },
-            "presize": 0.5,
-            "npz_factor": 2,
+            "presize": null,
+            "npz_factor": null,
             "color_augmentation_level": 1,
             "fix_shape": true,
             "reseize_image": false,
@@ -56,7 +56,7 @@
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 5
+        "num_worker": 6
     },
 
     "encoder": {
@@ -112,7 +112,7 @@
     },
 
     "training": {
-        "batch_size": 4,
+        "batch_size": 2,
         "learning_rate": 5e-5,
         "lr_schedule": "poly",
         "min_lr": 1e-8,
@@ -140,15 +140,15 @@
         "do_dist_eval": true,
         "reduce_val_bs": true,
         "val_subsample": 5,
-        "train_subsample": 10,
+        "train_subsample": 50,
         "has_flow": false,
         "train_do_agumentation": false,
         "scale": 0.01
     },
 
     "logging": {
-        "disp_per_epoch": 10,
-        "eval_iter": 30,
+        "disp_per_epoch": 20,
+        "eval_iter": 10,
         "log": true,
         "checkpoint_backup": 100000,
         "mayor_eval": 1000

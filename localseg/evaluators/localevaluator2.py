@@ -406,7 +406,9 @@ class Evaluator():
 
         self.threeDFiles = {}
 
-    def evaluate(self, epoch=None, eval_fkt=None, level='minor'):
+    def evaluate(self, epoch=None, level='minor'):
+
+        self.level = level
 
         if (level == 'mayor' or level == 'full') and \
                 self.conf['evaluation']['do_segmentation_eval']:
@@ -414,8 +416,6 @@ class Evaluator():
                 epoch, self.name))
             if not os.path.exists(self.epochdir):
                 os.mkdir(self.epochdir)
-
-        assert eval_fkt is None
 
         if self.conf['evaluation']['do_segmentation_eval']:
             metric = IoU(self.num_classes + 1, self.names)
@@ -437,91 +437,34 @@ class Evaluator():
             img_var = Variable(sample['image']).cuda()
 
             cur_bs = sample['image'].size()[0]
+            assert cur_bs == self.bs
 
             with torch.no_grad():
 
-                if cur_bs == self.bs:
+                output = self.model(
+                    img_var, geo_dict=sample, fakegather=False,
+                    softmax=True)
 
-                    if eval_fkt is None:
-                        output = self.model(
-                            img_var, geo_dict=sample, fakegather=False,
-                            softmax=False)
-                    else:
-                        output = eval_fkt(img_var, fakegather=False)
-
-                    if type(output) is list:
-                        output = torch.nn.parallel.gather( # NOQA
-                            output, target_device=0)
-
-                    add_dict = output
-
-                else:
-                    # last batch makes troubles in parallel mode
-                    continue
-
-            # bpred_np = bpred.cpu().numpy()
+                if type(output) is list:
+                    output = torch.nn.parallel.gather( # NOQA
+                        output, target_device=0)
 
             duration = 0.1
 
+            if False:
+                for idx in range(self.bs):
+                    hard_mask = output['mask'][idx]
+                    total_mask = sample['total_mask'][idx]
+
             if self.conf['evaluation']['do_segmentation_eval']:
-
-                logits = output['classes'].cpu().numpy()
-
-                duration = (time.time() - start_time)
-                if level == 'mayor' and step * self.bs < 300 \
-                        or level == 'full':
-                    self._do_plotting_mayor(cur_bs, sample,
-                                            logits, epoch, level)
-
-                if level != 'none' and not step % self.minor_iter \
-                        or level == 'one_image':
-                    self._do_plotting_minor(
-                        self.subsample * step,
-                        logits, sample, epoch)
-                    if level == "one_image":
-                        # plt.show(block=False)
-                        # plt.pause(0.01)
-                        return None
-
-                # Analyze output
-                for d in range(logits.shape[0]):
-                    pred = logits[d]
-
-                    hard_pred = np.argmax(pred, axis=0)
-
-                    label = sample['label'][d].numpy()
-                    mask = label != self.ignore_idx
-
-                    metric.add(label, mask, hard_pred, time=duration / self.bs,
-                               ignore_idx=self.ignore_idx)
+                duration = self._do_segmentation_eval(
+                    output, sample, metric, start_time, step, epoch)
 
             if self.conf['evaluation']['do_dist_eval']:
-
-                pred_world_np = add_dict['world'].cpu().numpy()
-                label_world_np = sample['geo_world'].cpu().numpy()
-
+                duration2 = self._do_disk_eval(
+                    output, sample, dmetric, start_time, step, epoch)
                 if not self.conf['evaluation']['do_segmentation_eval']:
-                    duration = (time.time() - start_time)
-
-                if not step % self.minor_iter:
-                    self._write_3d_output(
-                        self.subsample * step, add_dict, sample, epoch)
-
-                """
-                geo_mask = sample['geo_mask'].unsqueeze(1).byte()
-                class_mask = sample['class_mask'].unsqueeze(1).byte()
-
-                total_mask = torch.all(
-                    torch.stack([geo_mask, class_mask]), dim=0).float()
-                """
-
-                total_mask = sample['total_mask'].float()
-
-                total_mask_np = total_mask.cpu().numpy().astype(np.bool)
-
-                for d in range(pred_world_np.shape[0]):
-                    dmetric.add(
-                        pred_world_np[d], label_world_np[d], total_mask_np[d])
+                    duration = duration2
 
             # Print Information
             if step % self.display_iter == 0:
@@ -537,6 +480,71 @@ class Evaluator():
                 logging.info(for_str)
 
         return CombinedMetric([metric, dmetric])
+
+    def _do_disk_eval(self, output, sample, metric, start_time, step, epoch):
+        pred_world_np = output['world'].cpu().numpy()
+        label_world_np = sample['geo_world'].cpu().numpy()
+
+        if not step % self.minor_iter:
+            self._write_3d_output(
+                self.subsample * step, output, sample, epoch)
+
+        """
+        geo_mask = sample['geo_mask'].unsqueeze(1).byte()
+        class_mask = sample['class_mask'].unsqueeze(1).byte()
+
+        total_mask = torch.all(
+            torch.stack([geo_mask, class_mask]), dim=0).float()
+        """
+
+        duration = (time.time() - start_time)
+
+        total_mask = sample['total_mask'].float()
+
+        total_mask_np = total_mask.cpu().numpy().astype(np.bool)
+
+        for d in range(pred_world_np.shape[0]):
+            metric.add(
+                pred_world_np[d], label_world_np[d], total_mask_np[d])
+
+        return duration
+
+    def _do_segmentation_eval(self, output, sample, metric,
+                              start_time, step, epoch):
+
+        level = self.level
+
+        logits = output['classes'].cpu().numpy()
+
+        duration = (time.time() - start_time)
+        if level == 'mayor' and step * self.bs < 300 \
+                or level == 'full':
+            self._do_plotting_mayor(self.bs, sample,
+                                    logits, epoch, level)
+
+        if level != 'none' and not step % self.minor_iter \
+                or level == 'one_image':
+            self._do_plotting_minor(
+                self.subsample * step,
+                logits, sample, epoch)
+            if level == "one_image":
+                # plt.show(block=False)
+                # plt.pause(0.01)
+                return None
+
+        # Analyze output
+        for d in range(logits.shape[0]):
+            pred = logits[d]
+
+            hard_pred = np.argmax(pred, axis=0)
+
+            label = sample['label'][d].numpy()
+            mask = label != self.ignore_idx
+
+            metric.add(label, mask, hard_pred, time=duration / self.bs,
+                       ignore_idx=self.ignore_idx)
+
+        return duration
 
     def _do_plotting_mayor(self, cur_bs, sample, bprob_np,
                            epoch, level):
