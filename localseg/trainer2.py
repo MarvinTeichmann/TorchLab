@@ -321,7 +321,7 @@ class SegmentationTrainer():
                 os.path.join(self.model.logdir, 'backup',
                              'summary.log.{}.pickle'.format(self.epoch))
 
-            if self.epoch % self.checkpoint_backup == 0:
+            if self.epoch > 0 and not self.epoch % self.checkpoint_backup:
                 name = 'checkpoint_{:04d}.pth.tar'.format(self.epoch)
                 checkpoint_name = os.path.join(
                     self.model.logdir, name)

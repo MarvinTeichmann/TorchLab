@@ -73,6 +73,66 @@ class CombinedMetric(object):
         return OrderedDict(zip(names, values))
 
 
+class BinarySegMetric(object):
+    """docstring for BinarySegMetric"""
+    def __init__(self, thresh=0.5):
+        super(BinarySegMetric, self).__init__()
+        self.thresh = thresh
+
+        self.tp = 0
+        self.fp = 0
+        self.tn = 0
+        self.fn = 0
+
+    def add(self, prediction, label, mask=None):
+        if mask is not None:
+            raise NotImplementedError
+
+        positive = (prediction[1].cpu() > self.thresh).numpy()
+        label = label.numpy()
+
+        self.tp += np.sum(positive * label)
+        self.fp += np.sum((1 - positive) * label)
+        self.fn += np.sum(positive * (1 - label))
+        self.tn += np.sum((1 - positive) * (1 - label))
+
+    def get_pp_names(self, time_unit='s', summary=False):
+
+        pp_names = []
+
+        pp_names.append("Precision (PPV)")
+        pp_names.append("neg. Prec. (NPV)")
+        pp_names.append("Recall (TPR)")
+        pp_names.append("Accuracy")
+        pp_names.append("Positive")
+
+        return pp_names
+
+    def get_pp_values(self, ignore_first=True,
+                      time_unit='s', summary=False):
+
+        pp_values = []
+
+        num_examples = (self.tp + self.fn + self.tn + self.tp)
+
+        pp_values.append(self.tp / (self.tp + self.fp))
+        pp_values.append(self.tn / (self.tn + self.fn))
+        pp_values.append(self.tp / (self.tp + self.fn))
+        pp_values.append((self.tp + self.tn) / num_examples)
+        pp_values.append((self.tp + self.fp) / num_examples)
+
+        return pp_values
+
+    def get_pp_dict(self, ignore_first=True, time_unit='s', summary=False):
+
+        names = self.get_pp_names(time_unit=time_unit, summary=summary)
+        values = self.get_pp_values(ignore_first=ignore_first,
+                                    time_unit=time_unit,
+                                    summary=summary)
+
+        return OrderedDict(zip(names, values))
+
+
 class SegmentationMetric(object):
     """docstring for SegmentationMetric"""
     def __init__(self, num_classes, name_list=None):

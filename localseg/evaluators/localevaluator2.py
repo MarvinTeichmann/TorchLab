@@ -23,8 +23,11 @@ import time
 
 from functools import partial
 
+from collections import OrderedDict
+
 from localseg.evaluators.metric import SegmentationMetric as IoU
 from localseg.evaluators.metric import CombinedMetric
+# from localseg.evaluators.metric import BinarySegMetric
 from localseg.evaluators.warpeval import WarpEvaluator
 
 import pyvision
@@ -36,9 +39,13 @@ from pprint import pprint
 from localseg.data_generators import visualizer
 from localseg.data_generators import sampler
 
+from ast import literal_eval as make_tuple
+
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
+
+import matplotlib.cm as cm
 
 try:
     from localseg.evaluators import distmetric
@@ -327,7 +334,18 @@ class MetaEvaluator(object):
                     100 * median(self.logger.data['train\\Acc @12']),
                     epoch, max_epochs)
             else:
-                raise NotImplementedError
+                out_str = ("Summary:   [{:17}](mIoU: {:.2f} | {:.2f}    "
+                           "accuracy: {:.2f} | {:.2f}  "
+                           "  Epoch: {} / {}").format(
+                    runname[0:22],
+                    100 * median(self.logger.data['val\\mIoU']),
+                    100 * median(self.logger.data['train\\mIoU']),
+                    100 * median(self.logger.data['val\\accuracy']),
+                    100 * median(self.logger.data['train\\accuracy']),
+                    100 * median(self.logger.data['val\\Acc @6']),
+                    100 * median(self.logger.data['val\\Acc @12']),
+                    100 * median(self.logger.data['train\\Acc @12']),
+                    epoch, max_epochs)
 
         else:
             if self.conf['evaluation']['do_dist_eval']:
@@ -348,6 +366,65 @@ class MetaEvaluator(object):
                 raise NotImplementedError
 
         logging.info(out_str)
+
+
+class BinarySegMetric(object):
+    """docstring for BinarySegMetric"""
+    def __init__(self, thresh=0.5):
+        super(BinarySegMetric, self).__init__()
+        self.thresh = thresh
+
+        self.tp = 0
+        self.fp = 0
+        self.tn = 0
+        self.fn = 0
+
+    def add(self, prediction, label, mask=None):
+        if mask is not None:
+            raise NotImplementedError
+
+        positive = (prediction[1] > self.thresh)
+
+        self.tp += np.sum(positive * label)
+        self.fp += np.sum((1 - positive) * label)
+        self.fn += np.sum(positive * (1 - label))
+        self.tn += np.sum((1 - positive) * (1 - label))
+
+    def get_pp_names(self, time_unit='s', summary=False):
+
+        pp_names = []
+
+        pp_names.append("Precision (PPV)")
+        pp_names.append("neg. Prec. (NPV)")
+        pp_names.append("Recall (TPR)")
+        pp_names.append("Accuracy")
+        pp_names.append("Positive")
+
+        return pp_names
+
+    def get_pp_values(self, ignore_first=True,
+                      time_unit='s', summary=False):
+
+        pp_values = []
+
+        num_examples = (self.tp + self.fn + self.tn + self.tp)
+
+        pp_values.append(self.tp / (self.tp + self.fp))
+        pp_values.append(self.tn / (self.tn + self.fn))
+        pp_values.append(self.tp / (self.tp + self.fn))
+        pp_values.append((self.tp + self.tn) / num_examples)
+        pp_values.append((self.tp + self.fp) / num_examples)
+
+        return pp_values
+
+    def get_pp_dict(self, ignore_first=True, time_unit='s', summary=False):
+
+        names = self.get_pp_names(time_unit=time_unit, summary=summary)
+        values = self.get_pp_values(ignore_first=ignore_first,
+                                    time_unit=time_unit,
+                                    summary=summary)
+
+        return OrderedDict(zip(names, values))
 
 
 class Evaluator():
@@ -390,6 +467,8 @@ class Evaluator():
         class_file = self.loader.dataset.vis_file
         self.vis = visualizer.LocalSegVisualizer(
             class_file, conf=conf['dataset'], label_coder=self.label_coder)
+        self.binvis = BinarySegVisualizer()
+
         self.bs = batch_size
 
         self.num_step = len(self.loader)
@@ -412,10 +491,11 @@ class Evaluator():
 
         if (level == 'mayor' or level == 'full') and \
                 self.conf['evaluation']['do_segmentation_eval']:
-            self.epochdir = os.path.join(self.imgdir, "epoch{}_{}".format(
-                epoch, self.name))
+            self.epochdir = os.path.join(
+                self.imgdir, "EPOCHS", "epoch{}_{}".format(
+                    epoch, self.name))
             if not os.path.exists(self.epochdir):
-                os.mkdir(self.epochdir)
+                os.makedirs(self.epochdir)
 
         if self.conf['evaluation']['do_segmentation_eval']:
             metric = IoU(self.num_classes + 1, self.names)
@@ -427,6 +507,8 @@ class Evaluator():
                 scale=self.conf['evaluation']['scale'])
         else:
             dmetric = None
+
+        bmetric = BinarySegMetric()
 
         self.trans = self.conf['evaluation']['transparency']
 
@@ -451,11 +533,6 @@ class Evaluator():
 
             duration = 0.1
 
-            if False:
-                for idx in range(self.bs):
-                    hard_mask = output['mask'][idx]
-                    total_mask = sample['total_mask'][idx]
-
             if self.conf['evaluation']['do_segmentation_eval']:
                 duration = self._do_segmentation_eval(
                     output, sample, metric, start_time, step, epoch)
@@ -465,6 +542,9 @@ class Evaluator():
                     output, sample, dmetric, start_time, step, epoch)
                 if not self.conf['evaluation']['do_segmentation_eval']:
                     duration = duration2
+
+            if self.conf['evaluation']['do_mask_eval']:
+                self._do_mask_eval(output, sample, bmetric, step, epoch)
 
             # Print Information
             if step % self.display_iter == 0:
@@ -479,7 +559,7 @@ class Evaluator():
 
                 logging.info(for_str)
 
-        return CombinedMetric([metric, dmetric])
+        return CombinedMetric([bmetric, metric, dmetric])
 
     def _do_disk_eval(self, output, sample, metric, start_time, step, epoch):
         pred_world_np = output['world'].cpu().numpy()
@@ -508,6 +588,62 @@ class Evaluator():
                 pred_world_np[d], label_world_np[d], total_mask_np[d])
 
         return duration
+
+    def _do_mask_eval(self, output, sample, metric, step, epoch):
+
+        epochdir = os.path.join(
+            self.imgdir, "EPOCHS", "masks{}_{}".format(
+                epoch, self.name))
+        if not os.path.exists(epochdir):
+            os.mkdir(epochdir)
+
+        for idx in range(self.bs):
+            mask_pred = output['mask'][idx].cpu().numpy()
+            total_mask = sample['total_mask'][idx].numpy()
+            metric.add(mask_pred, total_mask)
+
+            images = sample['image'][idx].numpy().transpose(1, 2, 0)
+
+            self.binvis.plot_prediction(mask_pred, total_mask, images)
+
+        if step % self.minor_iter:
+            stepdir = os.path.join(self.imgdir, "mask{:03d}_{}".format(
+                step, self.name))
+            if not os.path.exists(stepdir):
+                os.mkdir(stepdir)
+
+            fig = self.binvis.plot_prediction(
+                mask_pred, total_mask, images)
+            filename = literal_eval(
+                sample['load_dict'][0])['image_file']
+            if epoch is None:
+                newfile = filename.split(".")[0] + "_None.png"\
+                    .format(num=epoch)
+            else:
+                newfile = filename.split(".")[0] \
+                    + "_epoch_{num:05d}.png".format(num=epoch)
+
+            new_name = os.path.join(stepdir,
+                                    os.path.basename(newfile))
+            plt.savefig(new_name, format='png', bbox_inches='tight',
+                        dpi=199)
+            plt.close(fig)
+
+        if self.level == 'mayor' and step * self.bs < 500 \
+                or self.level == 'full':
+
+            for d in range(self.bs):
+                fig = self.binvis.plot_prediction(
+                    mask_pred, total_mask, images)
+                filename = literal_eval(
+                    sample['load_dict'][d])['image_file']
+                new_name = os.path.join(epochdir,
+                                        os.path.basename(filename))
+                plt.tight_layout()
+                plt.savefig(new_name, format='png', bbox_inches='tight',
+                            dpi=199)
+
+                plt.close(fig=fig)
 
     def _do_segmentation_eval(self, output, sample, metric,
                               start_time, step, epoch):
@@ -562,7 +698,7 @@ class Evaluator():
             plt.close(fig=fig)
 
     def _write_3d_output(self, step, add_dict, sample, epoch):
-        stepdir = os.path.join(self.imgdir, "meshplot{}_{}".format(
+        stepdir = os.path.join(self.imgdir, "meshplot{:03d}_{}".format(
             step, self.name))
 
         colours = sample['image'][0].cpu().numpy().transpose() * 255
@@ -659,7 +795,7 @@ class Evaluator():
 
     def _do_plotting_minor(self, step, bprob_np,
                            sample, epoch):
-        stepdir = os.path.join(self.imgdir, "image{}_{}".format(
+        stepdir = os.path.join(self.imgdir, "image{:03d}_{}".format(
             step, self.name))
         if not os.path.exists(stepdir):
             os.mkdir(stepdir)
@@ -752,3 +888,66 @@ def write_ply_file(file_name, vertices, colors):
         with open(file_name, 'w') as f:
                 f.write(ply_header % dict(vert_num=len(vertices)))
                 np.savetxt(f, vertices, '%f %f %f %d %d %d')
+
+
+class BinarySegVisualizer():
+
+    def __init__(self):
+        pass
+
+    def coloured_diff(self, label, pred, mask):
+        if self.label_type == 'dense':
+            true_colour = [0, 0, 255]
+            false_colour = [255, 0, 0]
+
+            pred = np.argmax(pred, axis=0)
+
+            diff_img = 1 * (pred == label)
+            diff_img = diff_img + (1 - mask)
+
+            diff_img = np.expand_dims(diff_img, axis=-1)
+
+            assert(np.max(diff_img) <= 1)
+
+            return true_colour * diff_img + false_colour * (1 - diff_img)
+
+    def plot_prediction(self, prediction, label, image,
+                        trans=0.5, figure=None):
+
+        if figure is None:
+            figure = plt.figure()
+            figure.tight_layout()
+
+        image = image
+
+        bwr_map = cm.get_cmap('bwr')
+        colour_pred = bwr_map(prediction[1], bytes=True)
+        colour_label = bwr_map(label.astype(np.float), bytes=True)
+
+        rg_map = cm.get_cmap('RdYlGn')
+        diff = 1 - (prediction[1] - label.astype(np.float))
+        diff_colout = rg_map(diff, bytes=True)
+
+        ax = figure.add_subplot(2, 2, 1)
+        ax.set_title('Image')
+        ax.axis('off')
+        ax.imshow(image)
+
+        ax = figure.add_subplot(2, 2, 2)
+        ax.set_title('Label')
+        ax.axis('off')
+
+        ax.imshow(colour_label)
+
+        ax = figure.add_subplot(2, 2, 3)
+        ax.set_title('Failure Map')
+        ax.axis('off')
+        ax.imshow(diff_colout)
+
+        ax = figure.add_subplot(2, 2, 4)
+        ax.set_title('Prediction')
+        ax.axis('off')
+
+        ax.imshow(colour_pred)
+
+        return figure

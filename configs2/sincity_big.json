@@ -41,7 +41,7 @@
             "color_augmentation_level": 1,
             "fix_shape": true,
             "reseize_image": false,
-            "patch_size": [448, 448],
+            "patch_size": [424, 424],
             "random_crop": false,
             "random_roll": true,
             "max_crop": 4,

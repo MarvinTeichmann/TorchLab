@@ -26,6 +26,7 @@ from pyvision import visualization as vis
 from ast import literal_eval as make_tuple
 
 from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.cm as cm
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -617,5 +618,70 @@ class LocalSegVisualizer(vis.SegmentationVisualizer):
             ax.set_title('Label')
             ax.axis('off')
             ax.imshow(coloured_label.astype(np.uint8))
+
+        return figure
+
+
+class BinarySegVisualizer():
+
+    def __init__(self):
+        pass
+
+    def coloured_diff(self, label, pred, mask):
+        if self.label_type == 'dense':
+            true_colour = [0, 0, 255]
+            false_colour = [255, 0, 0]
+
+            pred = np.argmax(pred, axis=0)
+
+            diff_img = 1 * (pred == label)
+            diff_img = diff_img + (1 - mask)
+
+            diff_img = np.expand_dims(diff_img, axis=-1)
+
+            assert(np.max(diff_img) <= 1)
+
+            return true_colour * diff_img + false_colour * (1 - diff_img)
+
+    def plot_prediction(self, prediction, label, image,
+                        trans=0.5, figure=None):
+
+        if figure is None:
+            figure = plt.figure()
+            figure.tight_layout()
+
+        image = image
+
+        bwr_map = cm.get_cmap('bwr')
+        colour_pred = bwr_map(prediction[1], bytes=True)
+        colour_label = bwr_map(label.astype(np.float), bytes=True)
+
+        rg_map = cm.get_cmap('RdYlGn')
+        diff = 1 - (prediction[1] - label.astype(np.float))
+        diff_colout = rg_map(diff, bytes=True)
+
+        ax = figure.add_subplot(2, 2, 1)
+        ax.set_title('Image')
+        ax.axis('off')
+        ax.imshow(image)
+
+        ax = figure.add_subplot(2, 2, 2)
+        ax.set_title('Label')
+        ax.axis('off')
+
+        ax.imshow(colour_label)
+
+        ax = figure.add_subplot(2, 2, 3)
+        ax.set_title('Failure Map')
+        ax.axis('off')
+        ax.imshow(diff_colout)
+
+        ax = figure.add_subplot(2, 2, 4)
+        ax.set_title('Prediction')
+        ax.axis('off')
+
+        ax.imshow(colour_pred)
+
+        plt.show()
 
         return figure

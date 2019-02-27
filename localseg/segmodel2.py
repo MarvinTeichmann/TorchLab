@@ -237,6 +237,7 @@ class SegModel(nn.Module):
         num_gpus = conf['training']['num_gpus']
         conf['training']['batch_size'] *= num_gpus
         conf['training']['learning_rate'] *= num_gpus
+        conf['training']['min_lr'] *= num_gpus
         # conf['logging']['display_iter'] //= num_gpus
 
         conf['dataset']['num_worker'] *= num_gpus
