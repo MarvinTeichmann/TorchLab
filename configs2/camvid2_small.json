@@ -99,6 +99,7 @@
         },
         "corner": false,
         "use_mask_loss": true,
+        "mask_weight": [0.2, 0.8],
         "spatial": false,
         "embedding_loss": null,
         "squeeze": false,
@@ -113,7 +114,7 @@
 
     "training": {
         "batch_size": 4,
-        "learning_rate": 5e-5,
+        "learning_rate": 5e-4,
         "lr_schedule": "poly",
         "min_lr": 1e-8,
         "exp": 1.5,
@@ -123,13 +124,13 @@
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": null,
-        "max_epochs": 6000,
+        "max_epochs": 1000,
         "pre_eval": false,
         "cnn_gpus": null,
         "max_epoch_steps": null,
         "init_weights_from_checkpoint": false,
         "wd_policy": 2,
-        "num_gpus": 4
+        "num_gpus": 1
     },
 
     "evaluation": {
@@ -144,12 +145,13 @@
         "train_subsample": 10,
         "has_flow": false,
         "train_do_agumentation": false,
+        "mask_thresh": 0.7,
         "scale": 1
     },
 
     "logging": {
         "disp_per_epoch": 4,
-        "eval_iter": 30,
+        "eval_iter": 5,
         "log": true,
         "checkpoint_backup": 2000,
         "mayor_eval": 2000

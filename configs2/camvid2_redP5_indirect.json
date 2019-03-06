@@ -9,8 +9,8 @@
 
     "dataset" : {
         "dataset": "Camvid360",
-        "train_root": "camvid360/Part67",
-        "val_root": "camvid360/Part67",
+        "train_root": "camvid360/indirect_p4_100/",
+        "val_root": "camvid360/indirect_p4_100/",
 
         "ignore_label": 0,
         "idx_offset": 1,
@@ -25,8 +25,8 @@
         "dist_mask": null,
 
         "subsample": 0,
-        "do_split": true,
 
+        "do_split": true,
         "transform": {
             "equirectangular": false,
             "equi_crop": {
@@ -56,7 +56,7 @@
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 4
+        "num_worker": 5
     },
 
     "encoder": {
@@ -95,7 +95,7 @@
         },
         "weights": {
             "xentropy": 1,
-            "dist": 0
+            "dist": 1
         },
         "corner": false,
         "use_mask_loss": true,
@@ -123,36 +123,36 @@
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": null,
-        "max_epochs": 400,
+        "max_epochs": 4000,
         "pre_eval": false,
         "cnn_gpus": null,
         "max_epoch_steps": null,
         "init_weights_from_checkpoint": false,
         "wd_policy": 2,
-        "num_gpus": 2
+        "num_gpus": 1
     },
 
     "evaluation": {
-        "num_minor_imgs": 9,
+        "num_minor_imgs": 5,
         "transparency": 0,
         "default_level": "minor",
         "do_segmentation_eval": true,
-        "do_dist_eval": false,
+        "do_dist_eval": true,
         "do_mask_eval": true,
         "reduce_val_bs": true,
-        "val_subsample": 5,
-        "train_subsample": 80,
+        "val_subsample": null,
+        "train_subsample": 10,
         "has_flow": false,
         "train_do_agumentation": false,
-        "scale": 1
+        "scale": 0.2
     },
 
     "logging": {
         "disp_per_epoch": 4,
-        "eval_iter": 4,
+        "eval_iter": 20,
         "log": true,
         "checkpoint_backup": 2000,
-        "mayor_eval": 500
+        "mayor_eval": 1000
     },
 
     "plotting": {
