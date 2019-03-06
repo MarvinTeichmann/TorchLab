@@ -342,9 +342,6 @@ class MetaEvaluator(object):
                     100 * median(self.logger.data['train\\mIoU']),
                     100 * median(self.logger.data['val\\accuracy']),
                     100 * median(self.logger.data['train\\accuracy']),
-                    100 * median(self.logger.data['val\\Acc @6']),
-                    100 * median(self.logger.data['val\\Acc @12']),
-                    100 * median(self.logger.data['train\\Acc @12']),
                     epoch, max_epochs)
 
         else:
@@ -383,7 +380,7 @@ class BinarySegMetric(object):
         if mask is not None:
             raise NotImplementedError
 
-        positive = (prediction[1] > self.thresh)
+        positive = (prediction[0] < self.thresh)
 
         self.tp += np.sum(positive * label)
         self.fp += np.sum((1 - positive) * label)
@@ -447,7 +444,7 @@ class Evaluator():
             batch_size = 8
 
         if conf['evaluation']['reduce_val_bs']:
-            batch_size = conf['training']['num_gpus']
+            batch_size = torch.cuda.device_count()
 
         subsampler = partial(
             sampler.SubSampler, subsample=subsample)
@@ -508,7 +505,10 @@ class Evaluator():
         else:
             dmetric = None
 
-        bmetric = BinarySegMetric()
+        self.conf['evaluation']['mask_thresh'] = 0.7
+
+        bmetric = BinarySegMetric(
+            thresh=self.conf['evaluation']['mask_thresh'])
 
         self.trans = self.conf['evaluation']['transparency']
 
@@ -559,6 +559,8 @@ class Evaluator():
 
                 logging.info(for_str)
 
+        plt.close("all")
+
         return CombinedMetric([bmetric, metric, dmetric])
 
     def _do_disk_eval(self, output, sample, metric, start_time, step, epoch):
@@ -591,12 +593,6 @@ class Evaluator():
 
     def _do_mask_eval(self, output, sample, metric, step, epoch):
 
-        epochdir = os.path.join(
-            self.imgdir, "EPOCHS", "masks{}_{}".format(
-                epoch, self.name))
-        if not os.path.exists(epochdir):
-            os.mkdir(epochdir)
-
         for idx in range(self.bs):
             mask_pred = output['mask'][idx].cpu().numpy()
             total_mask = sample['total_mask'][idx].numpy()
@@ -606,44 +602,50 @@ class Evaluator():
 
             self.binvis.plot_prediction(mask_pred, total_mask, images)
 
-        if step % self.minor_iter:
-            stepdir = os.path.join(self.imgdir, "mask{:03d}_{}".format(
-                step, self.name))
-            if not os.path.exists(stepdir):
-                os.mkdir(stepdir)
+            if step % self.minor_iter:
+                stepdir = os.path.join(self.imgdir, "mask{:03d}_{}".format(
+                    step, self.name))
+                if not os.path.exists(stepdir):
+                    os.mkdir(stepdir)
 
-            fig = self.binvis.plot_prediction(
-                mask_pred, total_mask, images)
-            filename = literal_eval(
-                sample['load_dict'][0])['image_file']
-            if epoch is None:
-                newfile = filename.split(".")[0] + "_None.png"\
-                    .format(num=epoch)
-            else:
-                newfile = filename.split(".")[0] \
-                    + "_epoch_{num:05d}.png".format(num=epoch)
-
-            new_name = os.path.join(stepdir,
-                                    os.path.basename(newfile))
-            plt.savefig(new_name, format='png', bbox_inches='tight',
-                        dpi=199)
-            plt.close(fig)
-
-        if self.level == 'mayor' and step * self.bs < 500 \
-                or self.level == 'full':
-
-            for d in range(self.bs):
                 fig = self.binvis.plot_prediction(
                     mask_pred, total_mask, images)
                 filename = literal_eval(
-                    sample['load_dict'][d])['image_file']
-                new_name = os.path.join(epochdir,
-                                        os.path.basename(filename))
-                plt.tight_layout()
+                    sample['load_dict'][0])['image_file']
+                if epoch is None:
+                    newfile = filename.split(".")[0] + "_None.png"\
+                        .format(num=epoch)
+                else:
+                    newfile = filename.split(".")[0] \
+                        + "_epoch_{num:05d}.png".format(num=epoch)
+
+                new_name = os.path.join(stepdir,
+                                        os.path.basename(newfile))
                 plt.savefig(new_name, format='png', bbox_inches='tight',
                             dpi=199)
+                plt.close(fig)
 
-                plt.close(fig=fig)
+            if self.level == 'mayor' and step * self.bs < 500 \
+                    or self.level == 'full':
+
+                epochdir = os.path.join(
+                    self.imgdir, "EPOCHS", "masks{}_{}".format(
+                        epoch, self.name))
+                if not os.path.exists(epochdir):
+                    os.makedirs(epochdir)
+
+                for d in range(self.bs):
+                    fig = self.binvis.plot_prediction(
+                        mask_pred, total_mask, images)
+                    filename = literal_eval(
+                        sample['load_dict'][d])['image_file']
+                    new_name = os.path.join(epochdir,
+                                            os.path.basename(filename))
+                    plt.tight_layout()
+                    plt.savefig(new_name, format='png', bbox_inches='tight',
+                                dpi=199)
+
+                    plt.close(fig)
 
     def _do_segmentation_eval(self, output, sample, metric,
                               start_time, step, epoch):
@@ -697,7 +699,7 @@ class Evaluator():
 
             plt.close(fig=fig)
 
-    def _write_3d_output(self, step, add_dict, sample, epoch):
+    def _write_3d_output(self, step, output, sample, epoch):
         stepdir = os.path.join(self.imgdir, "meshplot{:03d}_{}".format(
             step, self.name))
 
@@ -721,6 +723,8 @@ class Evaluator():
 
         iterdir = os.path.join(stepdir, 'iters')
 
+        label_points = sample['label'][0].numpy().transpose()[total_mask]
+
         if not os.path.exists(stepdir):
             os.mkdir(stepdir)
 
@@ -731,9 +735,13 @@ class Evaluator():
             scp.misc.imsave(arr=image, name=os.path.join(stepdir, img_name))
 
             world_points = sample['geo_world'][0].cpu().numpy().transpose()
+            wpoints, masked_colours = self._update_points_3d(
+                world_points[total_mask], label_points, colours[total_mask],
+                sample)
+
             fname = os.path.join(stepdir, "label_world.ply")
-            write_ply_file(fname, world_points[total_mask],
-                           colours[total_mask])
+            write_ply_file(fname, wpoints,
+                           masked_colours)
 
             world_points = sample['geo_sphere'][0].cpu().numpy().transpose()
             fname = os.path.join(stepdir, "label_sphere.ply")
@@ -750,22 +758,25 @@ class Evaluator():
 
         assert self.threeDFiles[stepdir] == img_name
 
-        world_points = add_dict['world'][0].cpu().numpy().transpose()
+        world_points = output['world'][0].cpu().numpy().transpose()
+        wpoints, masked_colours = self._update_points_3d(
+            world_points[total_mask], label_points, colours[total_mask],
+            sample)
         if epoch is not None:
             fname = os.path.join(iterdir, "pred_world_epoch_{:05d}.ply".format(
                 epoch))
 
             write_ply_file(
-                fname, world_points[total_mask], colours[total_mask])
+                fname, wpoints, masked_colours)
 
         fname = os.path.join(stepdir, "pred_world.ply")
-        write_ply_file(fname, world_points[total_mask], colours[total_mask])
+        write_ply_file(fname, wpoints, masked_colours)
 
-        world_points = add_dict['camera'][0].cpu().numpy().transpose()
+        world_points = output['camera'][0].cpu().numpy().transpose()
         fname = os.path.join(stepdir, "pred_camera.ply")
         write_ply_file(fname, world_points[total_mask], colours[total_mask])
 
-        world_points = add_dict['sphere'][0].cpu().numpy().transpose()
+        world_points = output['sphere'][0].cpu().numpy().transpose()
         fname = os.path.join(stepdir, "pred_sphere.ply")
         write_ply_file(fname, world_points[total_mask], colours[total_mask])
 
@@ -792,6 +803,29 @@ class Evaluator():
             newfile = filename.split(".")[0] + "_epoch_{num:05d}.ply"\
                 .format(num=epoch)
         """
+
+    def _update_points_3d(self, points, label_points, colours, sample):
+
+        res_points = []
+        col_points = []
+
+        if 'white_labels' not in sample.keys():
+            return points, colours
+
+        for i, label in enumerate(sample['white_labels'][0].numpy()):
+
+            if len(points[label_points + 1 == label]) > 0:
+
+                wpoints = np.dot(
+                    sample['white_Kinv'][0][i],
+                    points[label_points + 1 == label].transpose()).transpose()
+
+                res = wpoints + sample['white_mean'][0][i].numpy()
+
+                res_points.append(res)
+                col_points.append(colours[label_points + 1 == label])
+
+        return np.concatenate(res_points), np.concatenate(col_points)
 
     def _do_plotting_minor(self, step, bprob_np,
                            sample, epoch):
@@ -918,36 +952,57 @@ class BinarySegVisualizer():
             figure = plt.figure()
             figure.tight_layout()
 
-        image = image
-
         bwr_map = cm.get_cmap('bwr')
-        colour_pred = bwr_map(prediction[1], bytes=True)
-        colour_label = bwr_map(label.astype(np.float), bytes=True)
+        colour_pred = bwr_map(prediction[1])
+        colour_label = bwr_map(label.astype(np.float))
+
+        # label_r = label.reshape(label.shape + tuple([1]))
+
+        # colour_label2 = [1, 0, 0] * label_r + [0, 0, 1] * (1 - label_r)
+        hard_pred = prediction[0] < 0.7
+        colour_hard = bwr_map(hard_pred.astype(np.float))
+
+        colour_pred = trans * image + (1 - trans) * colour_pred[:, :, :3]
+        colour_label = trans * image + (1 - trans) * colour_label[:, :, :3]
+        colour_hard = trans * image + (1 - trans) * colour_hard[:, :, :3]
 
         rg_map = cm.get_cmap('RdYlGn')
         diff = 1 - (prediction[1] - label.astype(np.float))
-        diff_colout = rg_map(diff, bytes=True)
+        diff_colour = rg_map(diff)
+        # diff_colour = trans * image + (1 - trans) * diff_colour[:, :, :3]
 
-        ax = figure.add_subplot(2, 2, 1)
+        hard_diff = hard_pred.astype(np.float) - label.astype(np.float)
+        hdiff_colour = rg_map(hard_diff)
+
+        ax = figure.add_subplot(2, 3, 1)
         ax.set_title('Image')
         ax.axis('off')
         ax.imshow(image)
 
-        ax = figure.add_subplot(2, 2, 2)
+        ax = figure.add_subplot(2, 3, 4)
         ax.set_title('Label')
         ax.axis('off')
 
         ax.imshow(colour_label)
 
-        ax = figure.add_subplot(2, 2, 3)
+        ax = figure.add_subplot(2, 3, 5)
         ax.set_title('Failure Map')
         ax.axis('off')
-        ax.imshow(diff_colout)
+        ax.imshow(diff_colour)
 
-        ax = figure.add_subplot(2, 2, 4)
+        ax = figure.add_subplot(2, 3, 2)
         ax.set_title('Prediction')
         ax.axis('off')
-
         ax.imshow(colour_pred)
+
+        ax = figure.add_subplot(2, 3, 3)
+        ax.set_title('Prediction hard')
+        ax.axis('off')
+        ax.imshow(colour_hard)
+
+        ax = figure.add_subplot(2, 3, 6)
+        ax.set_title('Diff hard')
+        ax.axis('off')
+        ax.imshow(hdiff_colour)
 
         return figure

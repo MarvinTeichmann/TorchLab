@@ -34,10 +34,10 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 class HingeLoss2d(_WeightedLoss):
 
     def __init__(self, weight=None,
-                 reduction='elementwise_mean',
+                 reduction='mean',
                  border=0.1, grid_size=1):
         super(HingeLoss2d, self).__init__(
-            weight, reduction='elementwise_mean')
+            weight, reduction='mean')
 
         self.grid_size = grid_size
         self.margin = grid_size / 2 - border * grid_size
@@ -56,10 +56,10 @@ class HingeLoss2d(_WeightedLoss):
 class CornerLoss(_WeightedLoss):
 
     def __init__(self, weight=None,
-                 reduction='elementwise_mean',
+                 reduction='mean',
                  border=0.1, grid_size=1):
         super(CornerLoss, self).__init__(
-            weight, reduction='elementwise_mean')
+            weight, reduction='mean')
 
         self.grid_size = grid_size
         self.margin = grid_size / 2 - border * grid_size
@@ -94,9 +94,9 @@ class MSELoss(_WeightedLoss):
 class TruncatedHingeLoss2dMask(_WeightedLoss):
 
     def __init__(self, weight=None,
-                 reduction='elementwise_mean', grid_size=1,
+                 reduction='mean', grid_size=1,
                  inner_factor=20):
-        super().__init__(weight, reduction='elementwise_mean')
+        super().__init__(weight, reduction='mean')
         self.grid_size = grid_size
         self.margin = grid_size / inner_factor
 
@@ -123,12 +123,12 @@ class TripletLossWithMask(_Loss):
     """docstring for TripletLossWithMask"""
 
     def __init__(self, grid_size=1, p=2, eps=1e-6, swap=False,
-                 inner_factor=20, reduction='elementwise_mean'):
+                 inner_factor=20, reduction='mean'):
         super(TripletLossWithMask, self).__init__()
 
         margin = grid_size / inner_factor
 
-        assert reduction == 'elementwise_mean'
+        assert reduction == 'mean'
 
         self.TripletLoss = TripletMarginLoss(margin, p, eps, swap,
                                              reduction='none')
@@ -144,13 +144,13 @@ class TripletSqueezeLoss(_Loss):
     """docstring for TripletLossWithMask"""
 
     def __init__(self, grid_size=1, p=2, eps=1e-6, swap=False,
-                 inner_factor=20, reduction='elementwise_mean'):
+                 inner_factor=20, reduction='mean'):
         super(TripletSqueezeLoss, self).__init__()
 
         self.grid_size = grid_size
         self.margin = grid_size / inner_factor
 
-        assert reduction == 'elementwise_mean'
+        assert reduction == 'mean'
 
     def forward(self, anchor, positive, negative, mask):
 
@@ -165,9 +165,9 @@ class TripletSqueezeLoss(_Loss):
 class CrossEntropyLoss2d(_WeightedLoss):
 
     def __init__(self, weight=None, ignore_index=-100,
-                 reduction='elementwise_mean'):
+                 reduction='mean'):
         super(CrossEntropyLoss2d, self).__init__(
-            weight, reduction='elementwise_mean')
+            weight, reduction='mean')
         self.ignore_index = ignore_index
 
         self.NLLLoss = NLLLoss(ignore_index=ignore_index, reduction=reduction)
@@ -184,7 +184,7 @@ class CrossEntropyLoss2d(_WeightedLoss):
 class CrossEntropyLoss2dTranspose(_WeightedLoss):
 
     def __init__(self, weight=None, ignore_index=-100,
-                 reduction='elementwise_mean'):
+                 reduction='mean'):
         super(CrossEntropyLoss2dTranspose, self).__init__(
             weight=weight, reduction=reduction)
         self.ignore_index = ignore_index
@@ -203,7 +203,7 @@ class CrossEntropyLoss2dTranspose(_WeightedLoss):
             reduction=self.reduction)
 
 
-def cross_entropy2d(input, target, weight=None, reduction='elementwise_mean'):
+def cross_entropy2d(input, target, weight=None, reduction='mean'):
     n, c, h, w = input.size()
 
     log_p = F.log_softmax(input, dim=1)
@@ -217,7 +217,7 @@ def cross_entropy2d(input, target, weight=None, reduction='elementwise_mean'):
     target = target[mask]
     loss = F.nll_loss(log_p, target, weight=weight, reduction='sum')
 
-    if reduction == 'elementwise_mean':
+    if reduction == 'mean':
         loss /= mask.data.sum().float()
     return loss
 

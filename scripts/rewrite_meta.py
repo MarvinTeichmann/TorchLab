@@ -19,6 +19,7 @@ import scipy as scp
 import logging
 
 import torch
+import pickle
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -34,6 +35,10 @@ def get_args():
 
     parser.add_argument("path", type=str,
                         help="configuration file for run.")
+
+    parser.add_argument("--ids_table", type=str,
+                        help="Path to ids_table.",
+                        default=None)
 
     parser.add_argument('--reduce', action='store_true')
 
@@ -68,6 +73,9 @@ def main(args):
 
     logging.info("Found {} npz files".format(len(metalist)))
 
+    if args.ids_table is not None:
+        colour_to_id = pickle.load(open(args.ids_table, 'rb'))
+
     for i, file in enumerate(metalist):
 
         npz = np.load(os.path.join(path, file))
@@ -78,10 +86,18 @@ def main(args):
             newdict[key] = npz[key].astype(np.float32)
 
         for key in ['points_3d_world', 'points_3d_camera', 'points_3d_sphere']:
+
             if args.reduce:
                 points = resize_torch(npz[key], factor=0.5, mode='cubic')
             else:
                 points = npz[key]
+
+            """
+            if key == "points_3d_sphere_unmask":
+                key2 = "points_3d_sphere"
+            else:
+                key2 = key
+            """
 
             newdict[key] = points.astype(np.float16)
 
@@ -91,6 +107,18 @@ def main(args):
             else:
                 mask = npz[key]
             newdict[key] = mask.astype(np.uint8)
+
+        if args.ids_table is not None:
+
+            for key in ['white_Kinv', 'white_mean']:
+                newdict[key] = npz[key].astype(np.float32)
+
+            white_labels = npz['white_labels']
+
+            new_ids = [colour_to_id[tuple(label[[[2, 1, 0]]])]
+                       for label in white_labels]
+
+            newdict['white_labels'] = new_ids
 
         np.savez(os.path.join(outdir, file), **newdict)
 

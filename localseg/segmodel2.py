@@ -163,6 +163,7 @@ class SegModel(nn.Module):
         self.logger = pyvision.logger.Logger()
 
         self.loader = dir_loader
+        self.mevaluator = localevaluator2
 
         Trainer = SegmentationTrainer # NOQA
         self.trainer = Trainer(conf, self, self.loader)

@@ -258,8 +258,8 @@ class SegmentationTrainer():
 
         assert(self.step >= self.epoch)
 
-        self.display_iter = self.epoch_steps // \
-            self.conf['logging']['disp_per_epoch']
+        self.display_iter = max(
+            1, self.epoch_steps // self.conf['logging']['disp_per_epoch'])
 
         if self.epoch > 0:
             logging.info('Continue Training from {}'.format(self.epoch))
@@ -305,7 +305,7 @@ class SegmentationTrainer():
                     # Save Checkpoint
                     self.logger.save(filename=self.log_file)
                     state = {
-                        'epoch': epoch,
+                        'epoch': epoch + self.eval_iter,
                         'step': self.step,
                         'conf': self.conf,
                         'state_dict': self.model.state_dict(),
@@ -328,7 +328,7 @@ class SegmentationTrainer():
 
                 self.logger.save(filename=self.log_file)
                 state = {
-                    'epoch': epoch + 1,
+                    'epoch': epoch + self.eval_iter,
                     'step': self.step,
                     'conf': self.conf,
                     'state_dict': self.model.state_dict(),

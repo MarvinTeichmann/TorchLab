@@ -59,6 +59,13 @@ class LocalLoss(nn.Module):
 
         self.XentropyLoss = CrossEntropyLoss2d()
 
+        if conf['loss']['mask_weight'] is not None:
+            weight = torch.Tensor(conf['loss']['mask_weight'])
+        else:
+            weight = None
+
+        self.MaskLoss = CrossEntropyLoss2d(weight=weight)
+
         self.dist_loss = MSELoss(sqrt=conf['loss']['sqrt'])
 
         self.threaded = True
@@ -107,7 +114,7 @@ class LocalLoss(nn.Module):
 
         class_loss = self.XentropyLoss(predictions['classes'], sample['label'])
         dist_loss = self._compute_geo_loss(predictions, sample)
-        mask_loss = self.XentropyLoss(
+        mask_loss = self.MaskLoss(
             predictions['mask'], sample['total_mask'].long())
 
         weights = self.conf['loss']['weights']
@@ -170,12 +177,13 @@ class LocalLoss(nn.Module):
 class CrossEntropyLoss2d(_WeightedLoss):
 
     def __init__(self, weight=None, ignore_index=-100,
-                 reduction='elementwise_mean'):
+                 reduction='mean'):
         super(CrossEntropyLoss2d, self).__init__(
-            weight, reduction='elementwise_mean')
+            weight, reduction='mean')
         self.ignore_index = ignore_index
 
-        self.NLLLoss = NLLLoss(ignore_index=ignore_index, reduction=reduction)
+        self.NLLLoss = NLLLoss(
+            weight, ignore_index=ignore_index, reduction=reduction)
         self.logsoftmax = nn.LogSoftmax(dim=1)
 
     def forward(self, input, target):
@@ -183,6 +191,7 @@ class CrossEntropyLoss2d(_WeightedLoss):
 
         softmax_out = self.logsoftmax(input)
         loss_out = self.NLLLoss(softmax_out, target)
+
         return loss_out
 
 

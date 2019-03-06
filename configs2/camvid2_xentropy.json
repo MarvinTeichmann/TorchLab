@@ -141,7 +141,7 @@
         "do_mask_eval": true,
         "reduce_val_bs": true,
         "val_subsample": null,
-        "train_subsample": 5,
+        "train_subsample": 10,
         "has_flow": false,
         "train_do_agumentation": false,
         "scale": 1

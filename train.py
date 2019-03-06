@@ -99,8 +99,11 @@ if __name__ == '__main__':
         args.bench = 'Debug'
         config['logging']['display_iter'] = 5
         config['logging']['eval_iter'] = 5
-        config['logging']['max_val_examples'] = 10
-        config['logging']['max_train_examples'] = 10
+        # config['logging']['max_val_examples'] = 10
+        # config['logging']['max_train_examples'] = 10
+
+        config['evaluation']['val_subsample'] = None
+        config['evaluation']['train_subsample'] = 10
 
         config['training']['max_epoch_steps'] = 10
         config['training']['max_epochs'] = 10
@@ -118,7 +121,7 @@ if __name__ == '__main__':
 
     if args.wait:
         import GPUtil
-        while GPUtil.getGPUs()[0].memoryUtil > 0.4:
+        while GPUtil.getGPUs()[0].memoryUtil > 0.1:
             logging.info("GPU 0 is beeing used.")
             GPUtil.showUtilization()
             sleep(60)

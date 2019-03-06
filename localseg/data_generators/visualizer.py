@@ -656,6 +656,10 @@ class BinarySegVisualizer():
         colour_pred = bwr_map(prediction[1], bytes=True)
         colour_label = bwr_map(label.astype(np.float), bytes=True)
 
+        import ipdb # NOQA
+        ipdb.set_trace()
+        pass
+
         rg_map = cm.get_cmap('RdYlGn')
         diff = 1 - (prediction[1] - label.astype(np.float))
         diff_colout = rg_map(diff, bytes=True)

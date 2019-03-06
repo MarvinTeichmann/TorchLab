@@ -65,6 +65,8 @@ default_conf = {
     'idx_offset': 1,
     'num_classes': None,
 
+    'load_to_memory': True,
+
     'down_label': False,
 
     'dist_mask': None,
@@ -283,6 +285,12 @@ class DirLoader(data.Dataset):
         for key in ["geo_world", "geo_sphere", "geo_camera"]:
             sample[key] = label_dict[key].transpose([2, 0, 1]).astype(
                 np.float32)
+
+        try:
+            for key in ['white_Kinv', 'white_mean', 'white_labels']:
+                sample[key] = npz_file[key]
+        except KeyError:
+            pass
 
         assert self._debug_interrupt is None
 
