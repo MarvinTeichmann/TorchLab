@@ -56,7 +56,7 @@
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 8
+        "num_worker": 5
     },
 
     "encoder": {
@@ -95,7 +95,7 @@
         },
         "weights": {
             "xentropy": 1,
-            "dist": 100
+            "dist": 25
         },
         "corner": false,
         "use_mask_loss": true,
@@ -114,7 +114,7 @@
 
     "training": {
         "batch_size": 4,
-        "learning_rate": 2.5e-4,
+        "learning_rate": 5e-5,
         "lr_schedule": "poly",
         "min_lr": 1e-8,
         "exp": 1.5,
@@ -146,7 +146,7 @@
         "has_flow": false,
         "train_do_agumentation": false,
         "mask_thresh": 0.7,
-        "scale": 0.01
+        "scale": 0.04
     },
 
     "logging": {
