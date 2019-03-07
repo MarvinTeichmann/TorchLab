@@ -204,47 +204,49 @@ class DirLoader(data.Dataset):
 
     def __getitem__(self, idx):
 
-        if not self.conf['load_to_memory']:
+        image_filename = self.imagelist[idx]
 
-            image_filename = self.imagelist[idx]
-            assert os.path.exists(image_filename), \
-                "File does not exist: %s" % image_filename
+        # assert os.path.exists(image_filename), \
+        #     "File does not exist: %s" % image_filename
 
-            load_dict = {}
-            load_dict['idx'] = idx
-            load_dict['image_file'] = image_filename
-
-            image = np.array(imageio.imread(image_filename))
+        load_dict = {}
+        load_dict['idx'] = idx
+        load_dict['image_file'] = image_filename
+        if self.conf['load_to_memory']:
+            image = copy.deepcopy(self.img_loaded[idx])
         else:
-            image = copy.deepcopy(self.imagelist[idx])
-            load_dict = {}
-            load_dict['idx'] = idx
+            image = np.array(imageio.imread(image_filename))
 
         if self.metalist is not None:
-            if not self.conf['load_to_memory']:
-                # label_filename = self.labellist[idx]
-                ids_label_filename = self.ids_labellist[idx]
-                meta_filename = self.metalist[idx]
+            # label_filename = self.labellist[idx]
+            ids_label_filename = self.ids_labellist[idx]
+            meta_filename = self.metalist[idx]
 
-                # assert os.path.exists(label_filename), \
-                #    "File does not exist: %s" % label_filename
-                assert os.path.exists(ids_label_filename), \
-                    "File does not exist: %s" % ids_label_filename
-                assert os.path.exists(meta_filename), \
-                    "File does not exist: %s" % meta_filename
+            """
+            # assert os.path.exists(label_filename), \
+            #    "File does not exist: %s" % label_filename
+            assert os.path.exists(ids_label_filename), \
+                "File does not exist: %s" % ids_label_filename
+            assert os.path.exists(meta_filename), \
+                "File does not exist: %s" % meta_filename
+            """
 
-                ids_image = np.array(imageio.imread(ids_label_filename))
-                load_dict['label_file'] = ids_label_filename
-
-                if self._debug_interrupt == "only_read_png":
-                    return [image, ids_image]
-
-                npz_file = np.load(meta_filename)
+            load_dict['label_file'] = ids_label_filename
+            if self.conf['load_to_memory']:
+                ids_image = copy.deepcopy(self.ids_loaded[idx])
             else:
-                ids_image = copy.deepcopy(self.ids_labellist[idx])
-                npz_file = copy.deepcopy(self.metalist[idx])
-                if self._debug_interrupt == "only_read_png":
-                    return [image, ids_image]
+                ids_image = np.array(imageio.imread(ids_label_filename))
+
+            if self._debug_interrupt == "only_read_png":
+                return [image, ids_image]
+
+            if self.conf['load_to_memory']:
+                npz_file = copy.deepcopy(self.meta_loaded[idx])
+            else:
+                npz_file = np.load(meta_filename)
+
+            if self._debug_interrupt == "only_read_png":
+                return [image, ids_image]
 
             label_dict = {
                 "geo_world": npz_file['points_3d_world'].astype(np.float32),
@@ -376,32 +378,36 @@ class DirLoader(data.Dataset):
 
                 metalist = self._do_train_val_split(metalist)
 
+            self.metalist = [os.path.join(metadir, meta)
+                             for meta in metalist]
+
             if self.conf['load_to_memory']:
 
                 logging.info("Load all Data to memory. This may take a while.")
 
-                metalist2 = [os.path.join(metadir, meta)
-                             for meta in metalist]
+                self.meta_loaded = []
 
-                self.metalist = []
+                if self.conf['transform']['presize'] is not None:
+                    factor = self.conf['transform']['presize'] \
+                        * self.conf['transform']['npz_factor']
+                else:
+                    factor = self.conf['transform']['npz_factor']
 
-                factor = self.conf['transform']['presize'] \
-                    * self.conf['transform']['npz_factor']
+                if not (factor > 0.99 and factor < 1.01):
+                    logging.info("Resizing Meta is used. This takes longer.")
 
-                for meta in metalist2:
+                for meta in self.metalist:
                     label_dict = dict(np.load(meta))
                     if not (factor > 0.99 and factor < 1.01):
                         for key, item in label_dict.items():
                             if key in ["points_3d_world", "points_3d_camera",
-                                       "points_3d_sphere"]:
+                                       "points_3d_sphere", "mask"]:
                                 label_dict[key] = resize_torch(item, factor)
 
-                    self.metalist.append(label_dict)
+                    self.meta_loaded.append(label_dict)
 
                 logging.info("Finished Loading Meta.")
-            else:
-                self.metalist = [os.path.join(metadir, meta)
-                                 for meta in metalist]
+
         else:
             self.conf['load_to_memory'] = False
             self.metalist = None
@@ -419,23 +425,31 @@ class DirLoader(data.Dataset):
         assert os.path.exists(imgdir)
 
         imglist = [meta.split(".")[0] + ".png" for meta in metalist]
+        self.imagelist = [os.path.join(imgdir, img) for img in imglist]
+
+        for image in self.imagelist:
+            assert os.path.exists(image),\
+                "Error loading dataset. Img not found: {}".format(image)
 
         if self.conf['load_to_memory']:
-            imglist2 = [os.path.join(imgdir, img) for img in imglist]
             factor = self.conf['transform']['presize']
 
-            self.imagelist = [
-                scipy.misc.imresize(
-                    np.array(imageio.imread(fimg)),
-                    size=factor, interp='cubic') for fimg in imglist2
-            ]
-            logging.info("Finished Loading Images.")
-        else:
-            self.imagelist = [os.path.join(imgdir, img) for img in imglist]
+            if factor is not None:
 
-            for image in self.imagelist:
-                assert os.path.exists(image),\
-                    "Error loading dataset. Img not found: {}".format(image)
+                logging.info("Resizing is used. This takes longer.")
+
+                self.img_loaded = [
+                    scipy.misc.imresize(
+                        np.array(imageio.imread(fimg)),
+                        size=factor, interp='cubic') for fimg in self.imagelist
+                ]
+            else:
+                self.img_loaded = [
+                    np.array(imageio.imread(fimg))
+                    for fimg in self.imagelist
+                ]
+
+            logging.info("Finished Loading Images.")
 
         if False:
 
@@ -451,8 +465,6 @@ class DirLoader(data.Dataset):
                         "Error loading dataset. Img not found: {}".format(
                             label)
 
-                labeldir = os.path.join(datadir, 'labels')
-
             else:
                 # Handle Test Case without any meta data.
                 raise NotImplementedError
@@ -462,28 +474,31 @@ class DirLoader(data.Dataset):
             ids_labellist = [meta.split(".")[0] + ".png"
                              for meta in metalist]
 
+            self.ids_labellist = [os.path.join(ids_labeldir, ids_label)
+                                  for ids_label in ids_labellist]
+
+            for ids_label in self.ids_labellist:
+                assert os.path.exists(ids_label),\
+                    "Error loading dataset. Img not found: {}".format(
+                        label)
+
             if self.conf['load_to_memory']:
-                ids_list2 = [os.path.join(ids_labeldir, ids_label)
-                             for ids_label in ids_labellist]
                 factor = self.conf['transform']['presize']
 
-                self.ids_labellist = [
-                    scipy.misc.imresize(
-                        np.array(imageio.imread(fimg)),
-                        size=factor, interp='nearest') for fimg in ids_list2
-                ]
+                if factor is not None:
+
+                    self.ids_loaded = [
+                        scipy.misc.imresize(
+                            np.array(imageio.imread(fimg)),
+                            size=factor, interp='nearest')
+                        for fimg in self.ids_labellist
+                    ]
+                else:
+                    self.ids_loaded = [
+                        np.array(imageio.imread(fimg))
+                        for fimg in self.ids_labellist
+                    ]
                 logging.info("Finished Loading Labels.")
-            else:
-
-                self.ids_labellist = [os.path.join(ids_labeldir, ids_label)
-                                      for ids_label in ids_labellist]
-
-                for ids_label in self.ids_labellist:
-                    assert os.path.exists(ids_label),\
-                        "Error loading dataset. Img not found: {}".format(
-                            label)
-
-                labeldir = os.path.join(datadir, 'labels')
 
         else:
             # Handle Test Case without any meta data.
@@ -579,6 +594,11 @@ class DirLoader(data.Dataset):
     def transform(self, image, label_dict, load_dict):
 
         transform = self.conf['transform']
+
+        if self.conf['load_to_memory']:
+            image = image.copy()
+            for key, item in label_dict.items():
+                label_dict[key] = item.copy()
 
         if transform['equirectangular']:
             patch_size = transform['patch_size']

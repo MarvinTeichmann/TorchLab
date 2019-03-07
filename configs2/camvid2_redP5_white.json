@@ -146,7 +146,7 @@
         "has_flow": false,
         "train_do_agumentation": false,
         "mask_thresh": 0.7,
-        "scale": 0.04
+        "scale": 0.1
     },
 
     "logging": {
