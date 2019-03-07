@@ -19,6 +19,8 @@
         "label_encoding": "dense",
         "root_classes": 0,
 
+        "load_to_memory": false,
+
         "grid_size": 10,
         "grid_dims": 3,
 

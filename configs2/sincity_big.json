@@ -16,6 +16,8 @@
         "idx_offset": 1,
         "num_classes": null,
 
+        "load_to_memory": true,
+
 
         "label_encoding": "dense",
         "root_classes": 0,
@@ -36,12 +38,12 @@
                 "wrap": true,
                 "plane_f": 0.05
                 },
-            "presize": null,
-            "npz_factor": null,
+            "presize": 0.5,
+            "npz_factor": 1,
             "color_augmentation_level": 1,
             "fix_shape": true,
             "reseize_image": false,
-            "patch_size": [424, 424],
+            "patch_size": [240, 240],
             "random_crop": false,
             "random_roll": true,
             "max_crop": 4,
@@ -56,7 +58,7 @@
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 6
+        "num_worker": 5
     },
 
     "encoder": {
@@ -94,8 +96,8 @@
             }
         },
         "weights": {
-            "xentropy": 3,
-            "dist": 100
+            "xentropy": 1,
+            "dist": 30
         },
         "corner": false,
         "use_mask_loss": true,
@@ -113,7 +115,7 @@
     },
 
     "training": {
-        "batch_size": 2,
+        "batch_size": 6,
         "learning_rate": 5e-5,
         "lr_schedule": "poly",
         "min_lr": 1e-8,
@@ -130,7 +132,7 @@
         "max_epoch_steps": null,
         "init_weights_from_checkpoint": false,
         "wd_policy": 2,
-        "num_gpus": 4
+        "num_gpus": 1
     },
 
     "evaluation": {
@@ -149,7 +151,7 @@
     },
 
     "logging": {
-        "disp_per_epoch": 20,
+        "disp_per_epoch": 500,
         "eval_iter": 10,
         "log": true,
         "checkpoint_backup": 100000,

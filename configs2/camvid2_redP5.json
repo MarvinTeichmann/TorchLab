@@ -24,6 +24,8 @@
 
         "dist_mask": null,
 
+        "load_to_memory": false,
+
         "subsample": 0,
 
         "do_split": true,
@@ -46,12 +48,12 @@
             "random_roll": true,
             "max_crop": 4,
             "crop_chance": 0.6,
-            "random_resize": true,
+            "random_resize": false,
             "lower_fac": 0.5,
             "upper_fac": 2,
             "resize_sig": 0.3,
             "random_flip": false,
-            "random_rotation": true,
+            "random_rotation": false,
             "normalize": false,
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
@@ -113,7 +115,7 @@
     },
 
     "training": {
-        "batch_size": 4,
+        "batch_size": 3,
         "learning_rate": 5e-5,
         "lr_schedule": "poly",
         "min_lr": 1e-8,
@@ -150,8 +152,8 @@
     },
 
     "logging": {
-        "disp_per_epoch": 4,
-        "eval_iter": 20,
+        "disp_per_epoch": 20,
+        "eval_iter": 50,
         "log": true,
         "checkpoint_backup": 2000,
         "mayor_eval": 1000
