@@ -456,7 +456,8 @@ class Evaluator():
 
         self.loader = loader.get_data_loader(
             conf['dataset'], split=split, batch_size=batch_size,
-            sampler=subsampler, do_augmentation=do_augmentation)
+            sampler=subsampler, do_augmentation=do_augmentation,
+            pin_memory=False)
 
         self.minor_iter = max(
             1, len(self.loader) // conf['evaluation']['num_minor_imgs'])
@@ -559,7 +560,7 @@ class Evaluator():
 
                 logging.info(for_str)
 
-        plt.close("all")
+            plt.close("all")
 
         return CombinedMetric([bmetric, metric, dmetric])
 
@@ -812,18 +813,20 @@ class Evaluator():
         if 'white_labels' not in sample.keys():
             return points, colours
 
-        for i, label in enumerate(sample['white_labels'][0].numpy()):
+        for i, label in enumerate(sample['white_labels']):
 
-            if len(points[label_points + 1 == label]) > 0:
+            mylabel = label[0].item()
+
+            if len(points[label_points + 1 == mylabel]) > 0:
 
                 wpoints = np.dot(
-                    sample['white_Kinv'][0][i],
-                    points[label_points + 1 == label].transpose()).transpose()
+                    sample['white_Kinv'][i][0],
+                    points[label_points + 1 == mylabel].T).T
 
-                res = wpoints + sample['white_mean'][0][i].numpy()
+                res = wpoints + sample['white_mean'][i][0].numpy()
 
                 res_points.append(res)
-                col_points.append(colours[label_points + 1 == label])
+                col_points.append(colours[label_points + 1 == mylabel])
 
         return np.concatenate(res_points), np.concatenate(col_points)
 

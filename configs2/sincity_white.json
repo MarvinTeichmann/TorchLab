@@ -8,9 +8,9 @@
     },
 
     "dataset" : {
-        "dataset": "Camvid360",
-        "train_root": "camvid360/P4_100_white",
-        "val_root": "camvid360/P4_100_white",
+        "dataset": "SinCity",
+        "train_root": "sincity/white_small_100",
+        "val_root": "sincity/white_small_100",
 
         "ignore_label": 0,
         "idx_offset": 1,
@@ -58,7 +58,7 @@
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 5
+        "num_worker": 4
     },
 
     "encoder": {
@@ -97,7 +97,7 @@
         },
         "weights": {
             "xentropy": 1,
-            "dist": 25
+            "dist": 10
         },
         "corner": false,
         "use_mask_loss": true,
@@ -116,7 +116,7 @@
 
     "training": {
         "batch_size": 5,
-        "learning_rate": 5e-5,
+        "learning_rate": 1e-4,
         "lr_schedule": "poly",
         "min_lr": 1e-8,
         "exp": 1.5,
@@ -126,7 +126,7 @@
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": null,
-        "max_epochs": 2000,
+        "max_epochs": 6000,
         "pre_eval": false,
         "cnn_gpus": null,
         "max_epoch_steps": null,
@@ -152,8 +152,8 @@
     },
 
     "logging": {
-        "disp_per_epoch": 4,
-        "eval_iter": 20,
+        "disp_per_epoch": 5,
+        "eval_iter": 30,
         "log": true,
         "checkpoint_backup": 2000,
         "mayor_eval": 1000

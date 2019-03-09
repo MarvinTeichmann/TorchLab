@@ -302,7 +302,7 @@ class DirLoader(data.Dataset):
 
         try:
             for key in ['white_Kinv', 'white_mean', 'white_labels']:
-                sample[key] = npz_file[key]
+                sample[key] = list(npz_file[key])
         except KeyError:
             pass
 

@@ -116,7 +116,7 @@
 
     "training": {
         "batch_size": 5,
-        "learning_rate": 1e-4,
+        "learning_rate": 3e-4,
         "lr_schedule": "poly",
         "min_lr": 1e-8,
         "exp": 1.5,
@@ -148,7 +148,7 @@
         "has_flow": false,
         "train_do_agumentation": false,
         "mask_thresh": 0.7,
-        "scale": 0.1
+        "scale": 0.06
     },
 
     "logging": {

@@ -9,8 +9,8 @@
 
     "dataset" : {
         "dataset": "Camvid360",
-        "train_root": "camvid360/P4_100_white",
-        "val_root": "camvid360/P4_100_white",
+        "train_root": "camvid360/white_full",
+        "val_root": "camvid360/white_full",
 
         "ignore_label": 0,
         "idx_offset": 1,
@@ -19,16 +19,16 @@
         "label_encoding": "dense",
         "root_classes": 0,
 
+        "load_to_memory": false,
+
         "grid_size": 10,
         "grid_dims": 3,
 
         "dist_mask": null,
 
-        "load_to_memory": false,
-
         "subsample": 0,
-
         "do_split": true,
+
         "transform": {
             "equirectangular": false,
             "equi_crop": {
@@ -43,7 +43,7 @@
             "color_augmentation_level": 1,
             "fix_shape": true,
             "reseize_image": false,
-            "patch_size": [416, 416],
+            "patch_size": [424, 424],
             "random_crop": false,
             "random_roll": true,
             "max_crop": 4,
@@ -58,7 +58,7 @@
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 5
+        "num_worker": 8
     },
 
     "encoder": {
@@ -97,11 +97,11 @@
         },
         "weights": {
             "xentropy": 1,
-            "dist": 25
+            "dist": 10
         },
         "corner": false,
         "use_mask_loss": true,
-        "mask_weight": [0.2, 0.8],
+        "mask_weight": null,
         "spatial": false,
         "embedding_loss": null,
         "squeeze": false,
@@ -116,7 +116,7 @@
 
     "training": {
         "batch_size": 5,
-        "learning_rate": 5e-5,
+        "learning_rate": 3e-4,
         "lr_schedule": "poly",
         "min_lr": 1e-8,
         "exp": 1.5,
@@ -126,13 +126,13 @@
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": null,
-        "max_epochs": 2000,
+        "max_epochs": 6000,
         "pre_eval": false,
         "cnn_gpus": null,
         "max_epoch_steps": null,
         "init_weights_from_checkpoint": false,
         "wd_policy": 2,
-        "num_gpus": 1
+        "num_gpus": 4
     },
 
     "evaluation": {
@@ -143,27 +143,27 @@
         "do_dist_eval": true,
         "do_mask_eval": true,
         "reduce_val_bs": true,
-        "val_subsample": null,
-        "train_subsample": 10,
+        "val_subsample": 5,
+        "train_subsample": 50,
         "has_flow": false,
         "train_do_agumentation": false,
         "mask_thresh": 0.7,
-        "scale": 0.06
+        "scale": 0.04
     },
 
     "logging": {
-        "disp_per_epoch": 4,
+        "disp_per_epoch": 10,
         "eval_iter": 20,
         "log": true,
         "checkpoint_backup": 2000,
-        "mayor_eval": 1000
+        "mayor_eval": 2000
     },
 
     "plotting": {
         "defaults": {
             "plot": ["mIoU", "mIoU", "Acc @6", "Acc @12", "Acc @12", "Dist Mean", "CDM min"],
             "prefixes": ["val", "train", "val", "val", "train", "val", "val"],
-            "titles": ["Validation mIoU", "Validation Accuracy", "Train mIoU", "Acc @6", "Acc @12", "Train Acc @12",
+            "titles": ["Validation mIoU", "Train mIoU", "Acc @6", "Acc @12", "Train Acc @12",
                        "Dist Mean (val)", "Clipped Dist Mean (val)"]
         }
     },
