@@ -833,7 +833,7 @@ def random_shear(image, label_dict,
 
 def random_resize(image, label_dict, lower_size, upper_size, sig):
 
-    if random.random() < 0.8:
+    if random.random() < 0.75:
         return image, label_dict
 
     factor = skewed_normal(mean=1, std=sig, lower=lower_size, upper=upper_size)

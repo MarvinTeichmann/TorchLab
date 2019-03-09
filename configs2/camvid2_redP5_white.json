@@ -9,8 +9,8 @@
 
     "dataset" : {
         "dataset": "Camvid360",
-        "train_root": "camvid360/P4_100_white",
-        "val_root": "camvid360/P4_100_white",
+        "train_root": "camvid360/P4_100_white_sized",
+        "val_root": "camvid360/P4_100_white_sized",
 
         "ignore_label": 0,
         "idx_offset": 1,
@@ -38,8 +38,8 @@
                 "wrap": true,
                 "plane_f": 0.05
                 },
-            "presize": 0.5,
-            "npz_factor": 2,
+            "presize": null,
+            "npz_factor": 1,
             "color_augmentation_level": 1,
             "fix_shape": true,
             "reseize_image": false,
@@ -58,7 +58,7 @@
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 5
+        "num_worker": 3
     },
 
     "encoder": {
@@ -116,7 +116,7 @@
 
     "training": {
         "batch_size": 5,
-        "learning_rate": 5e-5,
+        "learning_rate": 5e-4,
         "lr_schedule": "poly",
         "min_lr": 1e-8,
         "exp": 1.5,
