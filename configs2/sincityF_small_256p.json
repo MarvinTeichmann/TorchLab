@@ -28,7 +28,7 @@
 
         "subsample": 0,
 
-        "do_split": true,
+        "do_split": false,
         "transform": {
             "equirectangular": false,
             "equi_crop": {
@@ -58,7 +58,7 @@
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 2
+        "num_worker": 4
     },
 
     "encoder": {
@@ -115,7 +115,7 @@
     },
 
     "training": {
-        "batch_size": 25,
+        "batch_size": 20,
         "learning_rate": 20e-4,
         "lr_schedule": "poly",
         "min_lr": 1e-8,
@@ -143,17 +143,18 @@
         "do_dist_eval": true,
         "do_mask_eval": true,
         "reduce_val_bs": true,
-        "val_subsample": 2,
+        "val_subsample": 5,
         "train_subsample": 20,
         "has_flow": false,
         "train_do_agumentation": true,
         "mask_thresh": 0.7,
-        "scale": 0.06
+        "scale": 0.06,
+        "scale_world": 0.01
     },
 
     "logging": {
         "disp_per_epoch": 5,
-        "eval_iter": 40,
+        "eval_iter": 20,
         "log": true,
         "checkpoint_backup": 2000,
         "mayor_eval": 1000

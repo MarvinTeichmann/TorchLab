@@ -14,7 +14,7 @@
 
         "ignore_label": 0,
         "idx_offset": 1,
-        "num_classes": null,
+        "num_classes": null
 
         "label_encoding": "dense",
         "root_classes": 0,

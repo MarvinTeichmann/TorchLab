@@ -325,17 +325,22 @@ class DirLoader(data.Dataset):
 
         self.is_white = self.meta_dict['is_white']
 
-        if self.meta_dict['is_white'] and self.split == 'train':
-            white_file = os.path.join(self.datadir, 'vis.npz')
-            self.white_dict = dict(np.load(white_file))
-        else:
-            self.white_dict = None
-
         if self.conf['num_classes'] is None:
             self.num_classes = self.meta_dict['num_classes']
             self.conf['num_classes'] = self.num_classes
         else:
             self.num_classes = self.conf['num_classes']
+
+        if self.meta_dict['is_white'] and self.split == 'train':
+            white_file = os.path.join(self.datadir, 'vis.npz')
+            self.white_dict = dict(np.load(white_file))
+            self.white_dict['id_to_pos'] = [
+                None for i in range(self.num_classes + 1)]
+
+            for i, label in enumerate(self.white_dict['white_labels']):
+                self.white_dict['id_to_pos'][label] = i
+        else:
+            self.white_dict = None
 
         self.vis_file = os.path.join(self.datadir, 'colors.lst')
 

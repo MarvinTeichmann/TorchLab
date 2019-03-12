@@ -501,15 +501,24 @@ class Evaluator():
             metric = None
 
         if self.conf['evaluation']['do_dist_eval']:
+
+            if self.model.is_white and not self.loader.dataset.is_white:
+                scale = self.conf['evaluation']['scale_world']
+            else:
+                scale = self.conf['evaluation']['scale']
+
             dmetric = distmetric.DistMetric(
-                scale=self.conf['evaluation']['scale'])
+                scale=scale)
         else:
             dmetric = None
 
         self.conf['evaluation']['mask_thresh'] = 0.7
 
-        bmetric = BinarySegMetric(
-            thresh=self.conf['evaluation']['mask_thresh'])
+        if self.conf['evaluation']['do_mask_eval']:
+            bmetric = BinarySegMetric(
+                thresh=self.conf['evaluation']['mask_thresh'])
+        else:
+            bmetric = None
 
         self.trans = self.conf['evaluation']['transparency']
 
@@ -564,18 +573,40 @@ class Evaluator():
 
         return CombinedMetric([bmetric, metric, dmetric])
 
-    def _unwhiten_points(self, pred_world_np):
-        import ipdb # NOQA
-        ipdb.set_trace()
-        pass
-        pass
+    def _unwhiten_points(self, pred_world_np, sample, d):
+
+        pred_world_np = pred_world_np[d].copy()
+        for label in set(sample['label'][d].flatten().numpy()):
+
+            if label == -100:
+                continue
+
+            assert sample['label'].shape[0] == 1
+            white_dict = self.model.white_dict
+
+            myid = white_dict['id_to_pos'][label + 1]
+
+            assert myid is not None
+
+            white_kinv = white_dict['white_Kinv'][myid]
+            white_mean = white_dict['white_mean'][myid]
+
+            idx = (sample['label'].squeeze().numpy() == label)
+
+            try:
+                pred_world_np.T[idx.T] = np.dot(
+                    white_kinv,
+                    pred_world_np.T[idx.T].T).T + white_mean
+            except:
+                import ipdb # NOQA
+                ipdb.set_trace()
+                pass
+
+        return pred_world_np
 
     def _do_disk_eval(self, output, sample, metric, start_time, step, epoch):
         pred_world_np = output['world'].cpu().numpy()
         label_world_np = sample['geo_world'].cpu().numpy()
-
-        # if self.model.is_white and not self.loader.dataset.is_white:
-        #     self._unwhiten_points(pred_world_np)
 
         if not step % self.minor_iter:
             self._write_3d_output(
@@ -596,8 +627,14 @@ class Evaluator():
         total_mask_np = total_mask.cpu().numpy().astype(np.bool)
 
         for d in range(pred_world_np.shape[0]):
+
+            if self.model.is_white and not self.loader.dataset.is_white:
+                pred_world_np = self._unwhiten_points(pred_world_np, sample, d)
+            else:
+                pred_world_np = pred_world_np[d]
+
             metric.add(
-                pred_world_np[d], label_world_np[d], total_mask_np[d])
+                pred_world_np, label_world_np[d], total_mask_np[d])
 
         return duration
 
@@ -733,8 +770,6 @@ class Evaluator():
 
         iterdir = os.path.join(stepdir, 'iters')
 
-        label_points = sample['label'][0].numpy().transpose()[total_mask]
-
         if not os.path.exists(stepdir):
             os.mkdir(stepdir)
 
@@ -745,13 +780,16 @@ class Evaluator():
             scp.misc.imsave(arr=image, name=os.path.join(stepdir, img_name))
 
             world_points = sample['geo_world'][0].cpu().numpy().transpose()
-            wpoints, masked_colours = self._update_points_3d(
-                world_points[total_mask], label_points, colours[total_mask],
-                sample)
+
+            if self.loader.dataset.is_white:
+                world_points = self._unwhiten_points(
+                    sample['geo_world'].cpu().numpy(), sample, 0).T
+            else:
+                world_points = sample['geo_world'][0].cpu().numpy().transpose()
 
             fname = os.path.join(stepdir, "label_world.ply")
-            write_ply_file(fname, wpoints,
-                           masked_colours)
+            write_ply_file(fname, world_points[total_mask],
+                           colours[total_mask])
 
             world_points = sample['geo_sphere'][0].cpu().numpy().transpose()
             fname = os.path.join(stepdir, "label_sphere.ply")
@@ -768,19 +806,21 @@ class Evaluator():
 
         assert self.threeDFiles[stepdir] == img_name
 
-        world_points = output['world'][0].cpu().numpy().transpose()
-        wpoints, masked_colours = self._update_points_3d(
-            world_points[total_mask], label_points, colours[total_mask],
-            sample)
+        if self.model.is_white:
+            world_points = self._unwhiten_points(
+                output['world'].cpu().numpy(), sample, 0).T
+        else:
+            world_points = output['world'][0].cpu().numpy().transpose()
+
         if epoch is not None:
             fname = os.path.join(iterdir, "pred_world_epoch_{:05d}.ply".format(
                 epoch))
 
             write_ply_file(
-                fname, wpoints, masked_colours)
+                fname, world_points[total_mask], colours[total_mask])
 
         fname = os.path.join(stepdir, "pred_world.ply")
-        write_ply_file(fname, wpoints, masked_colours)
+        write_ply_file(fname, world_points[total_mask], colours[total_mask])
 
         world_points = output['camera'][0].cpu().numpy().transpose()
         fname = os.path.join(stepdir, "pred_camera.ply")

@@ -91,7 +91,7 @@
             "world": true
         },
         "weights": {
-            "xentropy": 1,
+            "xentropy": 0,
             "dist": 10,
             "spherical": 1
         },
@@ -111,7 +111,7 @@
     },
 
     "training": {
-        "batch_size": 25,
+        "batch_size": 20,
         "learning_rate": 20e-4,
         "lr_schedule": "poly",
         "min_lr": 1e-8,
@@ -137,7 +137,7 @@
         "default_level": "minor",
         "do_segmentation_eval": true,
         "do_dist_eval": true,
-        "do_mask_eval": true,
+        "do_mask_eval": false,
         "reduce_val_bs": true,
         "val_subsample": 5,
         "train_subsample": 20,
@@ -148,8 +148,8 @@
     },
 
     "logging": {
-        "disp_per_epoch": 10,
-        "eval_iter": 40,
+        "disp_per_epoch": 5,
+        "eval_iter": 20,
         "log": true,
         "checkpoint_backup": 2000,
         "mayor_eval": 1000
@@ -157,13 +157,13 @@
 
     "plotting": {
         "defaults": {
-            "plot": ["mIoU", "mIoU", "Acc @6", "Acc @12", "Acc @12", "Dist Mean", "CDM min"],
-            "prefixes": ["val", "train", "val", "val", "train", "val", "val"],
-            "titles": ["Validation mIoU", "Validation Accuracy", "Train mIoU", "Acc @6", "Acc @12", "Train Acc @12",
-                       "Dist Mean (val)", "Clipped Dist Mean (val)"]
+            "plot": ["Dist Mean", "CDM min", "Dist Mean", "CDM min", "Acc @12", "Acc @12"],
+            "prefixes": ["train", "train", "train", "val", "val", "val", "train","val"],
+            "titles": ["Dist Mean (train)", "Clipped Dist Mean (train)",
+                       "Dist Mean (val)", "Clipped Dist Mean (val)",
+                       "Accuracy @12 (train)", "Accuracy @12 (val)"]
         }
     },
-
     "pyvision": {
         "project_name": "localsegSIN",
         "entry_point": "../localseg/segmodel2.py",
