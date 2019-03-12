@@ -175,7 +175,13 @@ class SegModel(nn.Module):
 
         assert conf['dataset']['label_encoding'] in ['dense', 'spatial_2d']
         self.label_encoding = conf['dataset']['label_encoding']
+
+        # TODO: Find more elegant solution
+        # TODO: save relevant information to checkpoint file
         self.num_classes = self.trainer.loader.dataset.num_classes
+        self.class_file = self.trainer.loader.dataset.vis_file
+        self.white_dict = self.trainer.loader.dataset.white_dict
+        self.is_white = self.trainer.loader.dataset.is_white
 
         assert conf['modules']['model'] in ['mapillary', 'end_dec']
 

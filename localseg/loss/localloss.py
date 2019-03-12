@@ -123,6 +123,17 @@ class LocalLoss(nn.Module):
         mask_loss = weights['xentropy'] * mask_loss
 
         total_loss = class_loss + dist_loss + mask_loss
+
+        if self.conf['loss']['geometric_type']['spherical']:
+            dist_gt = sample['geo_sphere']
+
+            sphere_loss = self.dist_loss(
+                dist_gt, predictions['sphere'], mask=None)
+
+            sphere_loss = weights['spherical'] * sphere_loss
+
+            total_loss += sphere_loss
+
         total_mask = sample['total_mask'].unsqueeze(1).float()
 
         output_dict = OrderedDict()
@@ -130,6 +141,10 @@ class LocalLoss(nn.Module):
         output_dict['Loss'] = total_loss
         output_dict['ClassLoss'] = class_loss
         output_dict['DistLoss'] = dist_loss
+
+        if self.conf['loss']['geometric_type']['spherical']:
+            output_dict['SphereLoss'] = sphere_loss
+
         output_dict['MaskLoss'] = mask_loss
         output_dict['MaskMean'] = torch.mean(total_mask)
 
@@ -152,10 +167,15 @@ class LocalLoss(nn.Module):
 
         if confloss['geometric_type']['spherical']:
 
-            dist_gt = sample['geo_sphere']
+            pass
 
-            dist_loss += self.dist_loss(
-                dist_gt, geo_pred['sphere'], total_mask)
+            # dist_gt = sample['geo_sphere']
+
+            # dist_loss += self.dist_loss(
+            #    dist_gt, geo_pred['sphere'], 1)
+
+            # dist_loss += self.dist_loss(
+            #     dist_gt, geo_pred['sphere'], total_mask)
 
         if confloss['geometric_type']['camera']:
 
@@ -205,8 +225,10 @@ class MSELoss(_WeightedLoss):
     def forward(self, input, target, mask):
 
         if self.sqrt:
-            mask = torch.squeeze(mask)
-            dists = torch.norm(input - target.float(), dim=1) * mask
+            dists = torch.norm(input - target.float(), dim=1)
+            if mask is not None:
+                mask = torch.squeeze(mask)
+                dists = dists * mask
             return torch.mean(dists)
         else:
             return torch.mean(((input - target.float())**2) * mask)

@@ -28,7 +28,7 @@
 
         "subsample": 0,
 
-        "do_split": false,
+        "do_split": true,
         "transform": {
             "equirectangular": false,
             "equi_crop": {
@@ -143,7 +143,7 @@
         "do_dist_eval": true,
         "do_mask_eval": true,
         "reduce_val_bs": true,
-        "val_subsample": 100,
+        "val_subsample": 10,
         "train_subsample": 100,
         "has_flow": false,
         "train_do_agumentation": true,
@@ -152,7 +152,7 @@
     },
 
     "logging": {
-        "disp_per_epoch": 10,
+        "disp_per_epoch": 200,
         "eval_iter": 20,
         "log": true,
         "checkpoint_backup": 2000,

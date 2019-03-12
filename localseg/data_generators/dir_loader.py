@@ -301,8 +301,9 @@ class DirLoader(data.Dataset):
                 np.float32)
 
         try:
-            for key in ['white_Kinv', 'white_mean', 'white_labels']:
-                sample[key] = list(npz_file[key])
+            if not self.do_augmentation:
+                for key in ['white_Kinv', 'white_mean', 'white_labels']:
+                    sample[key] = list(npz_file[key])
         except KeyError:
             pass
 
@@ -321,6 +322,14 @@ class DirLoader(data.Dataset):
 
         mask_file = os.path.join(self.datadir, 'class_ids.json')
         self.mask_table = json.load(open(mask_file))
+
+        self.is_white = self.meta_dict['is_white']
+
+        if self.meta_dict['is_white'] and self.split == 'train':
+            white_file = os.path.join(self.datadir, 'vis.npz')
+            self.white_dict = dict(np.load(white_file))
+        else:
+            self.white_dict = None
 
         if self.conf['num_classes'] is None:
             self.num_classes = self.meta_dict['num_classes']

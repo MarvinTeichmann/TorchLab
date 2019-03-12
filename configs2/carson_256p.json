@@ -9,7 +9,7 @@
 
     "dataset" : {
         "dataset": "SinCity",
-        "train_root": "sincity/small_256p",
+        "train_root": "sincity/small_new_256p",
         "val_root": "sincity/TEST/small_new_256p",
 
         "ignore_label": 0,
@@ -28,7 +28,7 @@
 
         "subsample": 0,
 
-        "do_split": true,
+        "do_split": false,
         "transform": {
             "equirectangular": false,
             "equi_crop": {
@@ -58,7 +58,7 @@
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 2
+        "num_worker": 4
     },
 
     "encoder": {
@@ -86,18 +86,14 @@
     "loss":{
         "type": "magic",
         "geometric_type": {
-            "spherical": false,
+            "spherical": true,
             "camera": false,
-            "world": true,
-            "weights": {
-                "spherical": 1,
-                "camera": 1,
-                "world": 1
-            }
+            "world": true
         },
         "weights": {
             "xentropy": 1,
-            "dist": 10
+            "dist": 10,
+            "spherical": 1
         },
         "corner": false,
         "use_mask_loss": true,
@@ -143,16 +139,16 @@
         "do_dist_eval": true,
         "do_mask_eval": true,
         "reduce_val_bs": true,
-        "val_subsample": 2,
+        "val_subsample": 5,
         "train_subsample": 20,
         "has_flow": false,
         "train_do_agumentation": true,
         "mask_thresh": 0.7,
-        "scale": 0.06
+        "scale": 0.01
     },
 
     "logging": {
-        "disp_per_epoch": 5,
+        "disp_per_epoch": 10,
         "eval_iter": 40,
         "log": true,
         "checkpoint_backup": 2000,

@@ -21,6 +21,9 @@ import logging
 import torch
 import pickle
 
+from joblib import Parallel, delayed
+import multiprocessing
+
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
@@ -76,7 +79,7 @@ def main(args):
     if args.ids_table is not None:
         colour_to_id = pickle.load(open(args.ids_table, 'rb'))
 
-    for i, file in enumerate(metalist):
+    def process_parallel(i, file):
 
         npz = np.load(os.path.join(path, file))
 
@@ -85,21 +88,20 @@ def main(args):
         for key in ['R', 'T']:
             newdict[key] = npz[key].astype(np.float32)
 
-        for key in ['points_3d_world', 'points_3d_camera', 'points_3d_sphere']:
+        for key in ['points_3d_world', 'points_3d_camera',
+                    'points_3d_sphere_unmasked']:
 
             if args.reduce:
                 points = resize_torch(npz[key], factor=0.5, mode='cubic')
             else:
                 points = npz[key]
 
-            """
-            if key == "points_3d_sphere_unmask":
+            if key == "points_3d_sphere_unmasked":
                 key2 = "points_3d_sphere"
             else:
                 key2 = key
-            """
 
-            newdict[key] = points.astype(np.float16)
+            newdict[key2] = points.astype(np.float16)
 
         for key in ['mask']:
             if args.reduce:
@@ -122,9 +124,14 @@ def main(args):
 
         np.savez(os.path.join(outdir, file), **newdict)
 
-        if not i % 10:
-            logging.info("Finished writing: {:4d} / {:4d}".format(
-                i, len(metalist)))
+        if not i % 40:
+            print("Finished writing: {:4d} / {:4d}".format(
+                  i, len(metalist)))
+
+    num_cores = multiprocessing.cpu_count()
+
+    Parallel(n_jobs=num_cores)(
+        delayed(process_parallel)(*x) for x in enumerate(metalist))
 
 if __name__ == '__main__':
     args = get_args()

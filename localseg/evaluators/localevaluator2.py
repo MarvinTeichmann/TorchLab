@@ -564,9 +564,18 @@ class Evaluator():
 
         return CombinedMetric([bmetric, metric, dmetric])
 
+    def _unwhiten_points(self, pred_world_np):
+        import ipdb # NOQA
+        ipdb.set_trace()
+        pass
+        pass
+
     def _do_disk_eval(self, output, sample, metric, start_time, step, epoch):
         pred_world_np = output['world'].cpu().numpy()
         label_world_np = sample['geo_world'].cpu().numpy()
+
+        # if self.model.is_white and not self.loader.dataset.is_white:
+        #     self._unwhiten_points(pred_world_np)
 
         if not step % self.minor_iter:
             self._write_3d_output(

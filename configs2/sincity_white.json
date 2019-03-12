@@ -9,8 +9,8 @@
 
     "dataset" : {
         "dataset": "SinCity",
-        "train_root": "sincity/white_small_100",
-        "val_root": "sincity/white_small_100",
+        "train_root": "sincity/small_512p",
+        "val_root": "sincity/small_512p",
 
         "ignore_label": 0,
         "idx_offset": 1,
@@ -28,7 +28,7 @@
 
         "subsample": 0,
 
-        "do_split": true,
+        "do_split": false,
         "transform": {
             "equirectangular": false,
             "equi_crop": {
@@ -38,8 +38,8 @@
                 "wrap": true,
                 "plane_f": 0.05
                 },
-            "presize": 0.5,
-            "npz_factor": 2,
+            "presize": null,
+            "npz_factor": 1,
             "color_augmentation_level": 1,
             "fix_shape": true,
             "reseize_image": false,
@@ -116,7 +116,7 @@
 
     "training": {
         "batch_size": 5,
-        "learning_rate": 1e-4,
+        "learning_rate": 5e-4,
         "lr_schedule": "poly",
         "min_lr": 1e-8,
         "exp": 1.5,
@@ -132,7 +132,7 @@
         "max_epoch_steps": null,
         "init_weights_from_checkpoint": false,
         "wd_policy": 2,
-        "num_gpus": 1
+        "num_gpus": 4
     },
 
     "evaluation": {
@@ -143,8 +143,8 @@
         "do_dist_eval": true,
         "do_mask_eval": true,
         "reduce_val_bs": true,
-        "val_subsample": null,
-        "train_subsample": 10,
+        "val_subsample": 50,
+        "train_subsample": 50,
         "has_flow": false,
         "train_do_agumentation": false,
         "mask_thresh": 0.7,
@@ -152,8 +152,8 @@
     },
 
     "logging": {
-        "disp_per_epoch": 5,
-        "eval_iter": 30,
+        "disp_per_epoch": 30,
+        "eval_iter": 5,
         "log": true,
         "checkpoint_backup": 2000,
         "mayor_eval": 1000
@@ -169,7 +169,7 @@
     },
 
     "pyvision": {
-        "project_name": "localseg2",
+        "project_name": "localsegSIN",
         "entry_point": "../localseg/segmodel2.py",
         "plotter": "../localseg/plotting/segplotter.py",
         "required_packages": ["../localseg"],
