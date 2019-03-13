@@ -573,36 +573,32 @@ class Evaluator():
 
         return CombinedMetric([bmetric, metric, dmetric])
 
-    def _unwhiten_points(self, pred_world_np, sample, d):
+    def _unwhiten_points(self, white_points, segmentation):
 
-        pred_world_np = pred_world_np[d].copy()
-        for label in set(sample['label'][d].flatten().numpy()):
+        white_points = white_points.copy()
+
+        for label in set(segmentation.flatten().numpy()):
 
             if label == -100:
                 continue
 
-            assert sample['label'].shape[0] == 1
             white_dict = self.model.white_dict
 
             myid = white_dict['id_to_pos'][label + 1]
 
-            assert myid is not None
+            if myid is None:
+                continue
 
             white_kinv = white_dict['white_Kinv'][myid]
             white_mean = white_dict['white_mean'][myid]
 
-            idx = (sample['label'].squeeze().numpy() == label)
+            idx = (segmentation.squeeze().numpy() == label)
 
-            try:
-                pred_world_np.T[idx.T] = np.dot(
-                    white_kinv,
-                    pred_world_np.T[idx.T].T).T + white_mean
-            except:
-                import ipdb # NOQA
-                ipdb.set_trace()
-                pass
+            white_points.T[idx.T] = np.dot(
+                white_kinv,
+                white_points.T[idx.T].T).T + white_mean
 
-        return pred_world_np
+        return white_points
 
     def _do_disk_eval(self, output, sample, metric, start_time, step, epoch):
         pred_world_np = output['world'].cpu().numpy()
@@ -629,7 +625,8 @@ class Evaluator():
         for d in range(pred_world_np.shape[0]):
 
             if self.model.is_white and not self.loader.dataset.is_white:
-                pred_world_np = self._unwhiten_points(pred_world_np, sample, d)
+                pred_world_np = self._unwhiten_points(
+                    pred_world_np[d], sample['label'][d])
             else:
                 pred_world_np = pred_world_np[d]
 
@@ -783,7 +780,7 @@ class Evaluator():
 
             if self.loader.dataset.is_white:
                 world_points = self._unwhiten_points(
-                    sample['geo_world'].cpu().numpy(), sample, 0).T
+                    sample['geo_world'][0].cpu().numpy(), sample['label'][0]).T
             else:
                 world_points = sample['geo_world'][0].cpu().numpy().transpose()
 
@@ -808,7 +805,7 @@ class Evaluator():
 
         if self.model.is_white:
             world_points = self._unwhiten_points(
-                output['world'].cpu().numpy(), sample, 0).T
+                output['world'][0].cpu().numpy(), sample['label'][0]).T
         else:
             world_points = output['world'][0].cpu().numpy().transpose()
 

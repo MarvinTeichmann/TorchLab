@@ -378,6 +378,8 @@ class DirLoader(data.Dataset):
         datadir = os.path.join(self.root_dir, self.data_root)
         self.datadir = datadir
 
+        logging.info("Loading Dataset from: {}".format(self.datadir))
+
         metadir = os.path.join(datadir, 'meta2')
 
         if os.path.exists(metadir):
