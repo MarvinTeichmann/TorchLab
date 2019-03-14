@@ -42,19 +42,19 @@ bench_name = "firstP34Bench"
 values = [
     [],
     [True],
-    ["camvid360/part34_world_240p"],
-    ["camvid360/part34_world_240p", 0],
-    ["camvid360/part34_world_240p", 0, True],
-    ["camvid360/part34_world_240p", 0, True, False]]
+    ["camvid360/part34_world_240p", 0.2],
+    ["camvid360/part34_world_240p", 0.2, 0],
+    ["camvid360/part34_world_240p", 0.2, 0, True],
+    ["camvid360/part34_world_240p", 0.2, 0, True, False]]
 
 
 keys = [
     [],
     ["evaluation.use_gt_label"],
-    ["dataset.train_root"],
-    ["dataset.train_root", "loss.weights.xentropy"],
-    ["dataset.train_root", "loss.weights.xentropy", "loss.geometric_type.spherical"],  # NOQA: E501
-    ["dataset.train_root", "loss.weights.xentropy", "loss.geometric_type.spherical", "loss.geometric_type.world"]   # NOQA: E501
+    ["dataset.train_root", "loss.weights.dist"],
+    ["dataset.train_root", "loss.weights.dist", "loss.weights.xentropy"],
+    ["dataset.train_root", "loss.weights.dist", "loss.weights.xentropy", "loss.geometric_type.spherical"],  # NOQA: E501
+    ["dataset.train_root", "loss.weights.dist", "loss.weights.xentropy", "loss.geometric_type.spherical", "loss.geometric_type.world"]   # NOQA: E501
 ]
 
 # print_str = "pv2 train --gpus %s {}" % gpus

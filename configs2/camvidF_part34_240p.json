@@ -88,12 +88,7 @@
         "geometric_type": {
             "spherical": false,
             "camera": false,
-            "world": true,
-            "weights": {
-                "spherical": 1,
-                "camera": 1,
-                "world": 1
-            }
+            "world": true
         },
         "weights": {
             "xentropy": 1,
