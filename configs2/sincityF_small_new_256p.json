@@ -8,9 +8,9 @@
     },
 
     "dataset" : {
-        "dataset": "Camvid360",
-        "train_root": "camvid360/indirect_p4_100/",
-        "val_root": "camvid360/indirect_p4_100/",
+        "dataset": "SinCity",
+        "train_root": "sincity/small_new_256p",
+        "val_root": "sincity/TEST/small_new_256p",
 
         "ignore_label": 0,
         "idx_offset": 1,
@@ -24,9 +24,11 @@
 
         "dist_mask": null,
 
+        "load_to_memory": false,
+
         "subsample": 0,
 
-        "do_split": true,
+        "do_split": false,
         "transform": {
             "equirectangular": false,
             "equi_crop": {
@@ -36,12 +38,12 @@
                 "wrap": true,
                 "plane_f": 0.05
                 },
-            "presize": 0.5,
-            "npz_factor": 2,
+            "presize": null,
+            "npz_factor": 1,
             "color_augmentation_level": 1,
             "fix_shape": true,
             "reseize_image": false,
-            "patch_size": [448, 448],
+            "patch_size": [224, 224],
             "random_crop": false,
             "random_roll": true,
             "max_crop": 4,
@@ -56,7 +58,7 @@
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 5
+        "num_worker": 4
     },
 
     "encoder": {
@@ -95,10 +97,11 @@
         },
         "weights": {
             "xentropy": 1,
-            "dist": 1
+            "dist": 10
         },
         "corner": false,
         "use_mask_loss": true,
+        "mask_weight": null,
         "spatial": false,
         "embedding_loss": null,
         "squeeze": false,
@@ -112,8 +115,8 @@
     },
 
     "training": {
-        "batch_size": 4,
-        "learning_rate": 5e-5,
+        "batch_size": 20,
+        "learning_rate": 20e-4,
         "lr_schedule": "poly",
         "min_lr": 1e-8,
         "exp": 1.5,
@@ -140,15 +143,16 @@
         "do_dist_eval": true,
         "do_mask_eval": true,
         "reduce_val_bs": true,
-        "val_subsample": null,
-        "train_subsample": 10,
+        "val_subsample": 5,
+        "train_subsample": 20,
         "has_flow": false,
-        "train_do_agumentation": false,
-        "scale": 0.2
+        "train_do_agumentation": true,
+        "mask_thresh": 0.7,
+        "scale": 0.01
     },
 
     "logging": {
-        "disp_per_epoch": 4,
+        "disp_per_epoch": 5,
         "eval_iter": 20,
         "log": true,
         "checkpoint_backup": 2000,
@@ -165,7 +169,7 @@
     },
 
     "pyvision": {
-        "project_name": "localseg2",
+        "project_name": "localsegSIN",
         "entry_point": "../localseg/segmodel2.py",
         "plotter": "../localseg/plotting/segplotter.py",
         "required_packages": ["../localseg"],
