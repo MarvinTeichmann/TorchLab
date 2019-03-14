@@ -9,8 +9,8 @@
 
     "dataset" : {
         "dataset": "SinCity",
-        "train_root": "sincity/small_new_256p",
-        "val_root": "sincity/TEST/small_new_256p",
+        "train_root": "sincity/small_world_256p",
+        "val_root": "sincity/TEST/small_world_256p",
 
         "ignore_label": 0,
         "idx_offset": 1,
@@ -111,8 +111,8 @@
     },
 
     "training": {
-        "batch_size": 20,
-        "learning_rate": 20e-4,
+        "batch_size": 18,
+        "learning_rate": 3.6e-4,
         "lr_schedule": "poly",
         "min_lr": 1e-8,
         "exp": 1.5,
@@ -138,6 +138,8 @@
         "do_segmentation_eval": true,
         "do_dist_eval": true,
         "do_mask_eval": false,
+        "unwhitening": false,
+        "use_gt_label": false,
         "reduce_val_bs": true,
         "val_subsample": 5,
         "train_subsample": 20,

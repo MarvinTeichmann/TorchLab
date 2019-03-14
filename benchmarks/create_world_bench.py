@@ -35,26 +35,21 @@ conf = "../configs2/camvidF_part34_240p.json"
 
 gpus = '0'
 
-names = ['white', 'gt_white', 'world', 'noXentropy', 'carson', 'sphere']
+names = ['scale1', 'scale03', 'scale01']
 
-bench_name = "secondP34Bench"
+bench_name = "worldP34Scale"
 
 values = [
-    [],
-    [True],
-    ["camvid360/part34_world_240p", 0.1],
-    ["camvid360/part34_world_240p", 0.1, 0],
-    ["camvid360/part34_world_240p", 0.1, 0, True],
-    ["camvid360/part34_world_240p", 0.1, 0, True, False]]
+    ["camvid360/part34_world_240p", 1],
+    ["camvid360/part34_world_240p", 0.3],
+    ["camvid360/part34_world_240p", 0.1]
+]
 
 
 keys = [
-    [],
-    ["evaluation.use_gt_label"],
     ["dataset.train_root", "loss.weights.dist"],
-    ["dataset.train_root", "loss.weights.dist", "loss.weights.xentropy"],
-    ["dataset.train_root", "loss.weights.dist", "loss.weights.xentropy", "loss.geometric_type.spherical"],  # NOQA: E501
-    ["dataset.train_root", "loss.weights.dist", "loss.weights.xentropy", "loss.geometric_type.spherical", "loss.geometric_type.world"]   # NOQA: E501
+    ["dataset.train_root", "loss.weights.dist"],
+    ["dataset.train_root", "loss.weights.dist"]
 ]
 
 # print_str = "pv2 train --gpus %s {}" % gpus

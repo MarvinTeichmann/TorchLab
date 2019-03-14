@@ -9,8 +9,8 @@
 
     "dataset" : {
         "dataset": "Camvid360",
-        "train_root": "camvid360/full_white_240p",
-        "val_root": "camvid360/full_white_240p",
+        "train_root": "camvid360/full_world_240p",
+        "val_root": "camvid360/full_world_240p",
 
         "ignore_label": 0,
         "idx_offset": 1,
@@ -86,14 +86,14 @@
     "loss":{
         "type": "magic",
         "geometric_type": {
-            "spherical": false,
+            "spherical": true,
             "camera": false,
             "world": true
         },
         "weights": {
-            "xentropy": 1,
+            "xentropy": 0,
             "spherical": 1,
-            "dist": 10
+            "dist": 0.
         },
         "corner": false,
         "use_mask_loss": false,
@@ -138,7 +138,7 @@
         "do_segmentation_eval": true,
         "do_dist_eval": true,
         "do_mask_eval": false,
-        "unwhitening": true,
+        "unwhitening": false,
         "use_gt_label": false,
         "reduce_val_bs": true,
         "val_subsample": 3,
@@ -151,8 +151,8 @@
     },
 
     "logging": {
-        "disp_per_epoch": 5,
-        "eval_iter": 15,
+        "disp_per_epoch": 10,
+        "eval_iter": 1,
         "log": true,
         "checkpoint_backup": 900,
         "mayor_eval": 900
