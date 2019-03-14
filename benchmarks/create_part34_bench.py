@@ -31,37 +31,36 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     stream=sys.stdout)
 
 
-conf = "../config/final.json"
+conf = "../configs2/camvidF_part34_240p.json"
 
 gpus = '0'
 
-names = ['HeavyAug', 'NoAug', 'NoCross', 'Sphere',
-         'SphereNoInstance', 'Subsample10', 'Subsample30']
+names = ['white', 'gt_white', 'world', 'noXentropy', 'carson', 'sphere']
 
-bench_name = "AbliationBench"
+bench_name = "firstP34Bench"
+
+values = [
+    [],
+    [True],
+    ["camvid360/part34_world_240p"],
+    ["camvid360/part34_world_240p", 0],
+    ["camvid360/part34_world_240p", 0, True],
+    ["camvid360/part34_world_240p", 0, True, False]]
 
 
-augdicts = [
-    {'dataset.transform.equi_crop.do_equi': True,
-     'dataset.transform.random_crop': True,
-     'dataset.transform.random_resize': True,
-     'dataset.transform.random_flip': True},
-    {'dataset.transform.color_augmentation_level': 0,
-     'dataset.transform.random_roll': False},
-    {'loss.weights.xentropy': 0},
-    {'loss.geometric_type.spherical': True,
-     'loss.geometric_type.camera': False},
-    {'loss.geometric_type.spherical': True,
-     'loss.geometric_type.world': False,
-     'loss.weights.xentropy': 0},
-    {'dataset.subsample': 10},
-    {'dataset.subsample': 30},
+keys = [
+    [],
+    ["evaluation.use_gt_label"],
+    ["dataset.train_root"],
+    ["dataset.train_root", "loss.weights.xentropy"],
+    ["dataset.train_root", "loss.weights.xentropy", "loss.geometric_type.spherical"],  # NOQA: E501
+    ["dataset.train_root", "loss.weights.xentropy", "loss.geometric_type.spherical", "loss.geometric_type.world"]   # NOQA: E501
 ]
 
+# print_str = "pv2 train --gpus %s {}" % gpus
+print_str = "pv2 train {run} --gpus {gpu}"
 
-print_str = "pv2 train {} --gpus %s" % gpus
-
-dataset = "camvid_360_cvpr18_P2_training_data/part_04_seq_016E5_P2_B_R94_09060_10380/" # NOQA
+dataset = "camvid_360_cvpr18_P2_training_data/part_07_seq_001TP_P2_R94_22230_23100/" # NOQA
 
 
 def change_value(config, key, new_value):
@@ -86,22 +85,22 @@ def main():
     print('#!/bin/bash', file=f)
     print('', file=f)
 
-    for dic, name in zip(augdicts, names):
+    for i, (vals, name, mykeys) in enumerate(zip(values, names, keys)):
         config = json.load(open(conf))
 
         config['dataset']['sequence'] = dataset
 
-        for key, item in dic.items():
-            pvorg.change_value(config, key, item)
+        for val, key in zip(vals, mykeys):
+            pvorg.change_value(config, key, val)
 
         logdir = pvorg.get_logdir_name(
             config=config, bench=bench_name, prefix=name, cfg_file=conf)
 
         pvorg.init_logdir(config=config, cfg_file=conf, logdir=logdir)
 
-        print(print_str.format(logdir), file=f)
+        print(print_str.format(run=logdir, gpu=i), file=f)
 
-        logging.info("    {}".format(print_str.format(logdir)))
+        logging.info("    {}".format(print_str.format(run=logdir, gpu=i)))
 
         logging.info(" ")
 
