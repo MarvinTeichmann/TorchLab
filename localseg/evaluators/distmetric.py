@@ -43,8 +43,7 @@ class DistMetric(object):
         self.pos = [0 for i in self.thres]
         self.neg = [0 for i in self.thres]
 
-        self.eug1 = 0
-        self.eug2 = 0
+        self.eug = 0
         self.eug_count = 0
 
         self.count = 0
@@ -64,18 +63,11 @@ class DistMetric(object):
             assert self.count == self.pos[i] + self.neg[i]
 
         maxtresh = self.thres[-1] * self.scale
-        # mintresh = 0.5 * self.thres[0] * self.scale
-        mintresh = 0
+        mintresh = 0.5 * self.thres[0] * self.scale
 
         clipped = np.clip(dists, mintresh, maxtresh)
-
         normalized = 1 - (clipped - mintresh) / (maxtresh - mintresh)
-
-        self.eug1 += np.mean(normalized)
-
-        mintresh = 0.5 * self.thres[0] * self.scale
-        normalized = 1 - (clipped - mintresh) / (maxtresh - mintresh)
-        self.eug2 += np.mean(normalized)
+        self.eug += np.mean(normalized)
 
         self.eug_count += 1
 
@@ -97,7 +89,6 @@ class DistMetric(object):
 
         pp_names.append("Dist Mean")
         pp_names.append("CDM")
-        pp_names.append("CDM min")
 
         return pp_names
 
@@ -107,9 +98,7 @@ class DistMetric(object):
         pp_values = [self.pos[i] / self.count for i in range(len(self.thres))]
 
         pp_values.append(self.distsum / self.count)
-
-        pp_values.append(self.eug1 / self.eug_count)
-        pp_values.append(self.eug2 / self.eug_count)
+        pp_values.append(self.eug / self.eug_count)
 
         return pp_values
 

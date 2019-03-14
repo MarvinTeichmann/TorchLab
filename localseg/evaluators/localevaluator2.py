@@ -351,8 +351,8 @@ class MetaEvaluator(object):
                                "dist: {:.2f} | {:.2f}   dist acc: {:.2f} | "
                                "{:.2f} | {:.2f})    Epoch: {} / {}").format(
                         runname[0:22],
-                        100 * median(self.logger.data['val\\CDM min']),
-                        100 * median(self.logger.data['train\\CDM min']),
+                        100 * median(self.logger.data['val\\CDM']),
+                        100 * median(self.logger.data['train\\CDM']),
                         100 * median(self.logger.data['val\\Dist Mean']),
                         100 * median(self.logger.data['train\\Dist Mean']),
                         100 * median(self.logger.data['val\\Acc @6']),
@@ -573,9 +573,10 @@ class Evaluator():
 
         return CombinedMetric([bmetric, metric, dmetric])
 
-    def _unwhiten_points(self, white_points, segmentation):
+    def _unwhitening_points(self, white_points, segmentation):
 
         white_points = white_points.copy()
+        segmentation = segmentation.cpu()
 
         for label in set(segmentation.flatten().numpy()):
 
@@ -624,14 +625,40 @@ class Evaluator():
 
         for d in range(pred_world_np.shape[0]):
 
-            if self.model.is_white and not self.loader.dataset.is_white:
-                pred_world_np = self._unwhiten_points(
-                    pred_world_np[d], sample['label'][d])
+            if not self.model.is_white:
+                prediction = pred_world_np[d]
+                label = label_world_np[d]
+            elif not self.loader.dataset.is_white:
+
+                if self.conf['evaluation']['use_gt_label']:
+                    segmentation = sample['label'][d]
+                else:
+                    segmentation = torch.argmax(output['classes'][d], dim=0)
+
+                prediction = self._unwhitening_points(
+                    pred_world_np[d], segmentation)
+                label = label_world_np[d]
+
+            elif self.conf['evaluation']['unwhitening']:
+
+                # TODO: implement same logic for plotting
+
+                if self.conf['evaluation']['use_gt_label']:
+                    segmentation = sample['label'][d]
+                else:
+                    segmentation = torch.argmax(output['classes'][d], dim=0)
+
+                prediction = self._unwhitening_points(
+                    pred_world_np[d], segmentation)
+
+                label = self._unwhitening_points(
+                    label_world_np[d], sample['label'][d])
             else:
-                pred_world_np = pred_world_np[d]
+                prediction = pred_world_np[d]
+                label = label_world_np[d]
 
             metric.add(
-                pred_world_np, label_world_np[d], total_mask_np[d])
+                prediction, label, total_mask_np[d])
 
         return duration
 
@@ -779,7 +806,7 @@ class Evaluator():
             world_points = sample['geo_world'][0].cpu().numpy().transpose()
 
             if self.loader.dataset.is_white:
-                world_points = self._unwhiten_points(
+                world_points = self._unwhitening_points(
                     sample['geo_world'][0].cpu().numpy(), sample['label'][0]).T
             else:
                 world_points = sample['geo_world'][0].cpu().numpy().transpose()
@@ -804,8 +831,13 @@ class Evaluator():
         assert self.threeDFiles[stepdir] == img_name
 
         if self.model.is_white:
-            world_points = self._unwhiten_points(
-                output['world'][0].cpu().numpy(), sample['label'][0]).T
+            if self.conf['evaluation']['use_gt_label']:
+                segmentation = sample['label'][0]
+            else:
+                segmentation = torch.argmax(output['classes'][0], dim=0)
+
+            world_points = self._unwhitening_points(
+                output['world'][0].cpu().numpy(), segmentation).T
         else:
             world_points = output['world'][0].cpu().numpy().transpose()
 

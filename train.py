@@ -102,8 +102,8 @@ if __name__ == '__main__':
         # config['logging']['max_val_examples'] = 10
         # config['logging']['max_train_examples'] = 10
 
-        config['evaluation']['val_subsample'] = None
-        config['evaluation']['train_subsample'] = 10
+        config['evaluation']['val_subsample'] = 20
+        config['evaluation']['train_subsample'] = 500
 
         config['training']['max_epoch_steps'] = 10
         config['training']['max_epochs'] = 10

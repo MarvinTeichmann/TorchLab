@@ -36,6 +36,9 @@ data_file2 = "datasets/scenecity_small_train.lst"
 
 data_file = "datasets/camvid360_noprop_train.lst"
 data_file2 = "datasets/camvid360_prop4.lst"
+
+data_file = "datasets/scenecity_medium_test.lst"
+data_file2 = "datasets/scenecity_medium_test.lst"
 outdirname = 'ids_labels3'
 
 datadir = os.environ['TV_DIR_DATA']
@@ -47,9 +50,9 @@ realfiles2 = [os.path.join(datadir, file) for file in files2]
 
 debug_num_images = -1
 
-thick = 4
+thick = 2
 
-min_pixels = 0
+min_pixels = 2
 
 void2 = 10000
 

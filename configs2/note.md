@@ -1,5 +1,7 @@
 Up-to-date configs:
 
+camvidF_part34_240p.json
+
 camvid2_full.json
 camvid2_full_white.json
 camvid2_redP5_white.json

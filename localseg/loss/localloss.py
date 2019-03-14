@@ -114,15 +114,18 @@ class LocalLoss(nn.Module):
 
         class_loss = self.XentropyLoss(predictions['classes'], sample['label'])
         dist_loss = self._compute_geo_loss(predictions, sample)
-        mask_loss = self.MaskLoss(
-            predictions['mask'], sample['total_mask'].long())
 
         weights = self.conf['loss']['weights']
         class_loss = weights['xentropy'] * class_loss
         dist_loss = weights['dist'] * dist_loss
-        mask_loss = weights['xentropy'] * mask_loss
+        total_loss = class_loss + dist_loss
 
-        total_loss = class_loss + dist_loss + mask_loss
+        if self.conf['loss']["use_mask_loss"]:
+            mask_loss = self.MaskLoss(
+                predictions['mask'], sample['total_mask'].long())
+            mask_loss = weights['xentropy'] * mask_loss
+
+            total_loss = total_loss + mask_loss
 
         if self.conf['loss']['geometric_type']['spherical']:
             dist_gt = sample['geo_sphere']
@@ -140,12 +143,14 @@ class LocalLoss(nn.Module):
 
         output_dict['Loss'] = total_loss
         output_dict['ClassLoss'] = class_loss
-        output_dict['DistLoss'] = dist_loss
+        if self.conf['loss']['geometric_type']['world']:
+            output_dict['DistLoss'] = dist_loss
 
         if self.conf['loss']['geometric_type']['spherical']:
             output_dict['SphereLoss'] = sphere_loss
 
-        output_dict['MaskLoss'] = mask_loss
+        if self.conf['loss']["use_mask_loss"]:
+            output_dict['MaskLoss'] = mask_loss
         output_dict['MaskMean'] = torch.mean(total_mask)
 
         return total_loss, output_dict

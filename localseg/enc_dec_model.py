@@ -93,12 +93,17 @@ class EncoderDecoder(nn.Module):
             return prediction
 
         class_pred = prediction[:, :self.num_classes]
-        mask_pred = prediction[:, self.num_classes:self.num_classes + 2]
-        three_pred = prediction[:, self.num_classes + 2:]
+
+        if self.conf['loss']["use_mask_loss"]:
+            mask_pred = prediction[:, self.num_classes:self.num_classes + 2]
+            three_pred = prediction[:, self.num_classes + 2:]
+        else:
+            three_pred = prediction[:, self.num_classes:]
 
         if softmax:
             class_pred = functional.softmax(class_pred, dim=1)
-            mask_pred = functional.softmax(mask_pred, dim=1)
+            if self.conf['loss']["use_mask_loss"]:
+                mask_pred = functional.softmax(mask_pred, dim=1)
 
         if self.conf['decoder']['geo_scale'] is not None:
             three_pred = three_pred * self.conf['decoder']['geo_scale']
@@ -122,7 +127,8 @@ class EncoderDecoder(nn.Module):
             camera_points)
 
         out_dict = {}
-        out_dict['mask'] = mask_pred
+        if self.conf['loss']["use_mask_loss"]:
+            out_dict['mask'] = mask_pred
         out_dict['classes'] = class_pred
         out_dict['world'] = world_pred
         out_dict['camera'] = camera_points

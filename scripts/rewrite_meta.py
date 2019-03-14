@@ -24,6 +24,12 @@ import pickle
 from joblib import Parallel, delayed
 import multiprocessing
 
+import warnings
+
+
+def fxn():
+    warnings.warn("deprecated", DeprecationWarning)
+
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
@@ -117,8 +123,10 @@ def main(args):
 
             white_labels = npz['white_labels']
 
-            new_ids = [colour_to_id[tuple(label[[[2, 1, 0]]])]
-                       for label in white_labels]
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                new_ids = [colour_to_id[tuple(label[[[2, 1, 0]]])]
+                           for label in white_labels]
 
             newdict['white_labels'] = new_ids
 
