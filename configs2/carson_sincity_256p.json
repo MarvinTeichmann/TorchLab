@@ -159,13 +159,13 @@
 
     "plotting": {
         "defaults": {
-            "plot": ["Dist Mean", "CDM min", "Dist Mean", "CDM min", "Acc @12", "Acc @12"],
-            "prefixes": ["train", "train", "train", "val", "val", "val", "train","val"],
-            "titles": ["Dist Mean (train)", "Clipped Dist Mean (train)",
-                       "Dist Mean (val)", "Clipped Dist Mean (val)",
-                       "Accuracy @12 (train)", "Accuracy @12 (val)"]
+            "plot": ["mIoU", "mIoU", "Acc @6", "Acc @12", "Acc @12", "Dist Mean", "CDM"],
+            "prefixes": ["val", "train", "val", "val", "train", "val", "val"],
+            "titles": ["Validation mIoU", "Train mIoU", "Acc @6", "Acc @12", "Train Acc @12",
+                       "Dist Mean (val)", "Clipped Dist Mean (val)"]
         }
     },
+
     "pyvision": {
         "project_name": "localsegSIN",
         "entry_point": "../localseg/segmodel2.py",

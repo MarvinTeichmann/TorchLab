@@ -133,6 +133,9 @@ def main(args):
                 npz[key] = resize_torch(
                     npz[key], factor=factor, mode='cubic').astype(np.float16)
 
+                assert npz[key].shape == img.shape, \
+                    "npz: {}, img: {}".format(npz[key].shape, img.shape)
+
             for key in ['mask']:
                 npz[key] = resize_torch(
                     npz[key], factor=factor, mode='nearest').astype(np.uint8)

@@ -10,8 +10,11 @@ import scipy as scp
 
 import logging
 
-import matplotlib.pyplot as plt
+import json
 
+import matplotlib
+import matplotlib.pyplot as plt
+matplotlib.use('agg')
 
 from pyvision.logger import Logger
 from ast import literal_eval
@@ -47,11 +50,13 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 
 import matplotlib.cm as cm
 
+"""
 try:
     from localseg.evaluators import distmetric
 except ImportError:
     sys.path.append(os.path.dirname(__file__))
     import distmetric
+"""
 
 
 def get_pyvision_evaluator(conf, model, names=None, imgdir=None, dataset=None):
@@ -502,12 +507,13 @@ class Evaluator():
 
         if self.conf['evaluation']['do_dist_eval']:
 
-            if self.model.is_white and not self.loader.dataset.is_white:
-                scale = self.conf['evaluation']['scale_world']
+            if not self.loader.dataset.is_white \
+                    or self.conf['evaluation']['unwhitening']:
+                scale = self.loader.dataset.meta_dict['scale']
             else:
-                scale = self.conf['evaluation']['scale']
+                scale = 3
 
-            dmetric = distmetric.DistMetric(
+            dmetric = DistMetric(
                 scale=scale)
         else:
             dmetric = None
@@ -571,7 +577,49 @@ class Evaluator():
 
             plt.close("all")
 
+        if self.conf['evaluation']['do_dist_eval']:
+            self._plot_roc_curve(dmetric)
+
         return CombinedMetric([bmetric, metric, dmetric])
+
+    def _plot_roc_curve(self, dmetric):
+
+        roc_dict = {}
+
+        roc_dict['steps'] = dmetric.at_steps
+        roc_dict['thresh'] = dmetric.at_thres[0]
+        roc_dict['values'] = dmetric.at_values[0]
+
+        pfile = os.path.join(self.imgdir, self.name + "_stpoints.npz")
+
+        np.savez(pfile, **roc_dict)
+
+        at_steps = roc_dict['steps']
+        thresh = roc_dict['thresh']
+        at_values = roc_dict['values']
+
+        values = np.cumsum(at_values[:-1]) / np.sum(at_values)
+
+        labels = np.linspace(0, thresh / 100, thresh * at_steps + 1)[:-1]
+
+        fig, ax = plt.subplots()
+
+        ax.plot(labels, values, label=self.name)
+
+        ax.set_title("ST-Curve")
+
+        ax.set_xlabel('Distance [m]')
+        ax.set_ylabel('Sensitivity [%]')
+        ax.set_xlim(0, thresh / 100)
+        ax.set_ylim(0, 1)
+        # ax.legend(loc=0)
+        ax.legend(loc=2)
+
+        name = os.path.join(self.imgdir, self.name + "_STCurve.png")
+
+        plt.savefig(name, format='png', bbox_inches='tight',
+                    dpi=199)
+        plt.close(fig)
 
     def _unwhitening_points(self, white_points, segmentation):
 
@@ -1087,3 +1135,135 @@ class BinarySegVisualizer():
         ax.imshow(hdiff_colour)
 
         return figure
+
+
+class DistMetric(object):
+    """docstring for DistMetric"""
+    def __init__(self, threshholds=[30, 100, 200],
+                 keep_raw=False, scale=1):
+        super(DistMetric, self).__init__()
+
+        self.distances = []
+        self.thres = threshholds
+        self.keep_raw = keep_raw
+
+        self.scale = scale
+
+        self.pos = [0 for i in self.thres]
+        self.neg = [0 for i in self.thres]
+
+        self.eug_thres = [200]
+        self.eug = [0 for i in self.eug_thres]
+
+        self.eug_count = np.uint64(0)
+
+        self.at_steps = 10
+        self.at_thres = [200]
+        self.at_values = [np.zeros(at * self.at_steps + 1)
+                          for at in self.at_thres]
+
+        self.cdm = 0
+
+        self.count = 0
+
+        self.distsum = 0
+        self.sorted = False
+
+    def add(self, prediction, gt, mask):
+        self.count = self.count + np.sum(mask)
+
+        dists = np.linalg.norm(prediction[:, mask] - gt[:, mask], axis=0)
+
+        for i, thres in enumerate(self.thres):
+            self.pos[i] += np.sum(dists * self.scale < thres)
+            self.neg[i] += np.sum(dists * self.scale >= thres)
+            assert self.count == self.pos[i] + self.neg[i]
+
+        for i, maxtresh in enumerate(self.at_thres):
+            clipped = np.clip(dists * self.scale, 0, maxtresh)
+            discrete = (clipped * self.at_steps).astype(np.uint32)
+            self.at_values[i] += np.bincount(discrete)
+
+        maxtresh = 100
+        mintresh = 20
+
+        clipped = np.clip(dists * self.scale, mintresh, maxtresh)
+        normalized = 1 - (clipped - mintresh) / (maxtresh - mintresh)
+        self.cdm += np.sum(normalized)
+
+        for i, maxtresh in enumerate(self.eug_thres):
+            clipped = np.clip(dists * self.scale, 0, maxtresh)
+            normalized = 1 - (clipped) / maxtresh
+            self.eug[i] += np.sum(normalized)
+
+        self.eug_count += len(normalized)
+
+        assert self.eug_count < 1e18
+
+        self.distsum += np.sum(dists * self.scale / 100)
+
+        if self.keep_raw:
+
+            self.distances += list(dists)
+            self.sorted = False
+
+    def print_acc(self):
+        for i, thresh in enumerate(self.thres):
+            acc = self.pos[i] / self.count
+            logging.info("Acc @{}: {}".format(thresh, acc))
+
+    def get_pp_names(self, time_unit='s', summary=False):
+
+        pp_names = ["Acc @{}m".format(i / 100) for i in self.thres]
+
+        pp_names.append("Dist Mean")
+        pp_names.append("CDM")
+        pp_names += ["Discrete AA" for i in self.at_thres]
+        pp_names += ["Average Accuracy" for i in self.at_thres]
+
+        return pp_names
+
+    def get_pp_values(self, ignore_first=True,
+                      time_unit='s', summary=False):
+
+        pp_values = [self.pos[i] / self.count for i in range(len(self.thres))]
+
+        pp_values.append(self.distsum / self.count)
+        pp_values.append(self.cdm / self.eug_count)
+
+        pp_values += [
+            np.mean(np.cumsum(self.at_values[i][:-1]) /
+                    np.sum(self.at_values[i]))
+            for i in range(len(self.at_thres))
+        ]
+
+        # self._plot_roc_curve()
+
+        # assert np.sum(self.at_values) == self.eug_count
+
+        pp_values += [
+            self.eug[i] / self.eug_count for i in range(len(self.eug_thres))]
+
+        return pp_values
+
+    def get_pp_dict(self, ignore_first=True, time_unit='s', summary=False):
+
+        names = self.get_pp_names(time_unit=time_unit, summary=summary)
+        values = self.get_pp_values(ignore_first=ignore_first,
+                                    time_unit=time_unit,
+                                    summary=summary)
+
+        return OrderedDict(zip(names, values))
+
+    def plot_histogram(self):
+
+        assert self.keep_raw
+
+        x = np.linspace(0, 100, len(self.distances))
+        plt.plot(x, self.distances)
+
+        plt.show()
+
+
+if __name__ == '__main__':
+    logging.info("Hello World.")

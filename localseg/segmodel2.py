@@ -48,6 +48,8 @@ from localseg.encoder import parallel as parallel
 
 from localseg.utils.labels import LabelCoding
 
+import socket
+
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -146,12 +148,27 @@ def create_pyvision_model(conf, logdir):
     return model
 
 
+def _set_num_workers(config):
+    logging.info("Num worker is set to: {}".format(
+        config['dataset']['num_worker']))
+
+    if "gpu" in socket.gethostname():
+        config['dataset']['num_worker'] = 2
+
+    if "goban" in socket.gethostname():
+        config['dataset']['num_worker'] = 4
+
+    if "rokuban" in socket.gethostname():
+        config['dataset']['num_worker'] = 6
+
+
 class SegModel(nn.Module):
 
     def __init__(self, conf, logdir='tmp'):
         super().__init__()
 
         self.conf = conf
+        _set_num_workers(conf)
         self.logdir = logdir
 
         self._assert_num_gpus(conf, warning=True)

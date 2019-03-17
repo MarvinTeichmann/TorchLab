@@ -342,6 +342,8 @@ class DirLoader(data.Dataset):
         else:
             self.white_dict = None
 
+        self.scale = self.meta_dict['scale']
+
         self.vis_file = os.path.join(self.datadir, 'colors.lst')
 
     def _decode_mask(self, label_dict):

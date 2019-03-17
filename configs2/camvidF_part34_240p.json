@@ -58,7 +58,7 @@
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 4
+        "num_worker": 5
     },
 
     "encoder": {
@@ -111,8 +111,8 @@
     },
 
     "training": {
-        "batch_size": 18,
-        "learning_rate": 3e-4,
+        "batch_size": 20,
+        "learning_rate": 2e-4,
         "lr_schedule": "poly",
         "min_lr": 1e-8,
         "exp": 1.5,
@@ -160,10 +160,10 @@
 
     "plotting": {
         "defaults": {
-            "plot": ["mIoU", "mIoU", "Acc @6", "Acc @12", "Acc @12", "Dist Mean", "CDM"],
+            "plot": ["mIoU", "mIoU", "Acc @0.3m", "Acc @1.0m", "Acc @2.0m", "Dist Mean", "Average Accuracy"],
             "prefixes": ["val", "train", "val", "val", "train", "val", "val"],
             "titles": ["Validation mIoU", "Train mIoU", "Acc @6", "Acc @12", "Train Acc @12",
-                       "Dist Mean (val)", "Clipped Dist Mean (val)"]
+                       "Dist Mean (val)", "Average Accuracy (val)"]
         }
     },
 

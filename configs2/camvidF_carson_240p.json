@@ -93,7 +93,7 @@
         "weights": {
             "xentropy": 0,
             "spherical": 1,
-            "dist": 0.
+            "dist": 0.1
         },
         "corner": false,
         "use_mask_loss": false,
