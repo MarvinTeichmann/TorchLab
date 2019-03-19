@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+localseg/data_generators/posenet_maths.py
+localseg/data_generators/posenet_maths_v4.py
+
+
 run*.sh
 
 # C extensions
