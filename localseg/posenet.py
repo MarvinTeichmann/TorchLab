@@ -48,6 +48,7 @@ from localseg.evaluators import poseevaluator
 
 # from localseg.utils.labels import LabelCoding
 from localseg import encoder as segencoder
+from localseg.data_generators import posenet_maths_v4 as pmath
 
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
@@ -192,6 +193,11 @@ class PoseNet(nn.Module):
         self.conf['dataset']['down_label'] \
             = not self.conf['decoder']['upsample']
 
+        if self.conf['loss']['type'] == 'advanced':
+            self.conf['dataset']['load_merged'] = True
+        else:
+            self.conf['dataset']['load_merged'] = False
+
         self.logger = pyvision.logger.Logger()
 
         self.loader = loader
@@ -213,14 +219,6 @@ class PoseNet(nn.Module):
         self.trainer.init_optimizer()
 
         # self.visualizer = pvis.PascalVisualizer()
-
-    def _get_decoder_classes(self, conf):
-        if self.magic:
-            return self.num_classes + conf['dataset']['grid_dims']
-        elif conf['dataset']['label_encoding'] == 'dense':
-            return self.num_classes
-        elif conf['dataset']['label_encoding'] == 'spatial_2d':
-            return conf['dataset']['grid_dims']
 
     def _make_loss(self, conf):
 

@@ -55,7 +55,7 @@ except:
 try:
     import posenet_maths_v4 as pmath
 except ImportError:
-    from localseg.data_generators import posenet_maths as pmath
+    from localseg.data_generators import posenet_maths_v5 as pmath
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -237,7 +237,20 @@ class DirLoader(data.Dataset):
         else:
             raise NotImplementedError
 
-        label_dict = {}
+        if self.conf['load_merged']:
+            rotation, translation = pmath.obtain_opensfmRT_from_posenetQT(
+                meta_dict['Q_posenet'], meta_dict['T_posenet'])
+
+            assert np.all(translation - meta_dict['T_opensfm'] < 1e-4)
+            assert np.all(rotation - meta_dict['R_opensfm'] < 1e-4)
+
+        if self.conf['load_merged']:
+            label_dict = {}
+            for key in ['points_3d_world', 'points_3d_camera',
+                        'points_3d_sphere', 'mask']:
+                label_dict[key] = meta_dict[key].astype(np.float32)
+        else:
+            label_dict = {}
 
         if self._debug_interrupt == "only_read_data":
             return [image, label_dict, load_dict]
@@ -270,8 +283,15 @@ class DirLoader(data.Dataset):
         sample = {
             'image': image,
             'rotation': meta_dict['Q_posenet'],
+            'rotation_gt': meta_dict['R_opensfm'],
             'translation': meta_dict['T_posenet'],
+            'translation_gt': meta_dict['T_opensfm'],
             'load_dict': str(load_dict)}
+
+        if self.conf['load_merged']:
+            for key in list(label_dict.keys()):
+                sample[key] = label_dict[key].transpose([2, 0, 1]).astype(
+                    np.float32)
 
         assert self._debug_interrupt is None
 
@@ -350,7 +370,10 @@ class DirLoader(data.Dataset):
 
         logging.info("Loading Dataset from: {}".format(self.datadir))
 
-        metadir = os.path.join(datadir, 'meta2')
+        if self.conf['load_merged']:
+            metadir = os.path.join(datadir, 'meta_merged')
+        else:
+            metadir = os.path.join(datadir, 'meta2')
 
         if os.path.exists(metadir):
             filelist = os.listdir(metadir)
@@ -607,10 +630,20 @@ class DirLoader(data.Dataset):
 
             if transform['fix_shape'] and shape_distorted:
                 patch_size = transform['patch_size']
-                image, label_dict = crop_to_size(
-                    image, label_dict, patch_size, load_dict)
+                if transform['random_crop']:
 
-            meta_dict = self.adapt_rotation(meta_dict, load_dict)
+                    image, label_dict = crop_to_size(
+                        image, label_dict, patch_size, load_dict)
+
+                else:
+                    image, label_dict = center_crop(
+                        image, label_dict, patch_size, load_dict)
+
+            if transform['random_crop'] or transform['random_roll']:
+                meta_dict = self.adapt_rotation(meta_dict, load_dict)
+                # meta_dict['updated'] = True
+            else:
+                meta_dict['updated'] = True
 
             if transform['fix_shape']:
                 if image.shape[0] < transform['patch_size'][0] or \
@@ -717,20 +750,20 @@ def random_crop_soft(image, label_dict, max_crop, crop_chance):
     return image, label_dict
 
 
-def crop_to_size(image, label_dict, patch_size, load_dict):
+def center_crop(image, label_dict, patch_size, load_dict):
     new_width = image.shape[1]
     new_height = image.shape[0]
     width = patch_size[1]
     height = patch_size[0]
     if new_width > width:
         max_y = new_width - width
-        off_y = random.randint(0, max_y)
+        off_y = max_y // 2
     else:
         off_y = 0
 
     if new_height > height:
         max_x = max(new_height - height, 0)
-        off_x = random.randint(0, max_x)
+        off_x = max_x // 2
     else:
         off_x = 0
 
@@ -743,6 +776,45 @@ def crop_to_size(image, label_dict, patch_size, load_dict):
         label_dict[key] = item[off_x:off_x + height, off_y:off_y + width]
 
     return image, label_dict
+
+
+def crop_to_size(image, label_dict, patch_size, load_dict):
+    new_width = image.shape[1]
+    new_height = image.shape[0]
+    width = patch_size[1]
+    height = patch_size[0]
+    if new_width > width:
+        max_y = new_width - width
+        off_y = random.randint(0, max_y)
+    else:
+        max_y = new_width - width
+        off_y = 0
+
+    if new_height > height:
+        max_x = max(new_height - height, 0)
+        off_x = random.randint(0, max_x)
+    else:
+        max_x = max(new_height - height, 0)
+        off_x = 0
+
+    load_dict['off_y'] = off_y
+    load_dict['img_width'] = new_width
+    load_dict['patch_width'] = width
+
+    image = image[off_x:off_x + height, off_y:off_y + width]
+
+    label_dict_out = {}
+
+    for key, item in label_dict.items():
+        label_dict_out[key] = item[off_x:off_x + height, off_y:off_y + width]
+
+    off_x = max_x // 2
+    off_y = max_y // 2
+    for key, item in label_dict.items():
+        label_dict_out[key + "_center"] = item[
+            off_x:off_x + height, off_y:off_y + width]
+
+    return image, label_dict_out
 
 
 def random_rotation(image, label_dict,

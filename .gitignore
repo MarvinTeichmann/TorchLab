@@ -5,6 +5,7 @@ __pycache__/
 
 localseg/data_generators/posenet_maths.py
 localseg/data_generators/posenet_maths_v4.py
+localseg/data_generators/posenet_maths_v5.py
 
 
 run*.sh

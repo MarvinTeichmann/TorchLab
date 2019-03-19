@@ -9,8 +9,8 @@
 
     "dataset" : {
         "dataset": "Camvid360",
-        "train_root": "camvid360/part34_posenet_240p",
-        "val_root": "camvid360/part34_posenet_240p",
+        "train_root": "camvid360/part34_100_posenet_240p",
+        "val_root": "camvid360/part34_100_posenet_240p",
 
         "ignore_label": 0,
         "idx_offset": 1,
@@ -43,9 +43,9 @@
             "color_augmentation_level": 1,
             "fix_shape": true,
             "reseize_image": false,
-            "patch_size": [232, 232],
+            "patch_size": [240, 240],
+            "random_crop": false,
             "random_roll": true,
-            "random_crop": true,
             "max_crop": 4,
             "crop_chance": 0.6,
             "random_resize": false,
@@ -58,7 +58,7 @@
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 6
+        "num_worker": 0
     },
 
     "encoder": {
@@ -84,7 +84,7 @@
     },
 
     "loss":{
-        "type": "simple",
+        "type": "advanced",
         "geometric_type": {
             "spherical": false,
             "camera": false,
@@ -113,7 +113,7 @@
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": null,
-        "max_epochs": 6000,
+        "max_epochs": 8000,
         "pre_eval": false,
         "cnn_gpus": null,
         "max_epoch_steps": null,
@@ -133,8 +133,8 @@
         "use_gt_label": false,
         "reduce_val_bs": true,
         "val_subsample": null,
-        "train_subsample": 20,
-        "eval_mul": 2,
+        "train_subsample": null,
+        "eval_mul": 5,
         "has_flow": false,
         "train_do_agumentation": false,
         "mask_thresh": 0.7,
@@ -144,7 +144,7 @@
 
     "logging": {
         "disp_per_epoch": 5,
-        "eval_iter": 30,
+        "eval_iter": 40,
         "log": true,
         "checkpoint_backup": 900000,
         "mayor_eval": 900000
