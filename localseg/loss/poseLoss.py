@@ -33,6 +33,8 @@ from localseg.data_generators import posenet_maths_v4 as pmath
 
 from localseg.decoder import geometric as geodec
 
+from localseg.utils import quaternion as tq
+
 DEBUG = False
 
 
@@ -66,6 +68,12 @@ class PoseLoss(nn.Module):
 
         rloss = self.dist_loss(rotation, sample['rotation'].cuda())
         rloss = weights['beta'] * rloss
+
+        # rloss = weights['beta'] * torch.mean(
+        #     tq.min_angle(rotation, sample['rotation'].float().cuda()))
+
+        # print(eval(sample['load_dict'][0]))
+        # print(rotation)
 
         total_loss = tloss + rloss
 
@@ -168,6 +176,7 @@ class PoseLoss(nn.Module):
         output_dict['Loss'] = total_loss
         output_dict['TransLoss'] = tloss
         output_dict['RotationLoss'] = rloss
+        output_dict['QNorm'] = torch.mean(rotation.norm(dim=-1))
 
         if self.conf['loss']['type'] == 'advanced':
             output_dict['Camera Loss'] = scaled_camera_loss

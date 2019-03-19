@@ -73,15 +73,16 @@ class MetaEvaluator(object):
 
         val_iter = self.conf['evaluation']["val_subsample"]
         train_iter = self.conf['evaluation']["train_subsample"]
-        # tdo_agumentation = self.conf['evaluation']["train_do_agumentation"]
+        tdo_agumentation = self.conf['evaluation']["train_do_agumentation"]
+        do_agumentation = self.conf['evaluation']["val_do_agumentation"]
 
         self.val_evaluator = Evaluator(
             conf, model, val_iter, name="Val", split="val",
-            imgdir=self.imgdir, do_augmentation=True)
+            imgdir=self.imgdir, do_augmentation=do_agumentation)
         self.train_evaluator = Evaluator(
             conf, model, train_iter, name="Train",
             split='train', imgdir=self.imgdir,
-            do_augmentation=True)
+            do_augmentation=tdo_agumentation)
 
         self.evaluators = []
 
@@ -202,7 +203,7 @@ class Evaluator():
             batch_size = 8
 
         if conf['evaluation']['reduce_val_bs']:
-            batch_size = 4 * torch.cuda.device_count()
+            batch_size = torch.cuda.device_count()
 
         subsampler = partial(
             sampler.SubSampler, subsample=subsample)

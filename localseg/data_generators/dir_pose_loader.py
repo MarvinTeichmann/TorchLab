@@ -274,15 +274,14 @@ class DirLoader(data.Dataset):
                       label_dict["geo_world"].astype(np.float32)}
             return sample
 
-        assert meta_dict['updated']
-
-        assert np.abs(np.linalg.norm(meta_dict['Q_posenet']) - 1) < 0.00001, \
-            "Rotation not normalized: {}".format(
-                np.abs(np.linalg.norm(meta_dict['Q_posenet'])))
+        if meta_dict['Q_posenet'][0] < 0:
+            rotation = -1 * meta_dict['Q_posenet']
+        else:
+            rotation = meta_dict['Q_posenet']
 
         sample = {
             'image': image,
-            'rotation': meta_dict['Q_posenet'],
+            'rotation': rotation,
             'rotation_gt': meta_dict['R_opensfm'],
             'translation': meta_dict['T_posenet'],
             'translation_gt': meta_dict['T_opensfm'],
@@ -670,6 +669,10 @@ class DirLoader(data.Dataset):
                         label_dict[key] = new_item
 
                     image = new_img
+        else:
+            patch_size = transform['patch_size']
+            image, label_dict = center_crop(
+                image, label_dict, patch_size, load_dict)
 
         for key, item in label_dict.items():
             assert image.shape[:2] == item.shape[:2], \
@@ -697,6 +700,8 @@ class DirLoader(data.Dataset):
             center_w, width, quaternion, load_dict['rolled'])
 
         meta_dict['Q_posenet'] = quaternion_new
+
+        # print(quaternion_new, quaternion)
 
         meta_dict['updated'] = True
 
