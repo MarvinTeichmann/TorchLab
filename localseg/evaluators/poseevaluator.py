@@ -18,6 +18,8 @@ from ast import literal_eval
 import torch
 import torch.nn as nn
 
+from functools import partial
+
 import time
 
 from localseg.evaluators.posemetric import PoseMetric
@@ -28,11 +30,10 @@ from torch.autograd import Variable
 
 from pprint import pprint
 
-from localseg.data_generators import visualizer
+from collections import OrderedDict
 
-logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
-                    level=logging.INFO,
-                    stream=sys.stdout)
+from localseg.data_generators import visualizer
+from localseg.data_generators import sampler
 
 try:
     from localseg.evaluators import distmetric
@@ -40,8 +41,16 @@ except ImportError:
     sys.path.append(os.path.dirname(__file__))
     import distmetric
 
+logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
+                    level=logging.INFO,
+                    stream=sys.stdout)
 
-def get_pyvision_evaluator(conf, model, names=None, imgdir=None):
+from localseg.evaluators.metric import CombinedMetric
+
+from localseg.data_generators import posenet_maths as pmath
+
+
+def get_pyvision_evaluator(conf, model, names=None, imgdir=None, dataset=None):
     return MetaEvaluator(conf, model, imgdir=imgdir)
 
 
@@ -52,6 +61,8 @@ class MetaEvaluator(object):
         self.conf = conf
         self.model = model
 
+        model.cuda()
+
         if imgdir is None:
             self.imgdir = os.path.join(model.logdir, "images")
         else:
@@ -60,19 +71,17 @@ class MetaEvaluator(object):
         if not os.path.exists(self.imgdir):
             os.mkdir(self.imgdir)
 
-        val_file = conf['dataset']['val_file']
-        train_file = conf['dataset']['train_file']
-
-        val_iter = self.conf['logging']["max_val_examples"]
-        train_iter = self.conf['logging']["max_train_examples"]
-        train_split = self.conf['evaluation']["train_loader_split"]
+        val_iter = self.conf['evaluation']["val_subsample"]
+        train_iter = self.conf['evaluation']["train_subsample"]
+        # tdo_agumentation = self.conf['evaluation']["train_do_agumentation"]
 
         self.val_evaluator = Evaluator(
-            conf, model, val_file, val_iter, name="Val", split="val",
-            imgdir=self.imgdir)
+            conf, model, val_iter, name="Val", split="val",
+            imgdir=self.imgdir, do_augmentation=True)
         self.train_evaluator = Evaluator(
-            conf, model, train_file, train_iter, name="Train",
-            split=train_split, imgdir=self.imgdir)
+            conf, model, train_iter, name="Train",
+            split='train', imgdir=self.imgdir,
+            do_augmentation=True)
 
         self.evaluators = []
 
@@ -162,17 +171,14 @@ class MetaEvaluator(object):
 
             max_epochs = self.model.trainer.max_epochs
 
-            out_str = ("Summary:   [{:17}](mIoU: {:.2f} | {:.2f}    "
-                       "accuracy: {:.2f} | {:.2f}   dist: {:.2f} | "
-                       "{:.2f} | {:.2f})    Epoch: {} / {}").format(
+            out_str = ("Summary:   [{:22}](Translation: {:.2f} | {:.2f}  "
+                       "Rotation: {:.2f} | {:.2f}"
+                       "    Epoch: {} / {}").format(
                 runname[0:22],
-                100 * median(self.logger.data['val\\Translation Dist']),
-                100 * median(self.logger.data['train\\Translation Dist']),
-                100 * median(self.logger.data['val\\Rotation Dist']),
-                100 * median(self.logger.data['train\\Rotation Dist']),
-                100 * median(self.logger.data['val\\T Acc @6']),
-                100 * median(self.logger.data['val\\T Acc @6']),
-                100 * median(self.logger.data['train\\T Acc @12']),
+                100 * median(self.logger.data['val\\Average Accuracy']),
+                100 * median(self.logger.data['train\\Average Accuracy']),
+                100 * median(self.logger.data['train\\Average Accuracy π']),
+                100 * median(self.logger.data['train\\Average Accuracy π']),
                 epoch, max_epochs)
 
             logging.info(out_str)
@@ -180,14 +186,12 @@ class MetaEvaluator(object):
 
 class Evaluator():
 
-    def __init__(self, conf, model, data_file, max_examples=None,
-                 name='', split=None, imgdir=None):
+    def __init__(self, conf, model, subsample=None,
+                 name='', split=None, imgdir=None, do_augmentation=False):
         self.model = model
         self.conf = conf
         self.name = name
         self.imgdir = imgdir
-
-        self.imgs_minor = conf['evaluation']['imgs_minor']
 
         if split is None:
             split = 'val'
@@ -197,28 +201,37 @@ class Evaluator():
         if split == 'val' and batch_size > 8:
             batch_size = 8
 
-        if split == 'val' and conf['evaluation']['reduce_val_bs']:
-            batch_size = 1
+        if conf['evaluation']['reduce_val_bs']:
+            batch_size = 4 * torch.cuda.device_count()
+
+        subsampler = partial(
+            sampler.SubSampler, subsample=subsample)
+
+        if subsample is not None:
+            self.subsample = subsample
+        else:
+            self.subsample = 1
 
         self.loader = loader.get_data_loader(
             conf['dataset'], split=split, batch_size=batch_size,
-            lst_file=data_file, shuffle=False, pin_memory=False)
+            sampler=subsampler, do_augmentation=do_augmentation,
+            pin_memory=False)
+
+        self.minor_iter = max(
+            1, len(self.loader) // conf['evaluation']['num_minor_imgs'])
 
         self.bs = batch_size
 
-        if max_examples is None:
-            self.num_step = len(self.loader)
-            self.count = range(1, len(self.loader) + 5)
-        else:
-            max_iter = max_examples // self.bs + 1
-            self.count = range(1, max_iter + 1)
-            self.num_step = max_iter
+        self.num_step = len(self.loader)
+        self.count = range(1, len(self.loader) + 5)
 
         self.names = None
-        self.num_classes = self.loader.dataset.num_classes
-        self.ignore_idx = -100
 
-        self.display_iter = conf['logging']['display_iter']
+        eval_mul = self.conf['evaluation']['eval_mul']
+
+        self.display_iter = max(
+            1, eval_mul * len(self.loader) //
+            self.conf['logging']['disp_per_epoch'])
 
         self.smoother = pyvision.utils.MedianSmoother(20)
 
@@ -237,44 +250,282 @@ class Evaluator():
                 os.mkdir(self.scatter_edir)
 
         assert eval_fkt is None
-        metric = PoseMetric()
+        scale = self.loader.dataset.meta_dict['scale']
+        dmetric = DistMetric(scale=scale)
 
-        for step, sample in zip(self.count, self.loader):
+        qmetric = DistMetric(dist_fkt=quant_dist,
+                             threshholds=[0.1, 0.3, 0.6],
+                             at_thresh=1, unit='', postfix=' π')
 
-            # Run Model
-            start_time = time.time()
-            img_var = Variable(sample['image']).cuda()
+        for i in range(self.conf['evaluation']['eval_mul']):
+            for step, sample in zip(self.count, self.loader):
 
-            cur_bs = sample['image'].size()[0]
+                # Run Model
+                start_time = time.time()
+                img_var = Variable(sample['image']).cuda()
 
-            with torch.no_grad():
+                cur_bs = sample['image'].size()[0]
+                assert cur_bs == self.bs
 
-                if cur_bs == self.bs:
-                    bpred = self.model.predict(img_var)
-                else:
-                    continue
+                with torch.no_grad():
 
-            bpred_np = bpred.cpu().numpy()
+                    output = self.model(
+                        img_var, fakegather=False)
 
-            duration = (time.time() - start_time)
+                    if type(output) is list:
+                        output = torch.nn.parallel.gather( # NOQA
+                            output, target_device=0)
 
-            for d in range(cur_bs):
-                metric.add(
-                    prediction=bpred_np[d],
-                    translation=sample['translation'][d].numpy(),
-                    rotation=sample['rotation'][d].numpy())
+                out_np = output.cpu().numpy()
 
-            # Print Information
-            if step % self.display_iter == 0:
-                log_str = ("    {:8} [{:3d}/{:3d}] "
-                           " Speed: {:.1f} imgs/sec ({:.3f} sec/batch)")
+                duration = (time.time() - start_time)
 
-                imgs_per_sec = self.bs / duration
+                translation = out_np[:, :3]
+                rotation = out_np[:, 3:]
 
-                for_str = log_str.format(
-                    self.name, step, self.num_step,
-                    imgs_per_sec, duration)
+                dmetric.add(translation.T, sample['translation'].numpy().T,
+                            mask=None)
 
-                logging.info(for_str)
+                qmetric.add(rotation, sample['rotation'].numpy(),
+                            mask=np.ones(rotation.shape[0]).astype(np.bool))
 
-        return metric
+                # Print Information
+                if step % self.display_iter == 0:
+                    log_str = ("    {:8} [{:3d}/{:3d}] "
+                               " Speed: {:.1f} imgs/sec ({:.3f} sec/batch)")
+
+                    imgs_per_sec = self.bs / duration
+
+                    for_str = log_str.format(
+                        self.name, step, self.num_step,
+                        imgs_per_sec, duration)
+
+                    logging.info(for_str)
+
+        self._plot_roc_curve(dmetric, epoch, prefix='trans')
+        self._plot_roc_curve(qmetric, epoch,
+                             rescale=1, prefix='rot', unit='pi')
+
+        return CombinedMetric([dmetric, qmetric])
+
+    def _plot_roc_curve(
+            self, dmetric, epoch, prefix=None, rescale=1, unit='m'):
+
+        roc_dict = {}
+
+        roc_dict['steps'] = dmetric.at_steps
+        roc_dict['thresh'] = dmetric.at_thres
+        roc_dict['values'] = dmetric.at_values
+
+        if prefix is not None:
+            npzname = prefix + "_" + self.name + "_atp.npz"
+        else:
+            npzname = self.name + "_atp.npz"
+
+        pfile = os.path.join(
+            self.imgdir, npzname)
+        np.savez(pfile, **roc_dict)
+
+        """
+        pltdir = os.path.join(self.imgdir, "plots")
+        if not os.path.exists(pltdir):
+            os.mkdir(pltdir)
+
+        pfile = os.path.join(pltdir, self.name + "_atp_{}.npz".format(epoch))
+        np.savez(pfile, **roc_dict)
+        """
+
+        if epoch is not None:
+            self.model.logger.add_value(
+                roc_dict, prefix + self.name + '_atpoints', epoch)
+
+        at_steps = roc_dict['steps']
+        thresh = roc_dict['thresh']
+        at_values = roc_dict['values']
+
+        values = np.cumsum(at_values[:-1]) / np.sum(at_values)
+
+        labels = np.linspace(0, thresh * rescale, thresh * at_steps + 1)[:-1]
+
+        fig, ax = plt.subplots()
+
+        ax.plot(labels, values, label=self.name)
+
+        ax.set_title("ST-Curve")
+
+        ax.set_xlabel('Distance [{}]'.format(unit))
+        ax.set_ylabel('Sensitivity [%]')
+        ax.set_xlim(0, thresh * rescale)
+        ax.set_ylim(0, 1)
+        # ax.legend(loc=0)
+        ax.legend(loc=2)
+
+        if prefix is not None:
+            png_name = prefix + "_" + self.name + "_STCurve.png"
+        else:
+            png_name = self.name + "_STCurve.png"
+
+        name = os.path.join(
+            self.imgdir, png_name)
+
+        plt.savefig(name, format='png', bbox_inches='tight',
+                    dpi=199)
+        plt.close(fig)
+
+
+def quant_dist(prediction, gt, mask):
+
+    dists = []
+
+    for d in range(prediction.shape[0]):
+
+        norm_pred = prediction[d] / np.linalg.norm(prediction[d])
+        dist = pmath.angle_between_quaternions(norm_pred, gt[0])
+        dist_norm = dist / np.pi
+        dists.append(dist_norm)
+
+    return np.array(dists)
+
+
+class DistMetric(object):
+    """docstring for DistMetric"""
+    def __init__(self, threshholds=[0.3, 1, 2],
+                 keep_raw=False, scale=1, dist_fkt=None,
+                 at_thresh=2, unit='m', rescale=1, postfix=None, daa=False):
+        super(DistMetric, self).__init__()
+
+        self.distances = []
+        self.thres = threshholds
+        self.keep_raw = keep_raw
+
+        self.scale = scale
+        self.rescale = rescale
+
+        self.pos = [0 for i in self.thres]
+        self.neg = [0 for i in self.thres]
+
+        self.eug_thres = at_thresh
+        self.eug = 0
+
+        self.eug_count = np.uint64(0)
+
+        self.at_steps = 1000
+        self.at_thres = at_thresh
+        self.at_values = np.zeros(at_thresh * self.at_steps + 1)
+
+        self.daa = daa
+
+        self.cdm = 0
+
+        self.count = 0
+        self.unit = unit
+
+        self.distsum = 0
+        self.sorted = False
+
+        self.postfix = postfix
+
+        self.dist_fkt = dist_fkt
+
+    def add(self, prediction, gt, mask):
+
+        if mask is None:
+            mask = np.ones(prediction.shape[1]).astype(np.bool)
+
+        self.count = self.count + np.sum(mask)
+
+        if self.dist_fkt is None:
+            dists = np.linalg.norm(prediction[:, mask] - gt[:, mask], axis=0)
+        else:
+            dists = self.dist_fkt(prediction, gt, mask)
+
+        for i, thres in enumerate(self.thres):
+            self.pos[i] += np.sum(dists * self.scale < thres)
+            self.neg[i] += np.sum(dists * self.scale >= thres)
+            assert self.count == self.pos[i] + self.neg[i]
+
+        clipped = np.clip(dists * self.scale, 0, self.at_thres)
+        discrete = (clipped * self.at_steps).astype(np.uint32)
+        self.at_values += np.bincount(
+            discrete, minlength=len(self.at_values))
+
+        maxtresh = 1
+        mintresh = 0.2
+
+        clipped = np.clip(dists * self.scale, mintresh, maxtresh)
+        normalized = 1 - (clipped - mintresh) / (maxtresh - mintresh)
+        self.cdm += np.sum(normalized)
+
+        clipped = np.clip(dists * self.scale, 0, self.eug_thres)
+        normalized = 1 - (clipped) / self.eug_thres
+        self.eug += np.sum(normalized)
+
+        self.eug_count += len(normalized)
+
+        assert self.eug_count < 1e18
+
+        self.distsum += np.sum(dists * self.scale / 100)
+
+        if self.keep_raw:
+
+            self.distances += list(dists)
+            self.sorted = False
+
+    def print_acc(self):
+        for i, thresh in enumerate(self.thres):
+            acc = self.pos[i] / self.count
+            logging.info("Acc @{}: {}".format(thresh, acc))
+
+    def get_pp_names(self, time_unit='s', summary=False):
+
+        pp_names = [
+            "Acc @{}{}".format(i * self.rescale, self.unit)
+            for i in self.thres]
+
+        pp_names.append("Dist Mean")
+        pp_names.append("CDM")
+        if self.daa:
+            pp_names.append("Discrete AA")
+        pp_names.append("Average Accuracy")
+
+        if self.postfix is not None:
+            for i, name in enumerate(pp_names):
+                pp_names[i] = name + self.postfix
+
+        return pp_names
+
+    def get_pp_values(self, ignore_first=True,
+                      time_unit='s', summary=False):
+
+        pp_values = [self.pos[i] / self.count for i in range(len(self.thres))]
+
+        pp_values.append(self.distsum / self.count)
+        pp_values.append(self.cdm / self.eug_count)
+
+        if self.daa:
+            pp_values.append(
+                np.mean(np.cumsum(self.at_values[:-1]) / np.sum(
+                    self.at_values)))
+
+        pp_values.append(
+            self.eug / self.eug_count)
+
+        return pp_values
+
+    def get_pp_dict(self, ignore_first=True, time_unit='s', summary=False):
+
+        names = self.get_pp_names(time_unit=time_unit, summary=summary)
+        values = self.get_pp_values(ignore_first=ignore_first,
+                                    time_unit=time_unit,
+                                    summary=summary)
+
+        return OrderedDict(zip(names, values))
+
+    def plot_histogram(self):
+
+        assert self.keep_raw
+
+        x = np.linspace(0, 100, len(self.distances))
+        plt.plot(x, self.distances)
+
+        plt.show()

@@ -52,60 +52,68 @@ try:
 except:
     pass
 
+try:
+    import posenet_maths_v4 as pmath
+except ImportError:
+    from localseg.data_generators import posenet_maths as pmath
+
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
 
 
 default_conf = {
-    'dataset': 'SinCity',
+    "dataset": "Camvid360",
+    "train_root": "camvid360/part34_posenet_240p",
+    "val_root": "camvid360/part34_posenet_240p",
 
-    'train_root': 'sincity/sincity_100',
-    'val_root': 'sincity/sincity_100',
+    "ignore_label": 0,
+    "idx_offset": 1,
+    "num_classes": None,
 
-    'ignore_label': 0,
-    'idx_offset': 1,
-    'num_classes': None,
+    "label_encoding": "dense",
+    "root_classes": 0,
 
-    'load_to_memory': True,
+    "load_to_memory": False,
 
-    'down_label': False,
+    "grid_size": 10,
+    "grid_dims": 3,
 
-    'dist_mask': None,
+    "dist_mask": None,
 
-    'do_split': False,
+    "subsample": 0,
+    "do_split": True,
 
-    'transform': {
+    "transform": {
+        "equirectangular": False,
         "equi_crop": {
-            "do_equi": False,
-            "equi_chance": 1,
+            "equi_chance": 0.5,
             "HFoV_range": [0.8, 2.5],
             "VFoV_range": [0.8, 2.5],
             "wrap": True,
             "plane_f": 0.05
         },
-        'presize': 0.5,
-        'npz_factor': 2,
-        'color_augmentation_level': 1,
-        'fix_shape': True,
-        'reseize_image': False,
-        'patch_size': [480, 480],
-        'random_roll': True,
-        'random_crop': True,
-        'max_crop': 8,
-        'crop_chance': 0.6,
-        'random_resize': False,
-        'lower_fac': 0.5,
-        'upper_fac': 2,
-        'resize_sig': 0.4,
-        'random_flip': False,
-        'random_rotation': False,
-        'equirectangular': False,
-        'normalize': False,
-        'mean': [0.485, 0.456, 0.406],
-        'std': [0.229, 0.224, 0.225]
+        "presize": None,
+        "npz_factor": 1,
+        "color_augmentation_level": 1,
+        "fix_shape": True,
+        "reseize_image": False,
+        "patch_size": [232, 232],
+        "random_crop": False,
+        "random_roll": True,
+        "max_crop": 4,
+        "crop_chance": 0.6,
+        "random_resize": False,
+        "lower_fac": 0.5,
+        "upper_fac": 2,
+        "resize_sig": 0.3,
+        "random_flip": False,
+        "random_rotation": False,
+        "normalize": False,
+        "mean": [0.485, 0.456, 0.406],
+        "std": [0.229, 0.224, 0.225]
     },
-    'num_worker': 4
+    "num_worker": 4
 }
 
 DEBUG = False
@@ -165,19 +173,12 @@ class DirLoader(data.Dataset):
         else:
             self.data_root = dataset
 
-        """ TODO
-        if self.conf['mask_file'] is not None:
-            data_base_path = os.path.dirname(__file__)
-            data_file = os.path.join(data_base_path,
-                                     self.conf['mask_file'])
-            self.mask_table = json.load(open(data_file))
-        else:
-            self.mask_table = None
         """
-
-        # self.mask_table = None
         self.npz_keys = ['geo_mask', 'geo_world', 'geo_camera',
                          'geo_sphere']
+        """
+
+        self.meta_keys = ['T_opensfm', 'T_posenet', 'R_opensfm', 'Q_posenet']
 
         self.root_dir = os.environ['TV_DIR_DATA']
         self._read_dataset_dir()
@@ -218,27 +219,10 @@ class DirLoader(data.Dataset):
             image = np.array(imageio.imread(image_filename))
 
         if self.metalist is not None:
-            # label_filename = self.labellist[idx]
-            ids_label_filename = self.ids_labellist[idx]
             meta_filename = self.metalist[idx]
 
-            """
-            # assert os.path.exists(label_filename), \
-            #    "File does not exist: %s" % label_filename
-            assert os.path.exists(ids_label_filename), \
-                "File does not exist: %s" % ids_label_filename
-            assert os.path.exists(meta_filename), \
-                "File does not exist: %s" % meta_filename
-            """
-
-            load_dict['label_file'] = ids_label_filename
-            if self.conf['load_to_memory']:
-                ids_image = copy.deepcopy(self.ids_loaded[idx])
-            else:
-                ids_image = np.array(imageio.imread(ids_label_filename))
-
             if self._debug_interrupt == "only_read_png":
-                return [image, ids_image]
+                return [image]
 
             if self.conf['load_to_memory']:
                 npz_file = copy.deepcopy(self.meta_loaded[idx])
@@ -246,27 +230,24 @@ class DirLoader(data.Dataset):
                 npz_file = np.load(meta_filename)
 
             if self._debug_interrupt == "only_read_png":
-                return [image, ids_image]
+                return [image]
 
-            label_dict = {
-                "geo_world": npz_file['points_3d_world'].astype(np.float32),
-                "geo_sphere": npz_file['points_3d_sphere'].astype(np.float32),
-                "geo_camera": npz_file['points_3d_camera'].astype(np.float32),
-                "geo_mask": npz_file['mask'],
-                "ids_image": ids_image
-            }
+            meta_dict = dict(npz_file)
+
         else:
-            label_dict = {}
+            raise NotImplementedError
+
+        label_dict = {}
 
         if self._debug_interrupt == "only_read_data":
-            return [image, ids_image, label_dict, load_dict]
+            return [image, label_dict, load_dict]
 
         if self._debug_interrupt == "no_augmentation":
             self.do_augmentation = False
             self._debug_interrupt = "only_transform"
 
         image, label_dict, load_dict = self.transform(
-            image, label_dict, load_dict)
+            image, label_dict, load_dict, meta_dict)
 
         if self.metalist is None:
             sample = {
@@ -280,32 +261,17 @@ class DirLoader(data.Dataset):
                       label_dict["geo_world"].astype(np.float32)}
             return sample
 
-        ids_image = label_dict['ids_image']
+        assert meta_dict['updated']
 
-        geo_mask = self._decode_mask(label_dict)
-
-        label, class_mask = self.decode_ids(ids_image)
-
-        total_mask = (geo_mask * class_mask).astype(np.uint8)
+        assert np.abs(np.linalg.norm(meta_dict['Q_posenet']) - 1) < 0.00001, \
+            "Rotation not normalized: {}".format(
+                np.abs(np.linalg.norm(meta_dict['Q_posenet'])))
 
         sample = {
             'image': image,
-            'label': label,
-            'total_mask': total_mask,
-            'rotation': npz_file['R'],
-            'translation': npz_file['T'],
+            'rotation': meta_dict['Q_posenet'],
+            'translation': meta_dict['T_posenet'],
             'load_dict': str(load_dict)}
-
-        for key in ["geo_world", "geo_sphere", "geo_camera"]:
-            sample[key] = label_dict[key].transpose([2, 0, 1]).astype(
-                np.float32)
-
-        try:
-            if not self.do_augmentation:
-                for key in ['white_Kinv', 'white_mean', 'white_labels']:
-                    sample[key] = list(npz_file[key])
-        except KeyError:
-            pass
 
         assert self._debug_interrupt is None
 
@@ -323,6 +289,7 @@ class DirLoader(data.Dataset):
         mask_file = os.path.join(self.datadir, 'class_ids.json')
         self.mask_table = json.load(open(mask_file))
 
+        '''
         self.is_white = self.meta_dict['is_white']
 
         if self.conf['num_classes'] is None:
@@ -341,10 +308,11 @@ class DirLoader(data.Dataset):
                 self.white_dict['id_to_pos'][label] = i
         else:
             self.white_dict = None
+        '''
 
         self.scale = self.meta_dict['scale']
 
-        self.vis_file = os.path.join(self.datadir, 'colors.lst')
+        # self.vis_file = os.path.join(self.datadir, 'colors.lst')
 
     def _decode_mask(self, label_dict):
 
@@ -416,7 +384,7 @@ class DirLoader(data.Dataset):
 
                 for meta in self.metalist:
                     label_dict = dict(np.load(meta))
-                    if not (factor > 0.99 and factor < 1.01):
+                    if not (factor > 0.99 and factor < 1.01) and False:
                         for key, item in label_dict.items():
                             if key in ["points_3d_world", "points_3d_camera",
                                        "points_3d_sphere", "mask"]:
@@ -468,59 +436,6 @@ class DirLoader(data.Dataset):
                 ]
 
             logging.info("Finished Loading Images.")
-
-        if False:
-
-            labeldir = os.path.join(datadir, 'labels')
-            if os.path.exists(labeldir):
-
-                labellist = [meta.split(".")[0] + ".png" for meta in metalist]
-                self.labellist = [os.path.join(labeldir, label)
-                                  for label in labellist]
-
-                for label in self.labellist:
-                    assert os.path.exists(label),\
-                        "Error loading dataset. Img not found: {}".format(
-                            label)
-
-            else:
-                # Handle Test Case without any meta data.
-                raise NotImplementedError
-
-        ids_labeldir = os.path.join(datadir, 'ids_labels')
-        if os.path.exists(ids_labeldir):
-            ids_labellist = [meta.split(".")[0] + ".png"
-                             for meta in metalist]
-
-            self.ids_labellist = [os.path.join(ids_labeldir, ids_label)
-                                  for ids_label in ids_labellist]
-
-            for ids_label in self.ids_labellist:
-                assert os.path.exists(ids_label),\
-                    "Error loading dataset. Img not found: {}".format(
-                        label)
-
-            if self.conf['load_to_memory']:
-                factor = self.conf['transform']['presize']
-
-                if factor is not None:
-
-                    self.ids_loaded = [
-                        scipy.misc.imresize(
-                            np.array(imageio.imread(fimg)),
-                            size=factor, interp='nearest')
-                        for fimg in self.ids_labellist
-                    ]
-                else:
-                    self.ids_loaded = [
-                        np.array(imageio.imread(fimg))
-                        for fimg in self.ids_labellist
-                    ]
-                logging.info("Finished Loading Labels.")
-
-        else:
-            # Handle Test Case without any meta data.
-            raise NotImplementedError
 
         return
 
@@ -609,7 +524,7 @@ class DirLoader(data.Dataset):
 
         return image, gt_image
 
-    def transform(self, image, label_dict, load_dict):
+    def transform(self, image, label_dict, load_dict, meta_dict):
 
         transform = self.conf['transform']
 
@@ -633,7 +548,8 @@ class DirLoader(data.Dataset):
             assert False  # Make Sure to deactivate shape_aug
             shape_aug = False  # NOQA
 
-        if transform['presize'] is not None and not self.conf['load_to_memory']: # NOQA
+        if transform['presize'] is not None and not self.conf['load_to_memory']:  # NOQA
+            assert False
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 image = scipy.misc.imresize(
@@ -664,6 +580,11 @@ class DirLoader(data.Dataset):
                 if random.random() > 0.5:
                     image, label_dict = roll_img(
                         image, label_dict)
+                    load_dict['rolled'] = True
+                else:
+                    load_dict['rolled'] = False
+            else:
+                load_dict['rolled'] = False
 
             shape_distorted = True
 
@@ -684,17 +605,12 @@ class DirLoader(data.Dataset):
                     image, label_dict, lower_size, upper_size, sig)
                 shape_distorted = True
 
-            if transform['random_crop']:
-                max_crop = transform['max_crop']
-                crop_chance = transform['crop_chance']
-                image, label_dict = random_crop_soft(
-                    image, label_dict, max_crop, crop_chance)
-                shape_distorted = True
-
             if transform['fix_shape'] and shape_distorted:
                 patch_size = transform['patch_size']
                 image, label_dict = crop_to_size(
-                    image, label_dict, patch_size)
+                    image, label_dict, patch_size, load_dict)
+
+            meta_dict = self.adapt_rotation(meta_dict, load_dict)
 
             if transform['fix_shape']:
                 if image.shape[0] < transform['patch_size'][0] or \
@@ -737,6 +653,21 @@ class DirLoader(data.Dataset):
         image = image.astype(np.float32)
 
         return image, label_dict, load_dict
+
+    def adapt_rotation(self, meta_dict, load_dict):
+
+        center_w = load_dict['off_y'] + load_dict['patch_width'] // 2
+        quaternion = meta_dict['Q_posenet']
+        width = load_dict['img_width']
+
+        quaternion_new = pmath.adjust_quaternion_to_equirectangular_shift(
+            center_w, width, quaternion, load_dict['rolled'])
+
+        meta_dict['Q_posenet'] = quaternion_new
+
+        meta_dict['updated'] = True
+
+        return meta_dict
 
 
 def to_np(img):
@@ -786,7 +717,7 @@ def random_crop_soft(image, label_dict, max_crop, crop_chance):
     return image, label_dict
 
 
-def crop_to_size(image, label_dict, patch_size):
+def crop_to_size(image, label_dict, patch_size, load_dict):
     new_width = image.shape[1]
     new_height = image.shape[0]
     width = patch_size[1]
@@ -802,6 +733,10 @@ def crop_to_size(image, label_dict, patch_size):
         off_x = random.randint(0, max_x)
     else:
         off_x = 0
+
+    load_dict['off_y'] = off_y
+    load_dict['img_width'] = new_width
+    load_dict['patch_width'] = width
 
     image = image[off_x:off_x + height, off_y:off_y + width]
     for key, item in label_dict.items():
@@ -1161,7 +1096,7 @@ def speed_bench():
 
 if __name__ == '__main__':  # NOQA
 
-    if True:
+    if False:
 
         speed_bench()
 

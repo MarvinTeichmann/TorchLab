@@ -35,11 +35,12 @@ import pyvision.logger
 
 
 import localseg
-from localseg.data_generators import loader_pose as loader
+from localseg.data_generators import dir_pose_loader as loader
 # from localseg.data_generators import loader
 
 from localseg import loss
-from localseg.trainer import PoseTrainer
+from localseg.loss import poseLoss
+import localseg.trainer2 as trainer
 
 # from localseg.evaluators import segevaluator as evaluator
 from localseg.evaluators import poseevaluator
@@ -193,26 +194,23 @@ class PoseNet(nn.Module):
 
         self.logger = pyvision.logger.Logger()
 
-        # Load Dataset
-        bs = conf['training']['batch_size']
-
         self.loader = loader
-        self.trainloader = loader.get_data_loader(
-            conf['dataset'], split='train', batch_size=bs)
-        Trainer = PoseTrainer # NOQA
+        self.trainer = trainer.SegmentationTrainer(conf, self, self.loader)
 
         assert conf['dataset']['label_encoding'] in ['dense', 'spatial_2d']
         self.label_encoding = conf['dataset']['label_encoding']
 
         self.model = Encoder(conf['encoder'])
 
-        self.trainer = Trainer(conf, self, self.trainloader)
-
         self._load_pretrained_weights(conf)
 
         self.evaluator = poseevaluator.MetaEvaluator(conf, self)
 
-        self._make_loss(conf)
+        self.loss = poseLoss.make_loss(conf, self)
+
+        # self._make_loss(conf)
+
+        self.trainer.init_optimizer()
 
         # self.visualizer = pvis.PascalVisualizer()
 
@@ -259,7 +257,7 @@ class PoseNet(nn.Module):
 
             self.load_state_dict(checkpoint['state_dict'])
 
-    def forward(self, imgs, geo_dict=None):
+    def forward(self, imgs, geo_dict=None, fakegather=None):
         # Expect input to be in range [0, 1]
         # and of type float
 

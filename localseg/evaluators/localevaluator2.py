@@ -326,20 +326,19 @@ class MetaEvaluator(object):
 
         if self.conf['evaluation']['do_segmentation_eval']:
             if self.conf['evaluation']['do_dist_eval']:
-                out_str = ("Summary:   [{:17}](mIoU: {:.2f} | {:.2f}    "
+                out_str = ("Summary:   [{:22}](mIoU: {:.2f} | {:.2f}    "
                            "accuracy: {:.2f} | {:.2f}   dist: {:.2f} | "
-                           "{:.2f} | {:.2f})    Epoch: {} / {}").format(
+                           "{:.2f})    Epoch: {} / {}").format(
                     runname[0:22],
                     100 * median(self.logger.data['val\\mIoU']),
                     100 * median(self.logger.data['train\\mIoU']),
                     100 * median(self.logger.data['val\\accuracy']),
                     100 * median(self.logger.data['train\\accuracy']),
-                    100 * median(self.logger.data['val\\Acc @6']),
-                    100 * median(self.logger.data['val\\Acc @12']),
-                    100 * median(self.logger.data['train\\Acc @12']),
+                    100 * median(self.logger.data['val\\Average Accuracy']),
+                    100 * median(self.logger.data['train\\Average Accuracy']),
                     epoch, max_epochs)
             else:
-                out_str = ("Summary:   [{:17}](mIoU: {:.2f} | {:.2f}    "
+                out_str = ("Summary:   [{:22}](mIoU: {:.2f} | {:.2f}    "
                            "accuracy: {:.2f} | {:.2f}  "
                            "  Epoch: {} / {}").format(
                     runname[0:22],
@@ -352,7 +351,7 @@ class MetaEvaluator(object):
         else:
             if self.conf['evaluation']['do_dist_eval']:
                 if self.conf['evaluation']['do_dist_eval']:
-                    out_str = ("Summary:   [{:17}](CDM: {:.2f} | {:.2f}    "
+                    out_str = ("Summary:   [{:22}](CDM: {:.2f} | {:.2f}    "
                                "dist: {:.2f} | {:.2f}   dist acc: {:.2f} | "
                                "{:.2f} | {:.2f})    Epoch: {} / {}").format(
                         runname[0:22],
@@ -578,11 +577,11 @@ class Evaluator():
             plt.close("all")
 
         if self.conf['evaluation']['do_dist_eval']:
-            self._plot_roc_curve(dmetric)
+            self._plot_roc_curve(dmetric, epoch=epoch)
 
         return CombinedMetric([bmetric, metric, dmetric])
 
-    def _plot_roc_curve(self, dmetric):
+    def _plot_roc_curve(self, dmetric, epoch):
 
         roc_dict = {}
 
@@ -590,9 +589,21 @@ class Evaluator():
         roc_dict['thresh'] = dmetric.at_thres[0]
         roc_dict['values'] = dmetric.at_values[0]
 
-        pfile = os.path.join(self.imgdir, self.name + "_stpoints.npz")
-
+        pfile = os.path.join(self.imgdir, self.name + "_atp.npz")
         np.savez(pfile, **roc_dict)
+
+        """
+        pltdir = os.path.join(self.imgdir, "plots")
+        if not os.path.exists(pltdir):
+            os.mkdir(pltdir)
+
+        pfile = os.path.join(pltdir, self.name + "_atp_{}.npz".format(epoch))
+        np.savez(pfile, **roc_dict)
+        """
+
+        if epoch is not None:
+            self.model.logger.add_value(
+                roc_dict, self.name + '_atpoints', epoch)
 
         at_steps = roc_dict['steps']
         thresh = roc_dict['thresh']
@@ -1182,7 +1193,7 @@ class DistMetric(object):
         for i, maxtresh in enumerate(self.at_thres):
             clipped = np.clip(dists * self.scale, 0, maxtresh)
             discrete = (clipped * self.at_steps).astype(np.uint32)
-            self.at_values[i] += np.bincount(discrete)
+            self.at_values[i] += np.bincount(discrete, minlength=2001)
 
         maxtresh = 100
         mintresh = 20

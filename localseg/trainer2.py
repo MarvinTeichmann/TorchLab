@@ -296,9 +296,10 @@ class SegmentationTrainer():
                 if self.epoch % self.mayor_eval == 0 or \
                         self.epoch == max_epochs:
                     level = 'mayor'
-                self.logger.init_step(epoch)
-                self.logger.add_value(self.losses, 'loss', epoch)
-                self.model.evaluate(epoch, level=level)
+                self.logger.init_step(epoch + self.eval_iter)
+                self.logger.add_value(self.losses, 'loss',
+                                      epoch + self.eval_iter)
+                self.model.evaluate(epoch + self.eval_iter, level=level)
                 if self.conf['logging']['log']:
                     logging.info("Saving checkpoint to: {}".format(
                         self.model.logdir))
@@ -318,8 +319,10 @@ class SegmentationTrainer():
                         self.model.logdir))
 
             if not self.epoch % 20 * self.eval_iter:
-                os.path.join(self.model.logdir, 'backup',
-                             'summary.log.{}.pickle'.format(self.epoch))
+                new_file = os.path.join(
+                    self.model.logdir, 'backup',
+                    'summary.log.{}.pickle'.format(self.epoch))
+                self.logger.save(filename=new_file)
 
             if self.epoch > 0 and not self.epoch % self.checkpoint_backup:
                 name = 'checkpoint_{:04d}.pth.tar'.format(self.epoch)

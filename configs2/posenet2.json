@@ -1,0 +1,179 @@
+{
+    "modules": {
+        "model": "end_dec",
+        "encoder": "resnet",
+        "loader": "geometry",
+        "optimizer": "adam",
+        "eval": "voc"
+    },
+
+    "dataset" : {
+        "dataset": "Camvid360",
+        "train_root": "camvid360/part34_100_posenet_240p",
+        "val_root": "camvid360/part34_100_posenet_240p",
+
+        "ignore_label": 0,
+        "idx_offset": 1,
+        "num_classes": null,
+
+        "label_encoding": "dense",
+        "root_classes": 0,
+
+        "load_to_memory": false,
+
+        "grid_size": 10,
+        "grid_dims": 3,
+
+        "dist_mask": null,
+
+        "subsample": 0,
+        "do_split": true,
+
+        "transform": {
+            "equirectangular": false,
+            "equi_crop": {
+                "equi_chance": 0.5,
+                "HFoV_range": [0.8, 2.5],
+                "VFoV_range": [0.8, 2.5],
+                "wrap": true,
+                "plane_f": 0.05
+                },
+            "presize": null,
+            "npz_factor": 1,
+            "color_augmentation_level": 1,
+            "fix_shape": true,
+            "reseize_image": false,
+            "patch_size": [232, 232],
+            "random_crop": false,
+            "random_roll": false,
+            "max_crop": 4,
+            "crop_chance": 0.6,
+            "random_resize": false,
+            "lower_fac": 0.5,
+            "upper_fac": 2,
+            "resize_sig": 0.3,
+            "random_flip": false,
+            "random_rotation": false,
+            "normalize": false,
+            "mean": [0.485, 0.456, 0.406],
+            "std": [0.229, 0.224, 0.225]
+        },
+        "num_worker": 6
+    },
+
+    "encoder": {
+        "source": "encoding",
+        "norm": "Batch",
+        "dilated": true,
+        "normalize": true,
+        "batched_dilation": false,
+        "num_layer": 50,
+        "load_pretrained": true,
+        "mean": [0.485, 0.456, 0.406],
+        "std": [0.229, 0.224, 0.225],
+        "simple_norm": false
+    },
+
+    "decoder": {
+        "skip_connections": false,
+        "scale_down": 0.01,
+        "geo_scale": null,
+        "dropout": true,
+        "bottleneck": null,
+        "upsample": true
+    },
+
+    "loss":{
+        "type": "magic",
+        "geometric_type": {
+            "spherical": false,
+            "camera": false,
+            "world": true
+        },
+        "weights": {
+            "beta": 40,
+            "dist": 1.5
+        },
+        "corner": false,
+        "use_mask_loss": false,
+        "mask_weight": null,
+        "spatial": false,
+        "embedding_loss": null,
+        "squeeze": false,
+        "sqrt": true,
+        "dist_loss": true,
+        "warp_dist": 32,
+        "squeze_weight": 0,
+        "border": 0.2,
+        "inner_factor": 10,
+        "backprop_orig": false
+    },
+
+    "training": {
+        "batch_size": 80,
+        "learning_rate": 8e-4,
+        "lr_schedule": "poly",
+        "min_lr": 1e-8,
+        "exp": 1.5,
+        "base": 0.9,
+        "base2": 2,
+        "lr_offset_epochs": 0,
+        "momentum": 0.9,
+        "weight_decay": 5e-4,
+        "clip_norm": null,
+        "max_epochs": 4000,
+        "pre_eval": false,
+        "cnn_gpus": null,
+        "max_epoch_steps": null,
+        "init_weights_from_checkpoint": false,
+        "wd_policy": 2,
+        "num_gpus": 1
+    },
+
+    "evaluation": {
+        "num_minor_imgs": 5,
+        "transparency": 0,
+        "default_level": "minor",
+        "do_segmentation_eval": true,
+        "do_dist_eval": true,
+        "do_mask_eval": false,
+        "unwhitening": true,
+        "use_gt_label": false,
+        "reduce_val_bs": true,
+        "val_subsample": null,
+        "train_subsample": null,
+        "eval_mul": 5,
+        "has_flow": false,
+        "train_do_agumentation": false,
+        "mask_thresh": 0.7,
+        "scale": 1,
+        "scale_world": 1
+    },
+
+    "logging": {
+        "disp_per_epoch": 5,
+        "eval_iter": 500,
+        "log": true,
+        "checkpoint_backup": 900000,
+        "mayor_eval": 900000
+    },
+
+    "plotting": {
+        "defaults": {
+            "plot": ["Acc @0.3m", "Average Accuracy", "Average Accuracy", "Acc @0.1 π", "Average Accuracy π", "Average Accuracy π"],
+            "prefixes": ["val", "val", "train", "val", "val", "train"],
+            "titles": ["Acc @0.3m", "Average Accuracy (val)", "Average Accuracy (train)",
+                       "Acc @0.1 π", "Average Accuracy π (val)", "Average Accuracy π (train)"]
+        }
+    },
+
+    "pyvision": {
+        "project_name": "localsegPose",
+        "entry_point": "../localseg/posenet.py",
+        "plotter": "../localseg/plotting/segplotter.py",
+        "required_packages": ["../localseg"],
+        "optional_packages": ["../pyvision/pyvision"],
+        "copy_required_packages": true,
+        "copy_optional_packages": true
+    }
+}
