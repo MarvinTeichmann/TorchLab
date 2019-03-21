@@ -38,6 +38,8 @@ import localseg
 from localseg.data_generators import dir_pose_loader as loader
 # from localseg.data_generators import loader
 
+from localseg.encoder import parallel as parallel
+
 from localseg import loss
 from localseg.loss import poseLoss
 import localseg.trainer2 as trainer
@@ -153,7 +155,7 @@ def _set_num_workers(config):
         config['dataset']['num_worker'] = 2
 
     if "goban" in socket.gethostname():
-        config['dataset']['num_worker'] = 4
+        config['dataset']['num_worker'] = 3
 
     if "rokuban" in socket.gethostname():
         config['dataset']['num_worker'] = 6
@@ -172,10 +174,10 @@ class Encoder(nn.Module):
         self.conf = conf
 
         mean = np.array(self.conf['mean'])
-        self.mean = torch.Tensor(mean).view(1, 3, 1, 1).cuda()
+        self.mean = torch.Tensor(mean).view(1, 3, 1, 1)
 
         std = np.array(self.conf['std'])
-        self.std = torch.Tensor(std).view(1, 3, 1, 1).cuda()
+        self.std = torch.Tensor(std).view(1, 3, 1, 1)
 
         self.resnet = segencoder.resnet.resnet50(
             pretrained=True)
@@ -185,7 +187,8 @@ class Encoder(nn.Module):
 
     def forward(self, imgs):
 
-        normalized_imgs = (imgs - self.mean) / self.std
+        normalized_imgs = (imgs - self.mean.cuda(imgs.device)) \
+            / self.std.cuda(imgs.device)
 
         x = self.resnet(normalized_imgs, return_dict=False) # NOQA
 
@@ -203,6 +206,8 @@ class PoseNet(nn.Module):
 
         self.conf = conf
         self.logdir = logdir
+
+        self._normalize_parallel(conf)
 
         self._assert_num_gpus(conf)
 
@@ -222,7 +227,7 @@ class PoseNet(nn.Module):
         assert conf['dataset']['label_encoding'] in ['dense', 'spatial_2d']
         self.label_encoding = conf['dataset']['label_encoding']
 
-        self.model = Encoder(conf['encoder'])
+        self.model = parallel.ModelDataParallel(Encoder(conf['encoder']))
 
         self._load_pretrained_weights(conf)
 
@@ -261,6 +266,15 @@ class PoseNet(nn.Module):
                 ('Requested: {0} GPUs   Visible: {1} GPUs.'
                  ' Please set visible GPUs to {0}'.format(
                      conf['training']['num_gpus'], torch.cuda.device_count()))
+
+    def _normalize_parallel(self, conf):
+        num_gpus = torch.cuda.device_count()
+        # conf['training']['batch_size'] *= num_gpus
+        # conf['training']['learning_rate'] *= num_gpus
+        # conf['training']['min_lr'] *= num_gpus
+        # conf['logging']['display_iter'] //= num_gpus
+
+        conf['dataset']['num_worker'] *= num_gpus
 
     def _load_pretrained_weights(self, conf):
 

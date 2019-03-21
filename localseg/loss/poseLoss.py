@@ -35,12 +35,101 @@ from localseg.decoder import geometric as geodec
 
 from localseg.utils import quaternion as tq
 
+from localseg.encoder import parallel as parallel
+
+from torch.nn.parallel.scatter_gather import scatter
+# from torch.nn.parallel.scatter_gather import gather
+from torch.nn.parallel.scatter_gather import Gather
+from torch.nn.parallel.parallel_apply import parallel_apply
+
 DEBUG = False
 
 
 def make_loss(config, model):
 
-    return PoseLoss(config, model)
+    par_loss = ParallelLoss(
+        PoseLoss(config, model), threaded=True)
+
+    return par_loss
+
+
+def gather(outputs, target_device, dim=0):
+    r"""
+    Gathers tensors from different GPUs on a specified device
+      (-1 means the CPU).
+    """
+    def gather_map(outputs):
+        out = outputs[0]
+        if isinstance(out, torch.Tensor):
+            return Gather.apply(target_device, dim, *outputs)
+        if out is None:
+            return None
+        if isinstance(out, dict):
+            if not all((len(out) == len(d) for d in outputs)):
+                raise ValueError('All dicts must have the same number of keys')
+            return type(out)(((k, gather_map([d[k] for d in outputs]))
+                              for k in out))
+        return type(out)(map(gather_map, zip(*outputs)))
+
+    # Recursive function calls like this create reference cycles.
+    # Setting the function to None clears the refcycle.
+    try:
+        return gather_map(outputs)
+    finally:
+        gather_map = None
+
+
+class ParallelLoss(nn.Module):
+    def __init__(self, loss, device_ids=None,
+                 output_device=None, dim=0, threaded=True):
+        super(ParallelLoss, self).__init__()
+        if device_ids is None:
+            device_ids = list(range(torch.cuda.device_count()))
+        if output_device is None:
+            output_device = device_ids[0]
+        self.dim = dim
+        self.loss = loss
+        self.device_ids = device_ids
+        self.output_device = output_device
+
+        self.threaded = threaded
+
+        if len(self.device_ids) == 1:
+            self.loss.cuda(device_ids[0])
+
+    def forward(self, predictions, sample):
+
+        sample_gpu = scatter(sample, self.device_ids)
+
+        if len(self.device_ids) == 1:
+            tloss, loss_dict = self.loss(
+                predictions, sample_gpu[0])
+        else:
+
+            if not self.threaded:
+                losses = [
+                    self.loss(pred, gt)
+                    for pred, gt in zip(predictions, sample_gpu)]
+            else:
+
+                modules = [
+                    self.loss for i in range(len(self.device_ids))]
+
+                inputs = [inp for inp in zip(predictions, sample_gpu)]
+
+                losses = parallel_apply(
+                    modules, inputs)
+
+            # TODO: make pretty.
+
+            tloss, loss_dict = gather(losses, target_device=0)
+            tloss = sum(tloss) / len(tloss)
+
+            for key, value in loss_dict.items():
+                loss_dict[key] = sum(value) / len(value)
+
+        return tloss, loss_dict
+        pass
 
 
 class PoseLoss(nn.Module):
@@ -65,8 +154,8 @@ class PoseLoss(nn.Module):
         translation = predictions[:, :3]
         rotation = predictions[:, 3:]
 
-        rotation_gt = sample['rotation'].cuda().float()
-        translation_gt = sample['translation'].cuda().float()
+        rotation_gt = sample['rotation'].float()
+        translation_gt = sample['translation'].float()
 
         weights = self.conf['loss']['weights']
 
@@ -77,7 +166,7 @@ class PoseLoss(nn.Module):
         rloss = weights['beta'] * rloss
 
         # rloss = weights['beta'] * torch.mean(
-        #     tq.min_angle(rotation, sample['rotation'].float().cuda()))
+        #     tq.min_angle(rotation, sample['rotation'].float()))
 
         # print(eval(sample['load_dict'][0]))
         # print(rotation)
@@ -112,17 +201,17 @@ class PoseLoss(nn.Module):
                     rotations.append(rot)
                     translations.append(trans)
 
-                rot_np = torch.Tensor(rotations).cuda().float()
-                trans_np = torch.Tensor(translations).cuda().float()
+                rot_np = torch.Tensor(rotations).float()
+                trans_np = torch.Tensor(translations).float()
 
                 assert torch.max(torch.abs(rot_np - rot_sfm_gt)) < 1e-6
                 assert torch.max(torch.abs(
                     trans_np - trans_sfm_gt)) < 1e-3, \
                     torch.max(torch.abs(trans_np - trans_sfm_gt))
 
-            mask = sample['mask'].cuda() / 255
+            mask = sample['mask'] / 255
 
-            world_points = sample['points_3d_world'].cuda()
+            world_points = sample['points_3d_world']
 
             camera_points = geodec.world_to_camera(
                 world_points, rot_sfm, trans_sfm)

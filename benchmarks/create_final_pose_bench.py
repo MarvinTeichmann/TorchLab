@@ -37,7 +37,7 @@ gpus = '0'
 
 names = ['CamP34', 'CamFull', 'SinSmall256p', 'SinLarge256p']
 
-bench_name = "Loss2PaperBench"
+bench_name = "Parallel2PaperBench"
 
 values = [
     [100],

@@ -91,7 +91,7 @@
             "world": true
         },
         "weights": {
-            "beta": 40,
+            "beta": 4,
             "camera": 1,
             "dist": 1.5
         },
@@ -104,8 +104,8 @@
     },
 
     "training": {
-        "batch_size": 80,
-        "learning_rate": 8e-4,
+        "batch_size": 90,
+        "learning_rate": 9e-4,
         "lr_schedule": "poly",
         "min_lr": 1e-8,
         "exp": 1.5,
@@ -121,7 +121,7 @@
         "max_epoch_steps": null,
         "init_weights_from_checkpoint": false,
         "wd_policy": 2,
-        "num_gpus": 1
+        "num_gpus": 2
     },
 
     "evaluation": {
