@@ -13,14 +13,13 @@ import sys
 
 import numpy as np
 import scipy as scp
+import torch
 
 import logging
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
-
-import torch
 
 
 def normalize(q):
@@ -44,12 +43,12 @@ def min_angle(q0, q1):
     nq0q1 = normalize(q0q1)
 
     if len(nq0q1.shape) == 1:
-        return - nq0q1[0].pow(2)
-        # return 2 * torch.acos(torch.abs(nq0q1[0]))
+        # return - nq0q1[0].pow(2)
+        return 2 * torch.acos(torch.abs(nq0q1[0]))
     else:
-        result = nq0q1[:, 0]
-        return - (result * result)
-        # return 2 * torch.acos(torch.abs(nq0q1[:, 0]))
+        # result = nq0q1[:, 0]
+        # return - (result * result)
+        return 2 * torch.acos(torch.abs(nq0q1[:, 0]))
 
 
 def conjugate(q):
@@ -88,6 +87,51 @@ def multiply(q0, q1):
 
     else:
         raise NotImplementedError
+
+
+def get_rotation(q):
+
+    if len(q.shape) == 1:
+        r = q[0]
+        i = q[1]
+        j = q[2]
+        k = q[3]
+        s = 1.0 / (r * r + i * i + j * j + k * k)
+        rotation = torch.Tensor(
+            [[1 - 2 * s * (j * j + k * k), 2 * s * (i * j - k * r),
+              2 * s * (i * k + j * r)],
+             [2 * s * (i * j + k * r), 1 - 2 * s * (i * i + k * k),
+              2 * s * (j * k - i * r)],
+             [2 * s * (i * k - j * r), 2 * s * (j * k + i * r),
+              1 - 2 * s * (i * i + j * j)]])
+    elif len(q.shape) == 2:
+        r = q[:, 0]
+        i = q[:, 1]
+        j = q[:, 2]
+        k = q[:, 3]
+        s = 1.0 / (r * r + i * i + j * j + k * k)
+
+        result = [[1 - 2 * s * (j * j + k * k), 2 * s * (i * j - k * r),
+                   2 * s * (i * k + j * r)],
+                  [2 * s * (i * j + k * r), 1 - 2 * s * (i * i + k * k),
+                   2 * s * (j * k - i * r)],
+                  [2 * s * (i * k - j * r), 2 * s * (j * k + i * r),
+                   1 - 2 * s * (i * i + j * j)]]
+
+        results = [torch.stack(res, dim=1) for res in result]
+        rotation = torch.stack(results, dim=1)
+
+    return rotation
+
+
+def posenetQT_to_opensfmRT(q, poseT): # NOQA
+    rotation = get_rotation(q)
+    if len(q.shape) == 1:
+        translation = -torch.matmul(rotation, poseT)
+    elif len(q.shape) == 2:
+        translation = -torch.matmul(rotation, poseT.unsqueeze(2))
+        translation = translation.squeeze(2)
+    return rotation, translation
 
 
 if __name__ == '__main__':
