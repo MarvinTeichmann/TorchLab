@@ -9,8 +9,8 @@
 
     "dataset" : {
         "dataset": "Camvid360",
-        "train_root": "sincity/part34_posenet_240p",
-        "val_root": "sincity/part34_posenet_240p",
+        "train_root": "camvid360/part34_world_240p",
+        "val_root": "camvid360/part34_world_240p",
 
         "ignore_label": 0,
         "idx_offset": 1,
@@ -84,16 +84,18 @@
     },
 
     "loss":{
-        "type": "simple",
+        "type": "advanced",
         "geometric_type": {
             "spherical": false,
             "camera": false,
             "world": true
         },
         "weights": {
-            "beta": 4,
+            "beta": 40,
+            "camera": 1,
             "dist": 1.5
         },
+        "camera_weight": 0.25,
         "corner": false,
         "mask_weight": null,
         "only_assert": true,
@@ -144,10 +146,10 @@
     },
 
     "logging": {
-        "disp_per_epoch": 5,
+        "disp_per_epoch": 10,
         "eval_iter": 50,
         "log": true,
-        "checkpoint_backup": 900000,
+        "checkpoint_backup": 200,
         "mayor_eval": 900000
     },
 

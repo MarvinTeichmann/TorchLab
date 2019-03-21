@@ -43,8 +43,8 @@
             "color_augmentation_level": 1,
             "fix_shape": true,
             "reseize_image": false,
-            "patch_size": [240, 480],
-            "random_crop": false,
+            "patch_size": [240, 240],
+            "random_crop": true,
             "random_roll": true,
             "max_crop": 4,
             "crop_chance": 0.6,
@@ -91,9 +91,11 @@
             "world": true
         },
         "weights": {
-            "beta": 400,
+            "beta": 40,
+            "camera": 1,
             "dist": 1.5
         },
+        "camera_weight": 0.5,
         "corner": false,
         "mask_weight": null,
         "only_assert": true,
@@ -102,8 +104,8 @@
     },
 
     "training": {
-        "batch_size": 1,
-        "learning_rate": 1e-4,
+        "batch_size": 80,
+        "learning_rate": 4e-4,
         "lr_schedule": "poly",
         "min_lr": 1e-8,
         "exp": 1.5,
@@ -134,7 +136,7 @@
         "reduce_val_bs": true,
         "val_subsample": null,
         "train_subsample": null,
-        "eval_mul": 5,
+        "eval_mul": 1,
         "has_flow": false,
         "train_do_agumentation": true,
         "val_do_agumentation": false,
@@ -145,7 +147,7 @@
 
     "logging": {
         "disp_per_epoch": 10,
-        "eval_iter": 200,
+        "eval_iter": 500,
         "log": true,
         "checkpoint_backup": 900000,
         "mayor_eval": 900000

@@ -35,14 +35,24 @@ conf = "../configs2/posenet2.json"
 
 gpus = '0'
 
-names = ['w0.9', 'w0.7', 'w0.5', 'w0.25']
+names = ['CamP34', 'CamFull', 'SinSmall256p', 'SinLarge256p']
 
-bench_name = "cWEightBench"
+bench_name = "Loss2PaperBench"
 
-values = [[0.9], [0.7], [0.5], [0.25]]
+values = [
+    [100],
+    ["camvid360/full_world_240p", "camvid360/full_world_240p"],
+    ["sincity/small_world_256p", "sincity/small_world_256p", [248, 248]],
+    ["sincity/large_world_256p", "sincity/large_world_256p", [248, 248]]
+]
 
 
-keys = ["loss.camera_weight"]
+keys = [
+    ["logging.checkpoint_backup"],
+    ["dataset.train_root", "dataset.val_root"],
+    ["dataset.train_root", "dataset.val_root", "dataset.transform.patch_size"],
+    ["dataset.train_root", "dataset.val_root", "dataset.transform.patch_size"]
+]
 
 # print_str = "pv2 train --gpus %s {}" % gpus
 print_str = "pv2 train {run} --gpus {gpu}"
@@ -70,10 +80,10 @@ def main():
     print('#!/bin/bash', file=f)
     print('', file=f)
 
-    for i, (vals, name) in enumerate(zip(values, names)):
+    for i, (vals, name, mykeys) in enumerate(zip(values, names, keys)):
         config = json.load(open(conf))
 
-        for val, key in zip(vals, keys):
+        for val, key in zip(vals, mykeys):
             pvorg.change_value(config, key, val)
 
         logdir = pvorg.get_logdir_name(

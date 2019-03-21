@@ -53,7 +53,7 @@ except:
     pass
 
 try:
-    import posenet_maths_v5 as pmath
+    import posenet_maths as pmath
 except ImportError:
     from localseg.data_generators import posenet_maths_v5 as pmath
 
@@ -242,8 +242,7 @@ class DirLoader(data.Dataset):
                 assert np.all(rotation - meta_dict['R_opensfm'] < 1e-4)
 
                 label_dict = {}
-                for key in ['points_3d_world', 'points_3d_camera',
-                            'points_3d_sphere', 'mask']:
+                for key in ['points_3d_world', 'mask']:
                     label_dict[key] = meta_dict[key].astype(np.float32)
             else:
                 label_dict = {}
@@ -281,9 +280,9 @@ class DirLoader(data.Dataset):
         sample = {
             'image': image,
             'rotation': rotation,
-            'rotation_gt': meta_dict['R_opensfm'],
+            'rotation_sfm': meta_dict['R_opensfm'],
             'translation': meta_dict['T_posenet'],
-            'translation_gt': meta_dict['T_opensfm'],
+            'translation_sfm': meta_dict['T_opensfm'],
             'load_dict': str(load_dict)}
 
         if self.conf['load_merged']:
@@ -553,11 +552,11 @@ class DirLoader(data.Dataset):
             for key, item in label_dict.items():
                 label_dict[key] = item.copy()
 
+        '''
         label_dict_unrolled = {}
         for key, item in label_dict.items():
             label_dict_unrolled[key + "_orig"] = item.copy()
-
-        # label_dict = label_dict_new
+        '''
 
         if transform['equirectangular']:
             patch_size = transform['patch_size']
@@ -612,8 +611,10 @@ class DirLoader(data.Dataset):
             else:
                 load_dict['rolled'] = False
 
+            '''
             for key, item in label_dict_unrolled.items():
                 label_dict[key] = item.copy()
+            '''
 
             shape_distorted = True
 
@@ -820,11 +821,13 @@ def crop_to_size(image, label_dict, patch_size, load_dict):
     for key, item in label_dict.items():
         label_dict_out[key] = item[off_x:off_x + height, off_y:off_y + width]
 
+    '''
     off_x = max_x // 2
     off_y = max_y // 2
     for key, item in label_dict.items():
         label_dict_out[key + "_center"] = item[
             off_x:off_x + height, off_y:off_y + width]
+    '''
 
     return image, label_dict_out
 

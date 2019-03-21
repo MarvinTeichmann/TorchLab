@@ -48,7 +48,7 @@ from localseg.evaluators import poseevaluator
 
 # from localseg.utils.labels import LabelCoding
 from localseg import encoder as segencoder
-from localseg.data_generators import posenet_maths_v4 as pmath
+from localseg.data_generators import posenet_maths_v5 as pmath
 
 import socket
 

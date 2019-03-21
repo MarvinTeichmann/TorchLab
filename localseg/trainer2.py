@@ -145,7 +145,7 @@ class SegmentationTrainer():
             min_lr = conf['min_lr']
             base_lr = conf['learning_rate']
             step = self.step
-            mstep = self.max_steps  # TODO 
+            mstep = self.max_steps
 
             assert step <= mstep
             assert min_lr < base_lr
@@ -256,6 +256,8 @@ class SegmentationTrainer():
         self.max_steps_lr = epoch_steps * \
             (max_epochs + self.conf['training']['lr_offset_epochs']) + 1
 
+        self.step = self.epoch_steps * math.ceil(self.epoch / self.eval_iter)
+
         assert(self.step >= self.epoch)
 
         self.display_iter = max(
@@ -273,6 +275,9 @@ class SegmentationTrainer():
         for epoch in range(self.epoch, max_epochs, self.eval_iter):
             self.epoch = epoch
             self.model.epoch = epoch
+
+            assert self.step == self.epoch_steps * math.ceil(
+                self.epoch / self.eval_iter)
 
             epoche_time = time.time()
             self.losses = []

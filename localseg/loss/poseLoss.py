@@ -55,18 +55,25 @@ class PoseLoss(nn.Module):
 
         self.scale = model.trainer.loader.dataset.scale
 
+        if self.conf['loss']['type'] == 'advanced':
+            assert np.abs(self.conf['loss']['camera_weight']) <= 1
+
         # self.model = model # TODO
 
     def forward(self, predictions, sample):
 
         translation = predictions[:, :3]
         rotation = predictions[:, 3:]
+
+        rotation_gt = sample['rotation'].cuda().float()
+        translation_gt = sample['translation'].cuda().float()
+
         weights = self.conf['loss']['weights']
 
-        tloss = self.dist_loss(translation, sample['translation'].cuda())
+        tloss = self.dist_loss(translation, translation_gt)
         tloss = tloss * self.scale * weights['dist']
 
-        rloss = self.dist_loss(rotation, sample['rotation'].cuda())
+        rloss = self.dist_loss(rotation, rotation_gt)
         rloss = weights['beta'] * rloss
 
         # rloss = weights['beta'] * torch.mean(
@@ -84,55 +91,57 @@ class PoseLoss(nn.Module):
             translation = sample['translation_gt'].cuda()
 
             """
-            rotations = []
-            translations = []
 
-            for i in range(sample['rotation'].shape[0]):
-                rotation, translation = pmath.obtain_opensfmRT_from_posenetQT(
-                    sample['rotation'][i].numpy(),
-                    sample['translation'][i].numpy())
+            rot_sfm_gt, trans_sfm_gt = tq.posenetQT_to_opensfmRT(
+                rotation_gt, translation_gt)
 
-                rotations.append(rotation)
-                translations.append(translation)
+            norm_q = tq.normalize(rotation)
+            rot_sfm, trans_sfm = tq.posenetQT_to_opensfmRT(
+                norm_q, translation)
 
-            rotation = torch.Tensor(rotations).cuda().double()
-            translation = torch.Tensor(translations).cuda().double()
+            if DEBUG:
+                rotations = []
+                translations = []
+
+                for i in range(sample['rotation'].shape[0]):
+                    rot, trans = \
+                        pmath.obtain_opensfmRT_from_posenetQT(
+                            sample['rotation'][i].numpy(),
+                            sample['translation'][i].numpy())
+
+                    rotations.append(rot)
+                    translations.append(trans)
+
+                rot_np = torch.Tensor(rotations).cuda().float()
+                trans_np = torch.Tensor(translations).cuda().float()
+
+                assert torch.max(torch.abs(rot_np - rot_sfm_gt)) < 1e-6
+                assert torch.max(torch.abs(
+                    trans_np - trans_sfm_gt)) < 1e-3, \
+                    torch.max(torch.abs(trans_np - trans_sfm_gt))
 
             mask = sample['mask'].cuda() / 255
 
             world_points = sample['points_3d_world'].cuda()
-            camera_points = geodec.world_to_camera(
-                world_points.double(), rotation, translation)
-            camera_points_gt = sample['points_3d_camera'].numpy()[0]
 
-            camera_points_gt_rotated = geodec.world_to_camera(
-                sample['points_3d_camera'].cuda().double(),
-                rotation, torch.Tensor([0]).cuda().double())
+            camera_points = geodec.world_to_camera(
+                world_points, rot_sfm, trans_sfm)
+
+            camera_points_gt = geodec.world_to_camera(
+                world_points, rot_sfm_gt, trans_sfm_gt)
 
             camera_loss = self.dist_loss(
-                camera_points.float(), camera_points_gt_rotated, mask)
+                camera_points.float(), camera_points_gt, mask)
 
-            camera_points_gt_rotated = camera_points_gt_rotated.cpu().numpy()[0] # NOQA
+            scaled_camera_loss = camera_loss * self.scale * weights['dist'] \
+                * weights['camera']
 
-            camera_points = camera_points.cpu().numpy()[0]
+            cweight = self.conf['loss']['camera_weight']
 
-            scaled_camera_loss = camera_loss * self.scale * weights['dist']
-            print("Camera loss: {}".format(scaled_camera_loss))
+            total_loss = (1 - cweight) * total_loss \
+                + cweight * scaled_camera_loss
 
-            world_points = world_points[0].cpu().numpy()
-
-            diff_camera = np.linalg.norm(
-                camera_points - camera_points_gt, axis=0)
-
-            diff_camera_rot = np.linalg.norm(
-                camera_points - camera_points_gt_rotated, axis=0)
-
-            # camera_loss2 = self.dist_loss(
-            #    camera_wpoints.float(), camera_gt.cuda(), mask)
-
-            # scaled_camera_loss2 = camera_loss2 * self.scale * weights['dist']
-
-            if DEBUG:
+            if False:
                 import matplotlib.pyplot as plt
 
                 # logging.info("Rotation_gt: {}, Rotation: {}".format( rotation_gt[0], rotation[0])) # NOQA
@@ -141,17 +150,25 @@ class PoseLoss(nn.Module):
 
                 figure = plt.figure()
 
+                world_points = world_points.cpu().numpy()[0]
+
                 ax = figure.add_subplot(2, 3, 1)
                 ax.set_title('world_points')
                 ax.imshow(world_points[0])
+
+                camera_points = camera_points.cpu().numpy()[0]
 
                 ax = figure.add_subplot(2, 3, 2)
                 ax.set_title('camera_points')
                 ax.imshow(camera_points[0])
 
+                camera_points_gt = camera_points_gt.cpu().numpy()[0]
+
                 ax = figure.add_subplot(2, 3, 4)
                 ax.set_title('camera_points_gt')
                 ax.imshow(camera_points_gt[0])
+
+                '''
 
                 ax = figure.add_subplot(2, 3, 5)
                 ax.set_title('diff_camera')
@@ -164,6 +181,7 @@ class PoseLoss(nn.Module):
                 ax = figure.add_subplot(2, 3, 4)
                 ax.set_title('diff_camera_rot')
                 ax.imshow(diff_camera_rot)
+                '''
 
                 plt.show()
 
@@ -177,7 +195,7 @@ class PoseLoss(nn.Module):
         output_dict['QNorm'] = torch.mean(rotation.norm(dim=-1))
 
         if self.conf['loss']['type'] == 'advanced':
-            # output_dict['Camera Loss'] = scaled_camera_loss
+            output_dict['Camera Loss'] = scaled_camera_loss
             # output_dict['Camera Loss2'] = scaled_camera_loss2
             pass
 
