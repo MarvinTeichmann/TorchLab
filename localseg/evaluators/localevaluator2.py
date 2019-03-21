@@ -508,7 +508,8 @@ class Evaluator():
 
             if not self.loader.dataset.is_white \
                     or self.conf['evaluation']['unwhitening']:
-                scale = self.loader.dataset.meta_dict['scale']
+                # scale = self.loader.dataset.meta_dict['scale']
+                scale = self.conf['evaluation']['scale']
             else:
                 scale = 3
 

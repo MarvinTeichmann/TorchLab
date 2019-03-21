@@ -37,7 +37,7 @@ gpus = '0'
 
 names = ['white', 'gt_white', 'world', 'noXentropy', 'carson', 'sphere']
 
-bench_name = "secondP34Bench"
+bench_name = "gpu4P34Bench"
 
 values = [
     [],

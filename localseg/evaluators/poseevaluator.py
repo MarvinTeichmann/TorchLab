@@ -238,25 +238,22 @@ class Evaluator():
 
     def evaluate(self, epoch=None, eval_fkt=None, level='minor'):
 
-        if level == 'mayor' or level == 'full':
-            self.epochdir = os.path.join(self.imgdir, "epoch{}_{}".format(
-                epoch, self.name))
-            if not os.path.exists(self.epochdir):
-                os.mkdir(self.epochdir)
-
-            self.scatter_edir = os.path.join(
-                self.imgdir, "escatter{}_{}".format(
-                    epoch, self.name))
-            if not os.path.exists(self.scatter_edir):
-                os.mkdir(self.scatter_edir)
+        if level == 'full':
+            outdir = os.path.join(self.imgdir, self.name + "_output")
+            if not os.path.exists(outdir):
+                os.mkdir(outdir)
 
         assert eval_fkt is None
-        scale = self.loader.dataset.meta_dict['scale']
-        dmetric = DistMetric(scale=scale)
+        if self.loader.dataset.metalist is not None:
+            scale = self.loader.dataset.meta_dict['scale']
+            dmetric = DistMetric(scale=scale)
 
-        qmetric = DistMetric(dist_fkt=quant_dist,
-                             threshholds=[0.1, 0.3, 0.6],
-                             at_thresh=1, unit='', postfix=' π')
+            qmetric = DistMetric(dist_fkt=quant_dist,
+                                 threshholds=[0.1, 0.3, 0.6],
+                                 at_thresh=1, unit='', postfix=' π')
+        else:
+            dmetric = None
+            qmetric = None
 
         for i in range(self.conf['evaluation']['eval_mul']):
             for step, sample in zip(self.count, self.loader):
@@ -284,6 +281,33 @@ class Evaluator():
                 translation = out_np[:, :3]
                 rotation = out_np[:, 3:]
 
+                if level == 'full':
+                    for d in range(output.shape[0]):
+
+                        load_dict = literal_eval(sample['load_dict'][d])
+                        name = os.path.basename(load_dict['image_file'])
+                        name = name.split('.')[d]
+
+                        outname = os.path.join(outdir, name)
+
+                        if self.loader.dataset.metalist is not None:
+                            translation_gt = sample['translation'][0].numpy()
+                            rotation_gt = sample['rotation'][0].numpy()
+                            np.savez(
+                                outname,
+                                translation=output[d, :3].cpu().numpy(),
+                                rotation=output[d, 3:].cpu().numpy(),
+                                rotation_gt=rotation_gt,
+                                translation_gt=translation_gt)
+                        else:
+                            np.savez(
+                                outname,
+                                translation=output[d, :3].cpu().numpy(),
+                                rotation=output[d, 3:].cpu().numpy())
+
+                if self.loader.dataset.metalist is None:
+                    continue
+
                 dmetric.add(translation.T, sample['translation'].numpy().T,
                             mask=None)
 
@@ -303,9 +327,11 @@ class Evaluator():
 
                     logging.info(for_str)
 
-        self._plot_roc_curve(dmetric, epoch, prefix='trans')
-        self._plot_roc_curve(qmetric, epoch,
-                             rescale=1, prefix='rot', unit='pi')
+        if self.loader.dataset.metalist is not None:
+
+            self._plot_roc_curve(dmetric, epoch, prefix='trans')
+            self._plot_roc_curve(qmetric, epoch,
+                                 rescale=1, prefix='rot', unit='pi')
 
         return CombinedMetric([dmetric, qmetric])
 

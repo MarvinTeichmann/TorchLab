@@ -50,6 +50,8 @@ from localseg.evaluators import poseevaluator
 from localseg import encoder as segencoder
 from localseg.data_generators import posenet_maths_v4 as pmath
 
+import socket
+
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -143,6 +145,20 @@ default_conf = {
 }
 
 
+def _set_num_workers(config):
+    logging.info("Num worker is set to: {}".format(
+        config['dataset']['num_worker']))
+
+    if "gpu" in socket.gethostname():
+        config['dataset']['num_worker'] = 2
+
+    if "goban" in socket.gethostname():
+        config['dataset']['num_worker'] = 4
+
+    if "rokuban" in socket.gethostname():
+        config['dataset']['num_worker'] = 6
+
+
 def create_pyvision_model(conf, logdir):
     model = PoseNet(conf=conf, logdir=logdir)
     return model
@@ -211,6 +227,8 @@ class PoseNet(nn.Module):
         self._load_pretrained_weights(conf)
 
         self.evaluator = poseevaluator.MetaEvaluator(conf, self)
+
+        self.mevaluator = poseevaluator
 
         self.loss = poseLoss.make_loss(conf, self)
 

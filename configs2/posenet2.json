@@ -9,8 +9,8 @@
 
     "dataset" : {
         "dataset": "Camvid360",
-        "train_root": "camvid360/part34_posenet_240p",
-        "val_root": "camvid360/part34_posenet_240p",
+        "train_root": "sincity/part34_posenet_240p",
+        "val_root": "sincity/part34_posenet_240p",
 
         "ignore_label": 0,
         "idx_offset": 1,
@@ -27,7 +27,7 @@
         "dist_mask": null,
 
         "subsample": 0,
-        "do_split": true,
+        "do_split": false,
 
         "transform": {
             "equirectangular": false,
@@ -91,7 +91,7 @@
             "world": true
         },
         "weights": {
-            "beta": 40,
+            "beta": 4,
             "dist": 1.5
         },
         "corner": false,
@@ -113,7 +113,7 @@
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": null,
-        "max_epochs": 6000,
+        "max_epochs": 8000,
         "pre_eval": false,
         "cnn_gpus": null,
         "max_epoch_steps": null,
@@ -132,12 +132,12 @@
         "unwhitening": true,
         "use_gt_label": false,
         "reduce_val_bs": true,
-        "val_subsample": null,
-        "train_subsample": 20,
-        "eval_mul": 2,
+        "val_subsample": 5,
+        "train_subsample": 5,
+        "eval_mul": 1,
         "has_flow": false,
         "train_do_agumentation": true,
-        "val_do_agumentation": true,
+        "val_do_agumentation": false,
         "mask_thresh": 0.7,
         "scale": 1,
         "scale_world": 1

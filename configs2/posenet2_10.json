@@ -43,8 +43,8 @@
             "color_augmentation_level": 1,
             "fix_shape": true,
             "reseize_image": false,
-            "patch_size": [232, 232],
-            "random_crop": true,
+            "patch_size": [240, 480],
+            "random_crop": false,
             "random_roll": true,
             "max_crop": 4,
             "crop_chance": 0.6,
@@ -84,7 +84,7 @@
     },
 
     "loss":{
-        "type": "simple",
+        "type": "advanced",
         "geometric_type": {
             "spherical": false,
             "camera": false,
@@ -102,8 +102,8 @@
     },
 
     "training": {
-        "batch_size": 80,
-        "learning_rate": 8e-4,
+        "batch_size": 1,
+        "learning_rate": 1e-4,
         "lr_schedule": "poly",
         "min_lr": 1e-8,
         "exp": 1.5,

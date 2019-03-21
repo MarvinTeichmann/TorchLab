@@ -29,7 +29,7 @@ from torch.nn.modules.loss import _WeightedLoss
 
 from collections import OrderedDict
 
-from localseg.data_generators import posenet_maths_v4 as pmath
+from localseg.data_generators import posenet_maths_v5 as pmath
 
 from localseg.decoder import geometric as geodec
 
@@ -79,21 +79,11 @@ class PoseLoss(nn.Module):
 
         if self.conf['loss']['type'] == 'advanced':
 
-            wpoints = sample['points_3d_world'].cuda()
-            rotation_gt = sample['rotation_gt'].cuda()
-            translation_gt = sample['translation_gt'].cuda()
+            """
+            rotation = sample['rotation_gt'].cuda()
+            translation = sample['translation_gt'].cuda()
 
-            mask = sample['mask'].cuda() / 255
-
-            camera_points = geodec.world_to_camera(
-                wpoints.double(), rotation_gt, translation_gt)
-
-            camera_gt = sample['points_3d_camera']
-
-            camera_loss = self.dist_loss(
-                camera_points.float(), camera_gt.cuda(), mask)
-            scaled_camera_loss = camera_loss * self.scale * weights['dist']
-
+            """
             rotations = []
             translations = []
 
@@ -105,69 +95,77 @@ class PoseLoss(nn.Module):
                 rotations.append(rotation)
                 translations.append(translation)
 
-            rotation = torch.Tensor(rotations)
-            translation = torch.Tensor(translations)
+            rotation = torch.Tensor(rotations).cuda().double()
+            translation = torch.Tensor(translations).cuda().double()
 
-            camera_points2 = geodec.world_to_camera(
-                wpoints.double(), rotation.double().cuda(),
-                translation.double().cuda())
+            mask = sample['mask'].cuda() / 255
 
-            camera_gt2 = sample['points_3d_camera_center']
-            mask_center = sample['mask_center'].cuda() / 255
+            world_points = sample['points_3d_world'].cuda()
+            camera_points = geodec.world_to_camera(
+                world_points.double(), rotation, translation)
+            camera_points_gt = sample['points_3d_camera'].numpy()[0]
 
-            camera_loss2 = self.dist_loss(
-                camera_points2.float(), camera_gt.cuda(), mask)
+            camera_points_gt_rotated = geodec.world_to_camera(
+                sample['points_3d_camera'].cuda().double(),
+                rotation, torch.Tensor([0]).cuda().double())
 
-            scaled_camera_loss2 = camera_loss2 * self.scale * weights['dist']
+            camera_loss = self.dist_loss(
+                camera_points.float(), camera_points_gt_rotated, mask)
+
+            camera_points_gt_rotated = camera_points_gt_rotated.cpu().numpy()[0] # NOQA
+
+            camera_points = camera_points.cpu().numpy()[0]
+
+            scaled_camera_loss = camera_loss * self.scale * weights['dist']
+            print("Camera loss: {}".format(scaled_camera_loss))
+
+            world_points = world_points[0].cpu().numpy()
+
+            diff_camera = np.linalg.norm(
+                camera_points - camera_points_gt, axis=0)
+
+            diff_camera_rot = np.linalg.norm(
+                camera_points - camera_points_gt_rotated, axis=0)
+
+            # camera_loss2 = self.dist_loss(
+            #    camera_wpoints.float(), camera_gt.cuda(), mask)
+
+            # scaled_camera_loss2 = camera_loss2 * self.scale * weights['dist']
 
             if DEBUG:
                 import matplotlib.pyplot as plt
 
-                logging.info("Rotation_gt: {}, Rotation: {}".format(
-                    rotation_gt[0], rotation[0]))
+                # logging.info("Rotation_gt: {}, Rotation: {}".format( rotation_gt[0], rotation[0])) # NOQA
 
-                logging.info("GT Loss: {}, Warped Loss: {}".format(
-                    scaled_camera_loss, scaled_camera_loss2))
+                # logging.info("GT Loss: {}, Warped Loss: {}".format( scaled_camera_loss, scaled_camera_loss2)) # NOQA
 
                 figure = plt.figure()
-                camera2_vis = (camera_points2.float() * mask)[0].cpu().numpy()
-                # camera2_vis = camera2_vis.transpose([1, 2, 0])
 
-                ax = figure.add_subplot(2, 2, 1)
-                ax.set_title('Quaternions Warped')
-                ax.imshow(camera2_vis[0])
+                ax = figure.add_subplot(2, 3, 1)
+                ax.set_title('world_points')
+                ax.imshow(world_points[0])
 
-                camera_vis = (camera_points.float() * mask)[0].cpu().numpy()
-                camera_vis = camera_vis
+                ax = figure.add_subplot(2, 3, 2)
+                ax.set_title('camera_points')
+                ax.imshow(camera_points[0])
 
-                ax = figure.add_subplot(2, 2, 2)
-                ax.set_title('OpenSFM warped')
-                ax.imshow(camera_vis[0])
+                ax = figure.add_subplot(2, 3, 4)
+                ax.set_title('camera_points_gt')
+                ax.imshow(camera_points_gt[0])
 
-                # gt_vis = (camera_gt2.cuda() * mask_center)[0].cpu().numpy()
-                # gt_vis = gt_vis[1]
-                # gt_vis = gt_vis.transpose([1, 2, 0])
+                ax = figure.add_subplot(2, 3, 5)
+                ax.set_title('diff_camera')
+                ax.imshow(diff_camera)
 
-                gt_vis = (camera_gt2.float().cuda() * mask)[0].cpu().numpy()
-                # diff_img = np.linalg.norm(camera2_vis - gt_vis, axis=0)
+                ax = figure.add_subplot(2, 3, 4)
+                ax.set_title('diff_camera_rot')
+                ax.imshow(diff_camera_rot)
 
-                ax = figure.add_subplot(2, 2, 3)
-                ax.set_title('Quaternions gt')
-                ax.imshow(gt_vis[0])
-
-                gt_vis = (camera_gt.cuda() * mask_center)[0].cpu().numpy()
-                gt_vis = gt_vis[0]
-
-                ax = figure.add_subplot(2, 2, 4)
-                ax.set_title('OpenSFM gt')
-                ax.imshow(gt_vis)
+                ax = figure.add_subplot(2, 3, 4)
+                ax.set_title('diff_camera_rot')
+                ax.imshow(diff_camera_rot)
 
                 plt.show()
-
-            '''
-            sphere_points = geodec.sphere_normalization(
-                camera_points)
-            '''
 
             pass
 
@@ -179,8 +177,9 @@ class PoseLoss(nn.Module):
         output_dict['QNorm'] = torch.mean(rotation.norm(dim=-1))
 
         if self.conf['loss']['type'] == 'advanced':
-            output_dict['Camera Loss'] = scaled_camera_loss
-            output_dict['Camera Loss2'] = scaled_camera_loss2
+            # output_dict['Camera Loss'] = scaled_camera_loss
+            # output_dict['Camera Loss2'] = scaled_camera_loss2
+            pass
 
         return total_loss, output_dict
 

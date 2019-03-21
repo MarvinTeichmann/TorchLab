@@ -53,7 +53,7 @@ except:
     pass
 
 try:
-    import posenet_maths_v4 as pmath
+    import posenet_maths_v5 as pmath
 except ImportError:
     from localseg.data_generators import posenet_maths_v5 as pmath
 
@@ -234,23 +234,22 @@ class DirLoader(data.Dataset):
 
             meta_dict = dict(npz_file)
 
-        else:
-            raise NotImplementedError
+            if self.conf['load_merged']:
+                rotation, translation = pmath.obtain_opensfmRT_from_posenetQT(
+                    meta_dict['Q_posenet'], meta_dict['T_posenet'])
 
-        if self.conf['load_merged']:
-            rotation, translation = pmath.obtain_opensfmRT_from_posenetQT(
-                meta_dict['Q_posenet'], meta_dict['T_posenet'])
+                assert np.all(translation - meta_dict['T_opensfm'] < 1e-4)
+                assert np.all(rotation - meta_dict['R_opensfm'] < 1e-4)
 
-            assert np.all(translation - meta_dict['T_opensfm'] < 1e-4)
-            assert np.all(rotation - meta_dict['R_opensfm'] < 1e-4)
-
-        if self.conf['load_merged']:
-            label_dict = {}
-            for key in ['points_3d_world', 'points_3d_camera',
-                        'points_3d_sphere', 'mask']:
-                label_dict[key] = meta_dict[key].astype(np.float32)
+                label_dict = {}
+                for key in ['points_3d_world', 'points_3d_camera',
+                            'points_3d_sphere', 'mask']:
+                    label_dict[key] = meta_dict[key].astype(np.float32)
+            else:
+                label_dict = {}
         else:
             label_dict = {}
+            meta_dict = {}
 
         if self._debug_interrupt == "only_read_data":
             return [image, label_dict, load_dict]
@@ -299,7 +298,6 @@ class DirLoader(data.Dataset):
     def _read_meta(self):
 
         if self.metalist is None:
-            assert self.conf['num_classes'] is not None
             return
 
         meta_file = os.path.join(self.datadir, 'meta.json')
@@ -372,7 +370,7 @@ class DirLoader(data.Dataset):
         if self.conf['load_merged']:
             metadir = os.path.join(datadir, 'meta_merged')
         else:
-            metadir = os.path.join(datadir, 'meta2')
+            metadir = os.path.join(datadir, 'meta_posenet')
 
         if os.path.exists(metadir):
             filelist = os.listdir(metadir)
@@ -555,6 +553,12 @@ class DirLoader(data.Dataset):
             for key, item in label_dict.items():
                 label_dict[key] = item.copy()
 
+        label_dict_unrolled = {}
+        for key, item in label_dict.items():
+            label_dict_unrolled[key + "_orig"] = item.copy()
+
+        # label_dict = label_dict_new
+
         if transform['equirectangular']:
             patch_size = transform['patch_size']
             assert patch_size[0] == patch_size[1]
@@ -607,6 +611,9 @@ class DirLoader(data.Dataset):
                     load_dict['rolled'] = False
             else:
                 load_dict['rolled'] = False
+
+            for key, item in label_dict_unrolled.items():
+                label_dict[key] = item.copy()
 
             shape_distorted = True
 

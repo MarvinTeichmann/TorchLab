@@ -90,8 +90,8 @@ class DistMetric(object):
         self.at_values += np.bincount(
             discrete, minlength=len(self.at_values))
 
-        maxtresh = 100
-        mintresh = 20
+        maxtresh = 1
+        mintresh = 0.2
 
         clipped = np.clip(dists * self.scale, mintresh, maxtresh)
         normalized = 1 - (clipped - mintresh) / (maxtresh - mintresh)

@@ -145,7 +145,7 @@ class SegmentationTrainer():
             min_lr = conf['min_lr']
             base_lr = conf['learning_rate']
             step = self.step
-            mstep = self.max_steps
+            mstep = self.max_steps  # TODO 
 
             assert step <= mstep
             assert min_lr < base_lr
