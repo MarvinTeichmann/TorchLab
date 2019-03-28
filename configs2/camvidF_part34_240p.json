@@ -10,7 +10,7 @@
     "dataset" : {
         "dataset": "Camvid360",
         "train_root": "camvid360/part34_white_240p",
-        "val_root": "camvid360/part34_world_240p",
+        "val_root": "camvid360/TEST/TEST_SAMESIDE/part34_240p",
 
         "ignore_label": 0,
         "idx_offset": 1,
@@ -27,7 +27,7 @@
         "dist_mask": null,
 
         "subsample": 0,
-        "do_split": true,
+        "do_split": false,
 
         "transform": {
             "equirectangular": false,
@@ -93,7 +93,7 @@
         "weights": {
             "xentropy": 1,
             "spherical": 1,
-            "dist": 10
+            "dist": 12
         },
         "corner": false,
         "use_mask_loss": false,
@@ -122,7 +122,7 @@
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": null,
-        "max_epochs": 3000,
+        "max_epochs": 5000,
         "pre_eval": false,
         "cnn_gpus": null,
         "max_epoch_steps": null,
@@ -142,7 +142,7 @@
         "use_gt_label": false,
         "reduce_val_bs": true,
         "val_subsample": null,
-        "train_subsample": 30,
+        "train_subsample": 23,
         "has_flow": false,
         "train_do_agumentation": false,
         "mask_thresh": 0.7,
@@ -152,18 +152,20 @@
 
     "logging": {
         "disp_per_epoch": 5,
-        "eval_iter": 15,
+        "eval_iter": 25,
         "log": true,
-        "checkpoint_backup": 900,
+        "checkpoint_backup": 900000,
         "mayor_eval": 900
     },
 
     "plotting": {
         "defaults": {
-            "plot": ["mIoU", "mIoU", "Acc @0.3m", "Acc @1.0m", "Acc @2.0m", "Dist Mean", "Average Accuracy"],
-            "prefixes": ["val", "train", "val", "val", "train", "val", "val"],
-            "titles": ["Validation mIoU", "Train mIoU", "Acc @6", "Acc @12", "Train Acc @12",
-                       "Dist Mean (val)", "Average Accuracy (val)"]
+            "plot": ["mIoU", "mIoU", "Acc @0.3m", "Acc @1.0m", "Acc @2.0m",
+                     "Average Accuracy", "Acc @0.3m", "Acc @1.0m", "Acc @2.0m", "Average Accuracy"],
+            "prefixes": ["val", "train", "val", "val", "val", "val", "train", "train", "train", "train"],
+            "titles": ["Validation mIoU", "Train mIoU", "Acc @0.3m", "Acc @1.0m", "Acc @2.0m",
+                       "Average Accuracy", "Acc @0.3m (train)", "Acc @1.0m (train)", "Acc @2.0m (train)",
+                       "Average Accuracy (train)"]
         }
     },
 
