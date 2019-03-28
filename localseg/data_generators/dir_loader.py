@@ -342,7 +342,10 @@ class DirLoader(data.Dataset):
         else:
             self.white_dict = None
 
-        self.scale = self.meta_dict['scale']
+        if self.meta_dict['is_white']:
+            self.scale = 1
+        else:
+            self.scale = self.meta_dict['scale']
 
         self.vis_file = os.path.join(self.datadir, 'colors.lst')
 

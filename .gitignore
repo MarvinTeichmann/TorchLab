@@ -8,7 +8,9 @@ localseg/data_generators/posenet_maths_v4.py
 localseg/data_generators/posenet_maths_v5.py
 
 
-run*.sh
+run_*.sh
+benchmarks/eval_*.sh
+scripts/datasets/*
 
 # C extensions
 *.so

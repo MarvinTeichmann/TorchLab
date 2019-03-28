@@ -23,6 +23,9 @@ import time
 
 import scipy.misc
 
+from joblib import Parallel, delayed
+import multiprocessing
+
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
@@ -40,6 +43,12 @@ data_file2 = "datasets/camvid360_prop4.lst"
 data_file = "datasets/scenecity_medium_test.lst"
 data_file2 = "datasets/scenecity_medium_test.lst"
 outdirname = 'ids_labels3'
+
+data_file = "datasets/camvid_test_sameside.lst"
+data_file2 = "datasets/camvid_test_sameside.lst"
+outdirname = '/home/mifs/mttt2/cvfs/DATA/camvid360/TEST/TEST_SAMESIDE/fullRes/ids_labels' # NOQA
+
+ids_table = '/data/cvfs/mttt2/DATA/camvid360/TEST/TEST_SAMESIDE/fullRes/ids_table.p' # NOQA
 
 datadir = os.environ['TV_DIR_DATA']
 files = [line.rstrip() for line in open(data_file)]
@@ -117,7 +126,10 @@ def image_to_id(image, table):
     mask = np.zeros([shape[0], shape[1]], dtype=np.int32)
 
     for color in list(np.unique(image.reshape(-1, 3), axis=0)):
-        myid = table[tuple(color)]
+        try:
+            myid = table[tuple(color)]
+        except KeyError:
+            myid = 0
 
         gt_label = np.all(image == color, axis=2)
         mask = mask + 1 * gt_label
@@ -155,12 +167,23 @@ def id2color(id_image, unique_classes):
 
     return gt_out
 
+if ids_table is None:
 
-unique_classes = get_unique_classes(realfiles)
+    unique_classes = get_unique_classes(realfiles)
 
-assert len(unique_classes) < void2
+    assert len(unique_classes) < void2
 
-table = dict(zip(unique_classes, range(len(unique_classes))))
+    table = dict(zip(unique_classes, range(len(unique_classes))))
+
+else:
+    table = pickle.load(open(ids_table, "rb"))
+
+    unique_classes = [None for i in range(len(table.keys()))]
+
+    # table[(255, 255, 255)] = 0
+
+    for key, value in table.items():
+        unique_classes[value] = key
 
 
 def void_img(id_image):
@@ -199,6 +222,9 @@ with open(os.path.join(outdir, "table.p"), "wb") as f:
 f = open(outfile, 'w')
 f2 = open(os.path.join(outdir, os.path.basename(outfile)), 'w')
 
+
+# def process_parallel(i, filename):
+
 for i, filename in enumerate(realfiles2):
 
     if i == debug_num_images:
@@ -218,24 +244,24 @@ for i, filename in enumerate(realfiles2):
 
         id_image = void_img(id_image)
 
-    assert not np.any(np.all(id_image == id_to_colour(void2), axis=2))
+    # assert not np.any(np.all(id_image == id_to_colour(void2), axis=2))
 
     start_time = time.time()
-    color_image = id2color(id_image, unique_classes)
+    # color_image = id2color(id_image, unique_classes)
     duration = time.time() - start_time
     logging.debug("UnConverting an images took {} seconds".format(duration))
 
     # assert(np.all(image == color_image))
 
     output_name = os.path.join(outdir, os.path.basename(filename))
-    output_name2 = os.path.join(colour_out, os.path.basename(filename))
+    # output_name2 = os.path.join(colour_out, os.path.basename(filename))
 
     assert(np.max(id_image) == 255)
     assert(np.min(id_image) == 0)
     id_image = id_image.astype(np.uint8)
 
     imageio.imwrite(output_name, id_image)
-    imageio.imwrite(output_name2, color_image)
+    # imageio.imwrite(output_name2, color_image)
 
     rel_outdir = os.path.join(os.path.dirname((files2[0])),
                               outdirname)
@@ -243,13 +269,20 @@ for i, filename in enumerate(realfiles2):
     print(rel_name, file=f)
     print(rel_name, file=f2)
 
-    if i < 10000:
+    if False:
         read_img = imageio.imread(output_name)
         assert(np.all(read_img == id_image))
 
     if i % 10 == 0:
         logging.info("Converting example: {}".format(i))
 
+
+'''
+num_cores = multiprocessing.cpu_count()
+
+Parallel(n_jobs=num_cores)(
+    delayed(process_parallel)(*x) for x in enumerate(realfiles2))
+'''
 
 f.close()
 f.close()

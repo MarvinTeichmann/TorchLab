@@ -51,7 +51,7 @@ from localseg.data_generators import posenet_maths as pmath
 
 
 def get_pyvision_evaluator(conf, model, names=None, imgdir=None, dataset=None):
-    return MetaEvaluator(conf, model, imgdir=imgdir)
+    return MetaEvaluator(conf, model, imgdir=imgdir, dataset=dataset)
 
 
 class MetaEvaluator(object):
@@ -61,7 +61,10 @@ class MetaEvaluator(object):
         self.conf = conf
         self.model = model
 
-        model.cuda()
+        if dataset is not None:
+            self.is_test = True
+        else:
+            self.is_test = False
 
         if imgdir is None:
             self.imgdir = os.path.join(model.logdir, "images")
@@ -71,20 +74,36 @@ class MetaEvaluator(object):
         if not os.path.exists(self.imgdir):
             os.mkdir(self.imgdir)
 
-        val_iter = self.conf['evaluation']["val_subsample"]
-        train_iter = self.conf['evaluation']["train_subsample"]
-        tdo_agumentation = self.conf['evaluation']["train_do_agumentation"]
-        do_agumentation = self.conf['evaluation']["val_do_agumentation"]
-
-        self.val_evaluator = Evaluator(
-            conf, model, val_iter, name="Val", split="val",
-            imgdir=self.imgdir, do_augmentation=do_agumentation)
-        self.train_evaluator = Evaluator(
-            conf, model, train_iter, name="Train",
-            split='train', imgdir=self.imgdir,
-            do_augmentation=tdo_agumentation)
-
         self.evaluators = []
+
+        if not self.is_test:
+
+            val_iter = self.conf['evaluation']["val_subsample"]
+            train_iter = self.conf['evaluation']["train_subsample"]
+            tdo_agumentation = self.conf['evaluation']["train_do_agumentation"]
+
+            val_evaluator = Evaluator(
+                conf, model, val_iter, name="Val", split="val",
+                imgdir=self.imgdir)
+            train_evaluator = Evaluator(
+                conf, model, train_iter, name="Train",
+                split='train', imgdir=self.imgdir,
+                do_augmentation=tdo_agumentation)
+
+            self.evaluators.append(val_evaluator)
+            self.evaluators.append(train_evaluator)
+
+        else:
+
+            test_iter = 1
+
+            conf['dataset']['do_split'] = False
+
+            test_evaluator = Evaluator(
+                conf, model, test_iter, name="Test", split="test",
+                imgdir=self.imgdir, data=dataset)
+
+            self.evaluators.append(test_evaluator)
 
         self.logger = model.logger
 
@@ -102,97 +121,71 @@ class MetaEvaluator(object):
 
         self.model.train(False)
 
-        logging.info("Evaluating Model on the Validation Dataset.")
+        metrics = []
 
-        # logging.info("Evaluating Model on the Validation Dataset.")
-        start_time = time.time()
-        val_metric = self.val_evaluator.evaluate(epoch=epoch, level=level)
+        for evaluator in self.evaluators:
+            name = evaluator.name
 
-        # train_metric, train_base = self.val_evaluator.evaluate()
-        dur = time.time() - start_time
-        logging.info("Finished Validation run in {} minutes.".format(dur / 60))
-        logging.info("")
+            logging.info("Running Evaluator '{}'.".format(name))
 
-        logging.info("Evaluating Model on the Training Dataset.")
-        start_time = time.time()
+            # logging.info("Evaluating Model on the Validation Dataset.")
+            start_time = time.time()
+            metric = evaluator.evaluate(epoch=epoch, level=level)
 
-        train_metric = self.train_evaluator.evaluate(epoch=epoch, level=level)
-        duration = time.time() - start_time
-        logging.info("Finished Training run in {} minutes.".format(
-            duration / 60))
-        logging.info("")
+            metrics.append(metric)
 
-        if val_metric is None:
-            logging.info("Valmetric is None. Stopping evaluation.")
+            # train_metric, train_base = self.val_evaluator.evaluate()
+            dur = time.time() - start_time
+            logging.info("Finished Running '{}' in {} minutes.".format(
+                name, dur / 60))
+            logging.info("")
+
+        if metrics[0] is None:
+            logging.info("First Metric is None. Stopping evaluation.")
             return
 
         self.model.train(True)
 
-        if verbose:
-            # Prepare pretty print
+        names = metrics[0].get_pp_names(time_unit="ms", summary=False)
+        table = pp.TablePrinter(row_names=names)
 
-            names = val_metric.get_pp_names(time_unit="ms", summary=False)
-            table = pp.TablePrinter(row_names=names)
+        for i, metric in enumerate(metrics):
 
-            values = val_metric.get_pp_values(
-                time_unit="ms", summary=False, ignore_first=False)
-            smoothed = self.val_evaluator.smoother.update_weights(values)
+            if verbose:
+                # Prepare pretty print
 
-            table.add_column(smoothed, name="Validation")
-            table.add_column(values, name="Val (raw)")
+                name = self.evaluators[i].name
 
-            values = train_metric.get_pp_values(
-                time_unit="ms", summary=False, ignore_first=False)
-            smoothed = self.train_evaluator.smoother.update_weights(values)
+                values = metric.get_pp_values(
+                    time_unit="ms", summary=False, ignore_first=False)
+                smoothed = self.evaluators[i].smoother.update_weights(values)
 
-            table.add_column(smoothed, name="Training")
-            table.add_column(values, name="Train (raw)")
+                table.add_column(smoothed, name=name)
+                table.add_column(values, name=name)
 
-            table.print_table()
-        if epoch is not None:
-            vdict = val_metric.get_pp_dict(time_unit="ms", summary=True,
+            if epoch is not None:
+                vdict = metric.get_pp_dict(time_unit="ms", summary=True,
                                            ignore_first=False)
-            self.logger.add_values(value_dict=vdict, step=epoch, prefix='val')
+                self.logger.add_values(value_dict=vdict,
+                                       step=epoch, prefix=name)
 
-            tdic = train_metric.get_pp_dict(time_unit="ms", summary=True,
-                                            ignore_first=False)
-            self.logger.add_values(value_dict=tdic, step=epoch, prefix='train')
-
-            runname = os.path.basename(self.model.logdir)
-            if len(runname.split("_")) > 2:
-                runname = "{}_{}_{}".format(runname.split("_")[0],
-                                            runname.split("_")[1],
-                                            runname.split("_")[2])
-
-            if runname == '':
-                runname = "ResNet50"
-
-            def median(data, weight=20):
-                return np.median(data[- weight:])
-
-            max_epochs = self.model.trainer.max_epochs
-
-            out_str = ("Summary:   [{:22}](Translation: {:.2f} | {:.2f}  "
-                       "Rotation: {:.2f} | {:.2f}"
-                       "    Epoch: {} / {}").format(
-                runname[0:22],
-                100 * median(self.logger.data['val\\Average Accuracy']),
-                100 * median(self.logger.data['train\\Average Accuracy']),
-                100 * median(self.logger.data['train\\Average Accuracy π']),
-                100 * median(self.logger.data['train\\Average Accuracy π']),
-                epoch, max_epochs)
-
-            logging.info(out_str)
+        table.print_table()
 
 
 class Evaluator():
 
     def __init__(self, conf, model, subsample=None,
-                 name='', split=None, imgdir=None, do_augmentation=False):
+                 name='', split=None, imgdir=None, do_augmentation=False,
+                 data=None):
         self.model = model
         self.conf = conf
         self.name = name
         self.imgdir = imgdir
+
+        if data is not None:
+            self.test = True
+        else:
+            self.test = False
 
         if split is None:
             split = 'val'
@@ -216,7 +209,7 @@ class Evaluator():
         self.loader = loader.get_data_loader(
             conf['dataset'], split=split, batch_size=batch_size,
             sampler=subsampler, do_augmentation=do_augmentation,
-            pin_memory=False)
+            pin_memory=False, dataset=data)
 
         self.minor_iter = max(
             1, len(self.loader) // conf['evaluation']['num_minor_imgs'])
@@ -238,7 +231,7 @@ class Evaluator():
 
     def evaluate(self, epoch=None, eval_fkt=None, level='minor'):
 
-        if level == 'full':
+        if level == 'full' or self.test:
             outdir = os.path.join(self.imgdir, self.name + "_output")
             if not os.path.exists(outdir):
                 os.mkdir(outdir)
@@ -281,7 +274,7 @@ class Evaluator():
                 translation = out_np[:, :3]
                 rotation = out_np[:, 3:]
 
-                if level == 'full':
+                if level == 'full' or self.test:
                     for d in range(output.shape[0]):
 
                         load_dict = literal_eval(sample['load_dict'][d])

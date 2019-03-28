@@ -44,25 +44,30 @@ from localseg.data_generators import sampler
 
 from ast import literal_eval as make_tuple
 
-logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
-                    level=logging.INFO,
-                    stream=sys.stdout)
-
-import matplotlib.cm as cm
-
 try:
     from localseg.evaluators import distmetric
 except ImportError:
     sys.path.append(os.path.dirname(__file__))
     import distmetric
 
+logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
+                    level=logging.INFO,
+                    stream=sys.stdout)
+
+import matplotlib.cm as cm
+
+"""
+try:
+    from localseg.evaluators import distmetric
+except ImportError:
+    sys.path.append(os.path.dirname(__file__))
+    import distmetric
+"""
+
 
 def get_pyvision_evaluator(conf, model, names=None, imgdir=None, dataset=None):
 
-    if dataset is None:
-        return MetaEvaluator(conf, model, imgdir=imgdir)
-    else:
-        return TestEvaluator(conf, model, imgdir=imgdir, dataset=dataset)
+    return MetaEvaluator(conf, model, imgdir=imgdir, dataset=dataset)
 
 
 class TestEvaluator(object):
@@ -206,9 +211,14 @@ class TestEvaluator(object):
 class MetaEvaluator(object):
     """docstring for MetaEvaluator"""
 
-    def __init__(self, conf, model, imgdir=None):
+    def __init__(self, conf, model, imgdir=None, dataset=None):
         self.conf = conf
         self.model = model
+
+        if dataset is not None:
+            self.is_test = True
+        else:
+            self.is_test = False
 
         if imgdir is None:
             self.imgdir = os.path.join(model.logdir, "images")
@@ -218,19 +228,46 @@ class MetaEvaluator(object):
         if not os.path.exists(self.imgdir):
             os.mkdir(self.imgdir)
 
-        val_iter = self.conf['evaluation']["val_subsample"]
-        train_iter = self.conf['evaluation']["train_subsample"]
-        tdo_agumentation = self.conf['evaluation']["train_do_agumentation"]
-
-        self.val_evaluator = Evaluator(
-            conf, model, val_iter, name="Val", split="val",
-            imgdir=self.imgdir)
-        self.train_evaluator = Evaluator(
-            conf, model, train_iter, name="Train",
-            split='train', imgdir=self.imgdir,
-            do_augmentation=tdo_agumentation)
-
         self.evaluators = []
+
+        if not self.is_test:
+
+            val_iter = self.conf['evaluation']["val_subsample"]
+            train_iter = self.conf['evaluation']["train_subsample"]
+            tdo_agumentation = self.conf['evaluation']["train_do_agumentation"]
+
+            val_evaluator = Evaluator(
+                conf, model, val_iter, name="Val", split="val",
+                imgdir=self.imgdir)
+            train_evaluator = Evaluator(
+                conf, model, train_iter, name="Train",
+                split='train', imgdir=self.imgdir,
+                do_augmentation=tdo_agumentation)
+
+            self.evaluators.append(val_evaluator)
+            self.evaluators.append(train_evaluator)
+
+        else:
+
+            test_iter = 1
+
+            conf['dataset']['do_split'] = False
+
+            try:
+                conf['dataset']['unwhitening']
+            except KeyError:
+                conf['dataset']['unwhitening'] = True
+
+            try:
+                conf['dataset']['use_gt_label']
+            except KeyError:
+                conf['dataset']['use_gt_label'] = True
+
+            test_evaluator = Evaluator(
+                conf, model, test_iter, name="Test", split="test",
+                imgdir=self.imgdir, data=dataset)
+
+            self.evaluators.append(test_evaluator)
 
         self.logger = model.logger
 
@@ -248,63 +285,57 @@ class MetaEvaluator(object):
 
         self.model.train(False)
 
-        logging.info("Evaluating Model on the Validation Dataset.")
+        metrics = []
 
-        # logging.info("Evaluating Model on the Validation Dataset.")
-        start_time = time.time()
-        val_metric = self.val_evaluator.evaluate(epoch=epoch, level=level)
+        for evaluator in self.evaluators:
+            name = evaluator.name
 
-        # train_metric, train_base = self.val_evaluator.evaluate()
-        dur = time.time() - start_time
-        logging.info("Finished Validation run in {} minutes.".format(dur / 60))
-        logging.info("")
+            logging.info("Running Evaluator '{}'.".format(name))
 
-        logging.info("Evaluating Model on the Training Dataset.")
-        start_time = time.time()
+            # logging.info("Evaluating Model on the Validation Dataset.")
+            start_time = time.time()
+            metric = evaluator.evaluate(epoch=epoch, level=level)
 
-        train_metric = self.train_evaluator.evaluate(epoch=epoch, level=level)
-        duration = time.time() - start_time
-        logging.info("Finished Training run in {} minutes.".format(
-            duration / 60))
-        logging.info("")
+            metrics.append(metric)
 
-        if val_metric is None:
-            logging.info("Valmetric is None. Stopping evaluation.")
+            # train_metric, train_base = self.val_evaluator.evaluate()
+            dur = time.time() - start_time
+            logging.info("Finished Running '{}' in {} minutes.".format(
+                name, dur / 60))
+            logging.info("")
+
+        if metrics[0] is None:
+            logging.info("First Metric is None. Stopping evaluation.")
             return
 
         self.model.train(True)
 
-        if verbose:
-            # Prepare pretty print
+        names = metrics[0].get_pp_names(time_unit="ms", summary=False)
+        table = pp.TablePrinter(row_names=names)
 
-            names = val_metric.get_pp_names(time_unit="ms", summary=False)
-            table = pp.TablePrinter(row_names=names)
+        for i, metric in enumerate(metrics):
 
-            values = val_metric.get_pp_values(
-                time_unit="ms", summary=False, ignore_first=False)
-            smoothed = self.val_evaluator.smoother.update_weights(values)
+            if verbose:
+                # Prepare pretty print
 
-            table.add_column(smoothed, name="Validation")
-            table.add_column(values, name="Val (raw)")
+                name = self.evaluators[i].name
 
-            values = train_metric.get_pp_values(
-                time_unit="ms", summary=False, ignore_first=False)
-            smoothed = self.train_evaluator.smoother.update_weights(values)
+                values = metric.get_pp_values(
+                    time_unit="ms", summary=False, ignore_first=False)
+                smoothed = self.evaluators[i].smoother.update_weights(values)
 
-            table.add_column(smoothed, name="Training")
-            table.add_column(values, name="Train (raw)")
+                table.add_column(smoothed, name=name)
+                table.add_column(values, name=name)
 
-            table.print_table()
-        if epoch is not None:
-            vdict = val_metric.get_pp_dict(time_unit="ms", summary=True,
+            if epoch is not None:
+                vdict = metric.get_pp_dict(time_unit="ms", summary=True,
                                            ignore_first=False)
-            self.logger.add_values(value_dict=vdict, step=epoch, prefix='val')
+                self.logger.add_values(value_dict=vdict,
+                                       step=epoch, prefix=name)
 
-            tdic = train_metric.get_pp_dict(time_unit="ms", summary=True,
-                                            ignore_first=False)
-            self.logger.add_values(value_dict=tdic, step=epoch, prefix='train')
+                self._print_summery_string(epoch)
 
-            self._print_summery_string(epoch)
+        table.print_table()
 
     def _print_summery_string(self, epoch):
 
@@ -328,22 +359,22 @@ class MetaEvaluator(object):
                            "accuracy: {:.2f} | {:.2f}   dist: {:.2f} | "
                            "{:.2f})    Epoch: {} / {}").format(
                     runname[0:22],
-                    100 * median(self.logger.data['val\\mIoU']),
-                    100 * median(self.logger.data['train\\mIoU']),
-                    100 * median(self.logger.data['val\\accuracy']),
-                    100 * median(self.logger.data['train\\accuracy']),
-                    100 * median(self.logger.data['val\\Average Accuracy']),
-                    100 * median(self.logger.data['train\\Average Accuracy']),
+                    100 * median(self.logger.data['Val\\mIoU']),
+                    100 * median(self.logger.data['Train\\mIoU']),
+                    100 * median(self.logger.data['Val\\accuracy']),
+                    100 * median(self.logger.data['Train\\accuracy']),
+                    100 * median(self.logger.data['Val\\Average Accuracy']),
+                    100 * median(self.logger.data['Train\\Average Accuracy']),
                     epoch, max_epochs)
             else:
                 out_str = ("Summary:   [{:22}](mIoU: {:.2f} | {:.2f}    "
                            "accuracy: {:.2f} | {:.2f}  "
                            "  Epoch: {} / {}").format(
                     runname[0:22],
-                    100 * median(self.logger.data['val\\mIoU']),
-                    100 * median(self.logger.data['train\\mIoU']),
-                    100 * median(self.logger.data['val\\accuracy']),
-                    100 * median(self.logger.data['train\\accuracy']),
+                    100 * median(self.logger.data['Val\\mIoU']),
+                    100 * median(self.logger.data['Train\\mIoU']),
+                    100 * median(self.logger.data['Val\\accuracy']),
+                    100 * median(self.logger.data['Train\\accuracy']),
                     epoch, max_epochs)
 
         else:
@@ -429,7 +460,7 @@ class BinarySegMetric(object):
 class Evaluator():
 
     def __init__(self, conf, model, subsample=None,
-                 name='', split=None, imgdir=None, do_augmentation=False):
+                 name='', split=None, imgdir=None, do_augmentation=False, data=None):
         self.model = model
         self.conf = conf
         self.name = name
@@ -459,7 +490,7 @@ class Evaluator():
         self.loader = loader.get_data_loader(
             conf['dataset'], split=split, batch_size=batch_size,
             sampler=subsampler, do_augmentation=do_augmentation,
-            pin_memory=False)
+            pin_memory=False, dataset=data)
 
         self.minor_iter = max(
             1, len(self.loader) // conf['evaluation']['num_minor_imgs'])
@@ -487,6 +518,9 @@ class Evaluator():
 
     def evaluate(self, epoch=None, level='minor'):
 
+        # self.loader.dataset.is_white = False
+        # self.model.is_white = True
+
         self.level = level
 
         if (level == 'mayor' or level == 'full') and \
@@ -508,7 +542,7 @@ class Evaluator():
                     or self.conf['evaluation']['unwhitening']:
                 scale = self.loader.dataset.meta_dict['scale']
             else:
-                scale = 3
+                scale = 5
 
             dmetric = DistMetric(
                 scale=scale)
@@ -579,13 +613,14 @@ class Evaluator():
 
         return CombinedMetric([bmetric, metric, dmetric])
 
-    def _plot_roc_curve(self, dmetric, epoch):
+    def _plot_roc_curve(self, dmetric, epoch, rescale=1,
+                        unit='m', prefix=None):
 
         roc_dict = {}
 
         roc_dict['steps'] = dmetric.at_steps
-        roc_dict['thresh'] = dmetric.at_thres[0]
-        roc_dict['values'] = dmetric.at_values[0]
+        roc_dict['thresh'] = dmetric.at_thres
+        roc_dict['values'] = dmetric.at_values
 
         pfile = os.path.join(self.imgdir, self.name + "_atp.npz")
         np.savez(pfile, **roc_dict)
@@ -609,7 +644,7 @@ class Evaluator():
 
         values = np.cumsum(at_values[:-1]) / np.sum(at_values)
 
-        labels = np.linspace(0, thresh / 100, thresh * at_steps + 1)[:-1]
+        labels = np.linspace(0, thresh * rescale, thresh * at_steps + 1)[:-1]
 
         fig, ax = plt.subplots()
 
@@ -617,14 +652,20 @@ class Evaluator():
 
         ax.set_title("ST-Curve")
 
-        ax.set_xlabel('Distance [m]')
+        ax.set_xlabel('Distance [{}]'.format(unit))
         ax.set_ylabel('Sensitivity [%]')
-        ax.set_xlim(0, thresh / 100)
+        ax.set_xlim(0, thresh * rescale)
         ax.set_ylim(0, 1)
         # ax.legend(loc=0)
         ax.legend(loc=2)
 
-        name = os.path.join(self.imgdir, self.name + "_STCurve.png")
+        if prefix is not None:
+            png_name = prefix + "_" + self.name + "_STCurve.png"
+        else:
+            png_name = self.name + "_STCurve.png"
+
+        name = os.path.join(
+            self.imgdir, png_name)
 
         plt.savefig(name, format='png', bbox_inches='tight',
                     dpi=199)
@@ -685,6 +726,7 @@ class Evaluator():
             if not self.model.is_white:
                 prediction = pred_world_np[d]
                 label = label_world_np[d]
+            # elif not self.loader.dataset.is_white:
             elif not self.loader.dataset.is_white:
 
                 if self.conf['evaluation']['use_gt_label']:
@@ -1145,5 +1187,150 @@ class BinarySegVisualizer():
 
         return figure
 
+
 if __name__ == '__main__':
     logging.info("Hello World.")
+
+
+class DistMetric(object):
+    """docstring for DistMetric"""
+    def __init__(self, threshholds=[0.3, 1, 3],
+                 keep_raw=False, scale=1, dist_fkt=None,
+                 at_thresh=3, unit='m', rescale=1, postfix=None, daa=False):
+        super(DistMetric, self).__init__()
+
+        self.distances = []
+        self.thres = threshholds
+        self.keep_raw = keep_raw
+
+        self.scale = scale
+        self.rescale = rescale
+
+        self.pos = [0 for i in self.thres]
+        self.neg = [0 for i in self.thres]
+
+        self.eug_thres = at_thresh
+        self.eug = 0
+
+        self.eug_count = np.uint64(0)
+
+        self.at_steps = 1000
+        self.at_thres = at_thresh
+        self.at_values = np.zeros(at_thresh * self.at_steps + 1)
+
+        self.daa = daa
+
+        self.cdm = 0
+
+        self.count = 0
+        self.unit = unit
+
+        self.distsum = 0
+        self.sorted = False
+
+        self.postfix = postfix
+
+        self.dist_fkt = dist_fkt
+
+    def add(self, prediction, gt, mask):
+
+        if mask is None:
+            mask = np.ones(prediction.shape[1]).astype(np.bool)
+
+        self.count = self.count + np.sum(mask)
+
+        if self.dist_fkt is None:
+            dists = np.linalg.norm(prediction[:, mask] - gt[:, mask], axis=0)
+        else:
+            dists = self.dist_fkt(prediction, gt, mask)
+
+        for i, thres in enumerate(self.thres):
+            self.pos[i] += np.sum(dists * self.scale < thres)
+            self.neg[i] += np.sum(dists * self.scale >= thres)
+            assert self.count == self.pos[i] + self.neg[i]
+
+        clipped = np.clip(dists * self.scale, 0, self.at_thres)
+        discrete = (clipped * self.at_steps).astype(np.uint32)
+        self.at_values += np.bincount(
+            discrete, minlength=len(self.at_values))
+
+        maxtresh = 1
+        mintresh = 0.2
+
+        clipped = np.clip(dists * self.scale, mintresh, maxtresh)
+        normalized = 1 - (clipped - mintresh) / (maxtresh - mintresh)
+        self.cdm += np.sum(normalized)
+
+        clipped = np.clip(dists * self.scale, 0, self.eug_thres)
+        normalized = 1 - (clipped) / self.eug_thres
+        self.eug += np.sum(normalized)
+
+        self.eug_count += len(normalized)
+
+        assert self.eug_count < 1e18
+
+        self.distsum += np.sum(dists * self.scale / 100)
+
+        if self.keep_raw:
+
+            self.distances += list(dists)
+            self.sorted = False
+
+    def print_acc(self):
+        for i, thresh in enumerate(self.thres):
+            acc = self.pos[i] / self.count
+            logging.info("Acc @{}: {}".format(thresh, acc))
+
+    def get_pp_names(self, time_unit='s', summary=False):
+
+        pp_names = [
+            "Acc @{}{}".format(i * self.rescale, self.unit)
+            for i in self.thres]
+
+        pp_names.append("Dist Mean")
+        pp_names.append("CDM")
+        if self.daa:
+            pp_names.append("Discrete AA")
+        pp_names.append("Average Accuracy")
+
+        if self.postfix is not None:
+            for i, name in enumerate(pp_names):
+                pp_names[i] = name + self.postfix
+
+        return pp_names
+
+    def get_pp_values(self, ignore_first=True,
+                      time_unit='s', summary=False):
+
+        pp_values = [self.pos[i] / self.count for i in range(len(self.thres))]
+
+        pp_values.append(self.distsum / self.count)
+        pp_values.append(self.cdm / self.eug_count)
+
+        if self.daa:
+            pp_values.append(
+                np.mean(np.cumsum(self.at_values[:-1]) / np.sum(
+                    self.at_values)))
+
+        pp_values.append(
+            self.eug / self.eug_count)
+
+        return pp_values
+
+    def get_pp_dict(self, ignore_first=True, time_unit='s', summary=False):
+
+        names = self.get_pp_names(time_unit=time_unit, summary=summary)
+        values = self.get_pp_values(ignore_first=ignore_first,
+                                    time_unit=time_unit,
+                                    summary=summary)
+
+        return OrderedDict(zip(names, values))
+
+    def plot_histogram(self):
+
+        assert self.keep_raw
+
+        x = np.linspace(0, 100, len(self.distances))
+        plt.plot(x, self.distances)
+
+        plt.show()

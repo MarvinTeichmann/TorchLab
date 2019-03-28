@@ -35,14 +35,14 @@ conf = "../configs2/camvidF_part34_240p.json"
 
 gpus = '0'
 
-names = ['lr1e-5', 'lr1.5e-5', 'lr2e-5', 'lr3e-5']
+names = ['w5', 'w8', 'w12', 'w18', 'w27']
 
-bench_name = "lrBench"
+bench_name = "weightBench"
 
-values = [[2e-4], [3e-4], [4e-4], [6e-4]]
+values = [[5], [8], [12], [18], [27]]
 
 
-keys = ["training.learning_rate"]
+keys = ["loss.weights.dist"]
 
 # print_str = "pv2 train --gpus %s {}" % gpus
 print_str = "pv2 train {run} --gpus {gpu}"
@@ -83,7 +83,7 @@ def main():
 
         print(print_str.format(run=logdir, gpu=i), file=f)
 
-        logging.info("    {}".format(print_str.format(run=logdir, gpu=i)))
+        logging.info("    {}".format(print_str.format(run=logdir, gpu=i % 2)))
 
         logging.info(" ")
 

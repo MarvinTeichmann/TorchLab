@@ -68,6 +68,11 @@ class LocalLoss(nn.Module):
 
         self.dist_loss = MSELoss(sqrt=conf['loss']['sqrt'])
 
+        self.scale = model.trainer.loader.dataset.scale
+
+        logging.info("Scale is set to: {}. DLoss will be weighted: {}".format(
+            self.scale, self.conf['loss']['weights']['dist'] * self.scale))
+
         self.threaded = True
         self.output_device = 0
         # self.model = model #TODO
@@ -117,7 +122,7 @@ class LocalLoss(nn.Module):
 
         weights = self.conf['loss']['weights']
         class_loss = weights['xentropy'] * class_loss
-        dist_loss = weights['dist'] * dist_loss
+        dist_loss = weights['dist'] * self.scale * dist_loss
         total_loss = class_loss + dist_loss
 
         if self.conf['loss']["use_mask_loss"]:

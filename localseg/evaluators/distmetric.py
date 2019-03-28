@@ -30,9 +30,9 @@ import matplotlib.pyplot as plt
 
 class DistMetric(object):
     """docstring for DistMetric"""
-    def __init__(self, threshholds=[0.3, 1, 2],
+    def __init__(self, threshholds=[0.3, 1, 3],
                  keep_raw=False, scale=1, dist_fkt=None,
-                 at_thresh=2, unit='m', rescale=1, postfix=None, daa=False):
+                 at_thresh=3, unit='m', rescale=1, postfix=None, daa=False):
         super(DistMetric, self).__init__()
 
         self.distances = []
