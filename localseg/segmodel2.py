@@ -203,7 +203,6 @@ class SegModel(nn.Module):
         assert conf['modules']['model'] in ['mapillary', 'end_dec']
 
         if conf['modules']['model'] == 'mapillary':
-            assert False
             conf['encoder']['num_classes'] = self._get_decoder_classes(conf)
             conf['encoder']['upsample'] = conf['decoder']['upsample']
             from localseg.mapillary import model
@@ -378,14 +377,17 @@ class SegModel(nn.Module):
         self.trainer.train(max_epochs)
         return
 
-    def load_from_logdir(self, logdir=None):
+    def load_from_logdir(self, logdir=None, ckp_name=None):
 
         self.share_memory()
 
         if logdir is None:
             logdir = self.logdir
 
-        checkpoint_name = os.path.join(logdir, 'checkpoint.pth.tar')
+        if ckp_name is None:
+            checkpoint_name = os.path.join(logdir, 'checkpoint.pth.tar')
+        else:
+            checkpoint_name = os.path.join(logdir, ckp_name)
 
         if not os.path.exists(checkpoint_name):
             logging.info("No checkpoint file found. Train from scratch.")
