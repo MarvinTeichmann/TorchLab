@@ -510,7 +510,7 @@ class Evaluator():
             else:
                 scale = 3
 
-            dmetric = DistMetric(
+            dmetric = distmetric.DistMetric(
                 scale=scale)
         else:
             dmetric = None
@@ -584,8 +584,8 @@ class Evaluator():
         roc_dict = {}
 
         roc_dict['steps'] = dmetric.at_steps
-        roc_dict['thresh'] = dmetric.at_thres[0]
-        roc_dict['values'] = dmetric.at_values[0]
+        roc_dict['thresh'] = dmetric.at_thres
+        roc_dict['values'] = dmetric.at_values
 
         pfile = os.path.join(self.imgdir, self.name + "_atp.npz")
         np.savez(pfile, **roc_dict)

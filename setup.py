@@ -2,9 +2,9 @@
 
 from setuptools import setup, find_packages
 
-setup(name='PyTorchSlam',
+setup(name='TorchLab',
       version='0.1',
-      description='Several implementation of DenseCRF.',
+      description='A package to help experimenting with Pytorch.',
       author='Marvin Teichmann',
       author_email='marvin.teichmann@googlemail.com',
       packages=find_packages(),

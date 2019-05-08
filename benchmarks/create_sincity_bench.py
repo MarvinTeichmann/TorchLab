@@ -31,7 +31,7 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     stream=sys.stdout)
 
 
-conf = "../configs2/camvidF_part34_240p.json"
+conf = "../configs2/sincityF_small_512p.json"
 
 gpus = '0'
 
@@ -39,15 +39,15 @@ gpus = '0'
 
 names = ['white', 'gt_white', 'world', 'noXentropy', 'carson', 'sphere']
 
-bench_name = "CkptP34Bench"
+bench_name = "FullTestBench"
 
 values = [
     [],
     [True],
-    ["camvid360/part34_world_240p", 1.5],
-    ["camvid360/part34_world_240p", 1.5, 0],
-    ["camvid360/part34_world_240p", 1.5, 0, True],
-    ["camvid360/part34_world_240p", 1.5, 0, False]]
+    ["sincity/small_world_512p", 1.5],
+    ["sincity/small_world_512p", 1.5, 0],
+    ["sincity/small_world_512p", 1.5, 0, True],
+    ["sincity/small_world_512p", 1.5, 0, False]]
 
 
 keys = [

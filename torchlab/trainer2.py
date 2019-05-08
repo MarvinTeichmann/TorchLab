@@ -78,6 +78,9 @@ class SegmentationTrainer():
         else:
             self.logger = logger
 
+        self.device = self.conf['training']['device']
+        self.model.device = self.device
+
         self.checkpoint_name = os.path.join(self.model.logdir,
                                             'checkpoint.pth.tar')
 
@@ -178,7 +181,8 @@ class SegmentationTrainer():
     def do_training_step(self, step, sample):
 
         # Do forward pass
-        img_var = Variable(sample['image']).cuda()
+        img_var = sample['image'].to(self.device)  # TODO Remove?
+
         pred = self.model(img_var, geo_dict=sample)
 
         # Compute and print loss.
@@ -237,8 +241,10 @@ class SegmentationTrainer():
 
             self.start_time = time.time()
 
+        return loss_dict
+
     def train(self, max_epochs=None):
-        self.model.cuda()
+        self.model.to(self.device)
 
         if max_epochs is None:
             max_epochs = self.max_epochs
@@ -253,8 +259,7 @@ class SegmentationTrainer():
         self.epoch_steps = epoch_steps
         self.max_steps = epoch_steps * math.ceil(max_epochs / self.eval_iter)
         self.max_steps += 1
-        self.max_steps_lr = epoch_steps * \
-            (max_epochs + self.conf['training']['lr_offset_epochs']) + 1
+        self.max_steps_lr = epoch_steps * (max_epochs) + 1
 
         self.step = self.epoch_steps * math.ceil(self.epoch / self.eval_iter)
 
@@ -270,7 +275,7 @@ class SegmentationTrainer():
 
         if self.conf['training']['pre_eval']:
             level = self.conf['evaluation']['default_level']
-            self.model.evaluate(level=level)
+            self.model.evaluate(level='mayor')
 
         for epoch in range(self.epoch, max_epochs, self.eval_iter):
             self.epoch = epoch
@@ -286,7 +291,7 @@ class SegmentationTrainer():
             self.start_time = time.time()
 
             for step, sample in zip(count_steps, self.loader):
-                self.do_training_step(step, sample)
+                loss_dict = self.do_training_step(step, sample)
 
             gc.collect()
 
@@ -304,12 +309,21 @@ class SegmentationTrainer():
                 self.logger.init_step(epoch + self.eval_iter)
                 self.logger.add_value(self.losses, 'loss',
                                       epoch + self.eval_iter)
+
+                np_values = [val.item() / 100 for val in loss_dict.values()]
+                loss_dict_np = dict(zip(loss_dict.keys(), np_values))
+
+                self.logger.add_values(value_dict=loss_dict_np,
+                                       prefix='losses',
+                                       step=epoch + self.eval_iter)
+
                 self.model.evaluate(epoch + self.eval_iter, level=level)
                 if self.conf['logging']['log']:
                     logging.info("Saving checkpoint to: {}".format(
                         self.model.logdir))
                     # Save Checkpoint
                     self.logger.save(filename=self.log_file)
+                    self.logger.save(filename=self.log_file + ".back")
                     state = {
                         'epoch': epoch + self.eval_iter,
                         'step': self.step,
@@ -318,6 +332,7 @@ class SegmentationTrainer():
                         'optimizer': self.optimizer.state_dict()}
 
                     torch.save(state, self.checkpoint_name)
+                    torch.save(state, self.checkpoint_name + ".back")
                     logging.info("Checkpoint saved sucessfully.")
                 else:
                     logging.info("Output can be found: {}".format(
@@ -329,7 +344,8 @@ class SegmentationTrainer():
                     'summary.log.{}.pickle'.format(self.epoch))
                 self.logger.save(filename=new_file)
 
-            if self.epoch > 0 and not self.epoch % self.checkpoint_backup:
+            if self.epoch > 0 and self.checkpoint_backup and \
+                    not self.epoch % self.checkpoint_backup:
                 name = 'checkpoint_{:04d}.pth.tar'.format(self.epoch)
                 checkpoint_name = os.path.join(
                     self.model.logdir, name)

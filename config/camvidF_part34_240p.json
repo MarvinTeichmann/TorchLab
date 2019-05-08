@@ -8,10 +8,9 @@
     },
 
     "dataset" : {
-        "dataset": "sincity",
-        "sequence": "mysets/fourimgs",
-        "train_file": "train",
-        "val_file": "train",
+        "dataset": "Camvid360",
+        "train_root": "camvid360/part34_white_240p",
+        "val_root": "camvid360/TEST/TEST_SAMESIDE/part34_240p",
 
         "ignore_label": 0,
         "idx_offset": 1,
@@ -20,19 +19,19 @@
         "label_encoding": "dense",
         "root_classes": 0,
 
-        "3d_label": "points_3d_sphere",
-
-        "subsample": 0,
+        "load_to_memory": false,
 
         "grid_size": 10,
         "grid_dims": 3,
 
         "dist_mask": null,
 
+        "subsample": 0,
+        "do_split": false,
+
         "transform": {
             "equirectangular": false,
             "equi_crop": {
-                "do_equi": false,
                 "equi_chance": 0.5,
                 "HFoV_range": [0.8, 2.5],
                 "VFoV_range": [0.8, 2.5],
@@ -40,25 +39,26 @@
                 "plane_f": 0.05
                 },
             "presize": null,
+            "npz_factor": 1,
             "color_augmentation_level": 1,
             "fix_shape": true,
             "reseize_image": false,
-            "patch_size": [448, 448],
+            "patch_size": [216, 216],
             "random_crop": false,
             "random_roll": true,
             "max_crop": 4,
             "crop_chance": 0.6,
-            "random_resize": false,
+            "random_resize": true,
             "lower_fac": 0.5,
             "upper_fac": 2,
-            "resize_sig": 0.4,
+            "resize_sig": 0.3,
             "random_flip": false,
-            "random_rotation": false,
+            "random_rotation": true,
             "normalize": false,
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225]
         },
-        "num_worker": 6
+        "num_worker": 5
     },
 
     "encoder": {
@@ -77,6 +77,7 @@
     "decoder": {
         "skip_connections": false,
         "scale_down": 0.01,
+        "geo_scale": null,
         "dropout": true,
         "bottleneck": null,
         "upsample": true
@@ -86,19 +87,17 @@
         "type": "magic",
         "geometric_type": {
             "spherical": false,
-            "camera": true,
-            "world": false,
-            "weights": {
-                "spherical": 1,
-                "camera": 1,
-                "world": 1
-            }
+            "camera": false,
+            "world": true
         },
         "weights": {
-            "xentropy": 10,
-            "triplet": 1
+            "xentropy": 1,
+            "spherical": 1,
+            "dist": 12
         },
         "corner": false,
+        "use_mask_loss": false,
+        "mask_weight": null,
         "spatial": false,
         "embedding_loss": null,
         "squeeze": false,
@@ -112,9 +111,10 @@
     },
 
     "training": {
-        "batch_size": 2,
-        "learning_rate": 5e-5,
+        "batch_size": 20,
+        "learning_rate": 2e-4,
         "lr_schedule": "poly",
+        "min_lr": 1e-8,
         "exp": 1.5,
         "base": 0.9,
         "base2": 2,
@@ -122,7 +122,7 @@
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "clip_norm": null,
-        "max_epochs": 20000,
+        "max_epochs": 5000,
         "pre_eval": false,
         "cnn_gpus": null,
         "max_epoch_steps": null,
@@ -132,40 +132,49 @@
     },
 
     "evaluation": {
-        "imgs_minor": [1, 3, 10],
+        "num_minor_imgs": 5,
         "transparency": 0,
         "default_level": "minor",
+        "do_segmentation_eval": true,
+        "do_dist_eval": true,
+        "do_mask_eval": false,
+        "unwhitening": true,
+        "use_gt_label": false,
         "reduce_val_bs": true,
+        "val_subsample": null,
+        "train_subsample": 23,
         "has_flow": false,
-        "train_loader_split": "val",
-        "scale": 0.02
+        "train_do_agumentation": false,
+        "mask_thresh": 0.7,
+        "scale": 1,
+        "scale_world": 1
     },
 
     "logging": {
-        "display_iter": 2,
-        "eval_iter": 20,
-        "max_val_examples": null,
-        "max_train_examples": 100,
+        "disp_per_epoch": 5,
+        "eval_iter": 25,
         "log": true,
-        "checkpoint_backup": 100000,
-        "mayor_eval": 1000
+        "checkpoint_backup": 100,
+        "mayor_eval": 900
     },
 
     "plotting": {
         "defaults": {
-            "plot": ["mIoU", "accuracy", "mIoU", "Acc @6", "Acc @12", "Acc @12"],
-            "prefixes": ["val", "val", "train", "val", "val", "train"],
-            "titles": ["Validation mIoU", "Validation Accuracy", "Train mIoU", "Acc @6", "Acc @12", "Train Acc @12"]
+            "plot": ["mIoU", "mIoU", "Acc @0.3m", "Acc @1.0m", "Acc @2.0m",
+                     "Average Accuracy", "Acc @0.3m", "Acc @1.0m", "Acc @2.0m", "Average Accuracy"],
+            "prefixes": ["val", "train", "val", "val", "val", "val", "train", "train", "train", "train"],
+            "titles": ["Validation mIoU", "Train mIoU", "Acc @0.3m", "Acc @1.0m", "Acc @2.0m",
+                       "Average Accuracy", "Acc @0.3m (train)", "Acc @1.0m (train)", "Acc @2.0m (train)",
+                       "Average Accuracy (train)"]
         }
     },
 
     "pyvision": {
-        "project_name": "localsegICCV",
-        "entry_point": "../localseg/segmodel.py",
+        "project_name": "localseg2",
+        "entry_point": "../localseg/segmodel2.py",
         "plotter": "../localseg/plotting/segplotter.py",
         "required_packages": ["../localseg"],
         "optional_packages": ["../pyvision/pyvision"],
-        "run_as_subprocess": false,
         "copy_required_packages": true,
         "copy_optional_packages": true
     }

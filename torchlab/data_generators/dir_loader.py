@@ -765,7 +765,7 @@ def resize_torch(array, factor, mode="nearest"):
     assert len(array.shape) == 3
     tensor = torch.tensor(array).float().transpose(0, 2).unsqueeze(0)
     resized = torch.nn.functional.interpolate(
-        tensor, scale_factor=factor)
+        tensor, scale_factor=factor, mode=mode)
 
     return resized.squeeze(0).transpose(0, 2).numpy()
 

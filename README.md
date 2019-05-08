@@ -1,5 +1,6 @@
-# pytorch_slam
-pytorch_slam
+# TorchLab
+
+A package to help experimenting with Pytorch.
 
 
 ### Installation
