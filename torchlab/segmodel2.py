@@ -379,7 +379,7 @@ class SegModel(nn.Module):
 
     def load_from_logdir(self, logdir=None, ckp_name=None):
 
-        self.share_memory()
+        # self.share_memory()
 
         if logdir is None:
             logdir = self.logdir

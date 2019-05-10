@@ -15,13 +15,13 @@ import numpy as np
 import scipy as scp
 
 import logging
-from localseg import encoder as segencoder
-from localseg import decoder as segdecoder
+from torchlab import encoder as segencoder
+from torchlab import decoder as segdecoder
 
 import torch
 import torch.nn as nn
 
-from localseg.encoder import parallel as parallel
+from torchlab.encoder import parallel as parallel
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -29,18 +29,13 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 
 import torch.nn.functional as functional
 
-from localseg.decoder import geometric as geodec
+from torchlab.decoder import geometric as geodec
 
 
 def get_network(conf):
     nclasses = conf['encoder']['num_classes']
     encoder = _get_encoder(conf)
     channel_dict = encoder.get_channel_dict()
-
-    conf['decoder']['label_encoding'] = conf['dataset']['label_encoding']
-    conf['decoder']['grid_dims'] = conf['dataset']['grid_dims']
-
-    conf['decoder']['loss_type'] = conf['loss']['type']
 
     decoder = segdecoder.fcn.FCN(
         num_classes=nclasses, scale_dict=channel_dict,
@@ -89,52 +84,7 @@ class EncoderDecoder(nn.Module):
 
         prediction = self.decoder(feats32)
 
-        if not self.conf['modules']['loader'] == 'geometry':
-            return prediction
-
-        class_pred = prediction[:, :self.num_classes]
-
-        if self.conf['loss']["use_mask_loss"]:
-            mask_pred = prediction[:, self.num_classes:self.num_classes + 2]
-            three_pred = prediction[:, self.num_classes + 2:]
-        else:
-            three_pred = prediction[:, self.num_classes:]
-
-        if softmax:
-            class_pred = functional.softmax(class_pred, dim=1)
-            if self.conf['loss']["use_mask_loss"]:
-                mask_pred = functional.softmax(mask_pred, dim=1)
-
-        if self.conf['decoder']['geo_scale'] is not None:
-            three_pred = three_pred * self.conf['decoder']['geo_scale']
-
-        if geo_dict is None:
-            out_dict = {}
-            out_dict['classes'] = class_pred
-            out_dict['world'] = three_pred
-            return out_dict
-
-        if self.conf['loss']['spatial']:
-            world_pred = self.geo(class_pred, three_pred, geo_dict)
-        else:
-            world_pred = three_pred
-
-        camera_points = geodec.world_to_camera(
-            world_pred, world_pred.new(geo_dict['rotation']),
-            world_pred.new(geo_dict['translation']))
-
-        sphere_points = geodec.sphere_normalization(
-            camera_points)
-
-        out_dict = {}
-        if self.conf['loss']["use_mask_loss"]:
-            out_dict['mask'] = mask_pred
-        out_dict['classes'] = class_pred
-        out_dict['world'] = world_pred
-        out_dict['camera'] = camera_points
-        out_dict['sphere'] = sphere_points
-
-        return out_dict
+        return prediction
 
 
 def _get_encoder(conf):
@@ -151,12 +101,12 @@ def _get_encoder(conf):
     else:
         raise NotImplementedError
 
-    if conf['modules']['encoder'] == 'resnet':
+    if conf['encoder']['network'] == 'resnet':
 
         if conf['encoder']['source'] == "simple":
             resnet = segencoder.resnet
         elif conf['encoder']['source'] == "encoding":
-            from localseg.encoder import encoding_resnet
+            from torchlab.encoder import encoding_resnet
             resnet = segencoder.encoding_resnet
         else:
             raise NotImplementedError
@@ -165,27 +115,27 @@ def _get_encoder(conf):
             encoder = resnet.resnet50(
                 pretrained=pretrained, dilated=dilated,
                 batched_dilation=batched_dilation,
-                bn=bn).cuda()
+                bn=bn)
         elif conf['encoder']['num_layer'] == 101:
             encoder = resnet.resnet101(
                 pretrained=pretrained, dilated=dilated,
                 batched_dilation=batched_dilation,
-                bn=bn).cuda()
+                bn=bn)
         elif conf['encoder']['num_layer'] == 152:
             encoder = resnet.resnet152(
                 pretrained=pretrained, dilated=dilated,
                 batched_dilation=batched_dilation,
-                bn=bn).cuda()
+                bn=bn)
         elif conf['encoder']['num_layer'] == 34:
             encoder = resnet.resnet34(
                 pretrained=pretrained, dilated=dilated,
                 batched_dilation=batched_dilation,
-                bn=bn).cuda()
+                bn=bn)
         else:
             raise NotImplementedError
             # further implementation are available; see encoder.resnet
 
-    if conf['modules']['encoder'] == 'densenet':
+    if conf['encoder']['network'] == 'densenet':
 
         densenet = segencoder.densenet
 

@@ -36,10 +36,8 @@ except:
 
 import time
 
-from localseg.utils import warp
-
 from torch.utils import data
-from localseg.data_generators import sampler
+from torchlab.data import sampler
 from torch.utils.data.sampler import RandomSampler
 
 import itertools as it
@@ -121,11 +119,11 @@ class SegmentationTrainer():
     def init_optimizer(self):
         weight_dicts = self.model.get_weight_dicts()
 
-        if self.conf['modules']['optimizer'] == 'adam':
+        if self.conf['training']['optimizer'] == 'adam':
 
             self.optimizer = torch.optim.Adam(weight_dicts, lr=self.lr)
 
-        elif self.conf['modules']['optimizer'] == 'SGD':
+        elif self.conf['training']['optimizer'] == 'SGD':
             momentum = self.conf['training']['momentum']
             self.optimizer = torch.optim.SGD(weight_dicts, lr=self.lr,
                                              momentum=momentum)
@@ -181,9 +179,9 @@ class SegmentationTrainer():
     def do_training_step(self, step, sample):
 
         # Do forward pass
-        img_var = sample['image'].to(self.device)  # TODO Remove?
+        # img_var = sample['image'].to(self.device)  # TODO Remove?
 
-        pred = self.model(img_var, geo_dict=sample)
+        pred = self.model.forward(sample, training=True)
 
         # Compute and print loss.
         total_loss, loss_dict = self.model.loss(pred, sample)
@@ -200,7 +198,7 @@ class SegmentationTrainer():
         else:
             totalnorm = 0
             parameters = list(filter(
-                lambda p: p.grad is not None, self.model.parameters()))
+                lambda p: p.grad is not None, self.model.network.parameters()))
             for p in parameters:
                 norm_type = 2
                 param_norm = p.grad.data.norm(norm_type)
@@ -244,7 +242,7 @@ class SegmentationTrainer():
         return loss_dict
 
     def train(self, max_epochs=None):
-        self.model.to(self.device)
+        self.model.network.to(self.device)
 
         if max_epochs is None:
             max_epochs = self.max_epochs
@@ -328,7 +326,7 @@ class SegmentationTrainer():
                         'epoch': epoch + self.eval_iter,
                         'step': self.step,
                         'conf': self.conf,
-                        'state_dict': self.model.state_dict(),
+                        'state_dict': self.model.network.state_dict(),
                         'optimizer': self.optimizer.state_dict()}
 
                     torch.save(state, self.checkpoint_name)
@@ -355,7 +353,7 @@ class SegmentationTrainer():
                     'epoch': epoch + self.eval_iter,
                     'step': self.step,
                     'conf': self.conf,
-                    'state_dict': self.model.state_dict(),
+                    'state_dict': self.model.network.state_dict(),
                     'optimizer': self.optimizer.state_dict()}
                 torch.save(state, checkpoint_name)
 
