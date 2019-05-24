@@ -68,21 +68,24 @@ class FCN(nn.Module):
 
         if not conf['skip_connections']:
             self.upsample32 = nn.Upsample(scale_factor=down_factor,
-                                          mode='bilinear')
+                                          mode='bilinear', align_corners=False)
 
         else:
             assert(down_factor == 32)
-            self.upsample32 = nn.Upsample(scale_factor=2, mode='bilinear')
+            self.upsample32 = nn.Upsample(scale_factor=2, mode='bilinear',
+                                          align_corners=False)
             self.conv16 = nn.Conv2d(scale_dict['scale16'], num_classes,
                                     kernel_size=1, stride=1, padding=0,
                                     bias=False)
 
             self.drop16 = nn.Dropout2d(p=0.2)
-            self.upsample16 = nn.Upsample(scale_factor=2, mode='bilinear')
+            self.upsample16 = nn.Upsample(scale_factor=2, mode='bilinear',
+                                          align_corners=False)
             self.conv8 = nn.Conv2d(scale_dict['scale8'], num_classes,
                                    kernel_size=1, stride=1, padding=0,
                                    bias=False)
-            self.upsample8 = nn.Upsample(scale_factor=8, mode='bilinear')
+            self.upsample8 = nn.Upsample(scale_factor=8, mode='bilinear',
+                                         align_corners=False)
 
         if conf['bottleneck'] is not None:
             self.relu = nn.ReLU(inplace=True)

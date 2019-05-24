@@ -21,7 +21,7 @@ except ImportError:
 
 from torch.utils import data
 
-from pyvision import visualization as vis
+from pyvision.evaluation import visualization as vis
 
 from ast import literal_eval as make_tuple
 

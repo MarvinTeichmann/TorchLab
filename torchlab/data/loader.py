@@ -20,6 +20,7 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
 
+import torch
 from torch.utils import data
 
 default_conf = {
@@ -61,10 +62,10 @@ class DataGen(data.Dataset):
         else:
             self.index = dataset
 
+        self.root_dir = os.environ['PV_DIR_DATA']
+
         self.read_annotations()
         self.do_split(split=split)
-
-        self.root_dir = os.environ['PV_DIR_DATA']
 
     def __len__(self):
         return len(self.filelist)
@@ -95,8 +96,26 @@ class DataGen(data.Dataset):
                 self.filelist = self.filelist[-amount:]
             elif split == 'all':
                 self.filelist = self.filelist
+            elif split == 'test':
+                self.filelist = self.filelist
             else:
                 raise NotImplementedError
+        else:
+            raise NotImplementedError
+
+    def resize_torch(self, array, factor, mode="nearest"):
+        if len(array.shape) == 3:
+            tensor = torch.tensor(array).float().transpose(0, 2).unsqueeze(0)
+            resized = torch.nn.functional.interpolate(
+                tensor, scale_factor=factor, mode=mode,
+                align_corners=False)
+            return resized.squeeze(0).transpose(0, 2).numpy()
+        elif len(array.shape) == 2:
+            tensor = torch.tensor(array).float().unsqueeze(0).unsqueeze(0)
+            resized = torch.nn.functional.interpolate(
+                tensor, scale_factor=factor, mode=mode,
+                align_corners=False)
+            return resized.squeeze(0).squeeze(0).numpy()
         else:
             raise NotImplementedError
 
