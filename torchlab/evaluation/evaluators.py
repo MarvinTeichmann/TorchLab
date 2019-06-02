@@ -77,12 +77,12 @@ class GenericEvaluator():
         if split == 'val':
             if conf['evaluation']['minor_idx_val'] is not None:
                 self.minor_imgs = conf['evaluation']['minor_idx_val']
-                self.minor_iter = 2 * len(self.loader)
+                self.minor_iter = 2 * len(self.loader) + 1
 
         if split == 'train':
             if conf['evaluation']['minor_idx_train'] is not None:
                 self.minor_imgs = conf['evaluation']['minor_idx_train']
-                self.minor_iter = 2 * len(self.loader)
+                self.minor_iter = 2 * len(self.loader) + 1
 
         self.bs = batch_size
 
@@ -174,7 +174,6 @@ class GenericEvaluator():
             plt.tight_layout()
             plt.savefig(new_name, format='png', bbox_inches='tight',
                         dpi=199)
-            plt.close(fig)
 
         if self.level == 'mayor' and step < 500 \
                 or self.level == 'full':
@@ -191,7 +190,7 @@ class GenericEvaluator():
             plt.savefig(new_name, format='png', bbox_inches='tight',
                         dpi=199)
 
-            plt.close(fig)
+        plt.close(fig)
 
     def do_eval(self, output, sample, metric, step, epoch, duration):
         raise NotImplementedError

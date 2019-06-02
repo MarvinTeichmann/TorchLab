@@ -71,25 +71,10 @@ class SegmentationTrainer():
         # mysampler = sampler.RandomMultiEpochSampler(dataset, self.eval_iter)
         # mysampler = RandomSampler(dataset)
 
-        if logger is None:
-            self.logger = model.logger
-        else:
-            self.logger = logger
-
-        self.device = self.conf['training']['device']
-        self.model.device = self.device
-
-        self.checkpoint_name = os.path.join(self.model.logdir,
-                                            'checkpoint.pth.tar')
-
-        backup_dir = os.path.join(self.model.logdir, 'backup')
-        if not os.path.exists(backup_dir):
-            os.mkdir(backup_dir)
-
-        self.log_file = os.path.join(self.model.logdir, 'summary.log.hdf5')
-
         self.epoch = 0
         self.step = 0
+
+        self.initialized = False
 
     def measure_data_loading_speed(self):
         start_time = time.time()
@@ -116,7 +101,24 @@ class SegmentationTrainer():
         duration = time.time() - start_time
         logging.info("Loading 100 examples took: {}".format(duration))
 
-    def init_optimizer(self):
+    def init_trainer(self):
+
+        self.initialized = True
+
+        self.logger = self.model.logger
+
+        self.device = self.conf['training']['device']
+        self.model.device = self.device
+
+        self.checkpoint_name = os.path.join(self.model.logdir,
+                                            'checkpoint.pth.tar')
+
+        backup_dir = os.path.join(self.model.logdir, 'backup')
+        if not os.path.exists(backup_dir):
+            os.mkdir(backup_dir)
+
+        self.log_file = os.path.join(self.model.logdir, 'summary.log.hdf5')
+
         weight_dicts = self.model.get_weight_dicts()
 
         if self.conf['training']['optimizer'] == 'adam':
@@ -242,6 +244,12 @@ class SegmentationTrainer():
         return loss_dict
 
     def train(self, max_epochs=None):
+
+        if not self.initialized:
+            logging.error("Trainer not initialized.")
+            logging.info("Run trainer.init_trainer() before starting traing.")
+            raise RuntimeError
+
         self.model.network.to(self.device)
 
         if max_epochs is None:

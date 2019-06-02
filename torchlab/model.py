@@ -25,8 +25,8 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 
 class Model():
 
-    def __init__(self, conf, network, loss, loader, pv_evaluator,
-                 trainer, logdir='tmp', debug=False):
+    def __init__(self, conf, network, loss, trainer,
+                 loader, pv_evaluator, logdir='tmp', debug=False):
 
         self.conf = conf
         self.logdir = logdir
@@ -53,9 +53,10 @@ class Model():
 
         self.loss = loss
 
-        self.evaluator = pv_evaluator(conf, self)
+        self.evaluator = pv_evaluator.get_pyvision_evaluator(
+            conf, self)
 
-        self.trainer.init_optimizer()
+        self.trainer.init_trainer()
 
     def set_conf_debug(self):
         self.conf['logging']['disp_per_epoch'] = 100

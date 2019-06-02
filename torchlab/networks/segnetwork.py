@@ -150,7 +150,7 @@ class SegNetwork(nn.Module):
 
         return encoder
 
-    def get_weights_dict(self):
+    def get_weight_dicts(self):
         # assert not self.conf['crf']['end2end']
 
         wd_policy = self.conf['training']["wd_policy"]
