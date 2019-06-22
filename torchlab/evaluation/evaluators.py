@@ -92,12 +92,16 @@ class GenericEvaluator():
         self.names = None
         self.ignore_idx = -100
 
+        self.epoch = None
+
         self.display_iter = max(
             1, len(self.loader) // self.conf['logging']['disp_per_epoch'])
 
         self.smoother = pyvision.utils.MedianSmoother(20)
 
     def evaluate(self, epoch=None, level='minor'):
+
+        self.epoch = epoch
 
         self.level = level
 
@@ -161,10 +165,10 @@ class GenericEvaluator():
                 os.mkdir(stepdir)
 
             if epoch is None:
-                newfile = filename.split(".")[0] + "_None.png"\
+                newfile = ".".join(filename.split(".")[:-1]) + "_None.png"\
                     .format(num=epoch)
             else:
-                newfile = filename.split(".")[0] \
+                newfile = ".".join(filename.split(".")[:-1]) \
                     + "_epoch_{num:05d}.png".format(num=epoch)
 
             plt.tight_layout()

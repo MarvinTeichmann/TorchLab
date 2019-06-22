@@ -75,6 +75,8 @@ class DataGen(data.Dataset):
 
         self.read_annotations()
 
+        self.init_colour_augmentation()
+
     def __len__(self):
         return len(self.filelist)
 
@@ -182,10 +184,10 @@ class DataGen(data.Dataset):
             else:
                 crop_h = max_crop // 2
 
-        load_dict['pad_h'] = pad_h
-        load_dict['pad_w'] = pad_w
-        load_dict['crop_h'] = crop_h
-        load_dict['crop_w'] = crop_w
+        load_dict['augmentation']['pad_h'] = pad_h
+        load_dict['augmentation']['pad_w'] = pad_w
+        load_dict['augmentation']['crop_h'] = crop_h
+        load_dict['augmentation']['crop_w'] = crop_w
 
         new_list = []
 
@@ -218,7 +220,7 @@ class DataGen(data.Dataset):
         factor = augmentation.skewed_normal(
             mean=1, std=sig, lower=lower_size, upper=upper_size)
 
-        load_dict['resize_factor'] = factor
+        load_dict['augmentation']['resize_factor'] = factor
         new_list = []
 
         for img, mode in zip(img_list, mode_list):
@@ -233,13 +235,13 @@ class DataGen(data.Dataset):
 
         if self.conf['augmentation']['random_flip']:
             if random.random() > 0.5:
-                load_dict['flipped'] = True
+                load_dict['augmentation']['flipped'] = True
                 new_list = []
                 for img in img_list:
                     new_list.append(np.fliplr(img).copy())
                 return new_list
             else:
-                load_dict['flipped'] = False
+                load_dict['augmentation']['flipped'] = False
                 return img_list
 
         return img_list

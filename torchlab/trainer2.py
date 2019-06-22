@@ -281,7 +281,8 @@ class SegmentationTrainer():
 
         if self.conf['training']['pre_eval']:
             level = self.conf['evaluation']['default_level']
-            self.model.evaluate(level='mayor')
+            level = 'mayor'
+            self.model.evaluate(level=level)
 
         for epoch in range(self.epoch, max_epochs, self.eval_iter):
             self.epoch = epoch
@@ -309,9 +310,10 @@ class SegmentationTrainer():
             if not self.epoch % self.eval_iter or self.epoch == max_epochs:
 
                 level = self.conf['evaluation']['default_level']
-                if self.epoch % self.mayor_eval == 0 or \
+                if not self.epoch % self.mayor_eval or \
                         self.epoch == max_epochs:
                     level = 'mayor'
+
                 self.logger.init_step(epoch + self.eval_iter)
                 self.logger.add_value(self.losses, 'loss',
                                       epoch + self.eval_iter)
@@ -338,7 +340,7 @@ class SegmentationTrainer():
                         'optimizer': self.optimizer.state_dict()}
 
                     torch.save(state, self.checkpoint_name)
-                    torch.save(state, self.checkpoint_name + ".back")
+                    # torch.save(state, self.checkpoint_name + ".back")
                     logging.info("Checkpoint saved sucessfully.")
                 else:
                     logging.info("Output can be found: {}".format(

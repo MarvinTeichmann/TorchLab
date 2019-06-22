@@ -218,12 +218,15 @@ class SegNetwork(nn.Module):
 
 class SegLoss(nn.Module):
 
-    def __init__(self, conf, ngpus=None):
+    def __init__(self, conf, weight=None, ngpus=None):
         super().__init__()
 
         self.conf = conf
 
-        self.XentropyLoss = CrossEntropyLoss2d()
+        if weight is not None:
+            weight = torch.tensor(weight).float()
+
+        self.XentropyLoss = CrossEntropyLoss2d(weight=weight)
 
     def forward(self, prediction, sample):
 

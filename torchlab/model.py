@@ -48,10 +48,10 @@ class Model():
         self.trainer = trainer
 
         self.network = network
+        self.loss = loss
 
         self.network.to(self.device)
-
-        self.loss = loss
+        self.loss.to(self.device)
 
         self.evaluator = pv_evaluator.get_pyvision_evaluator(
             conf, self)
@@ -92,6 +92,7 @@ class Model():
 
     def _normalize_parallel(self, conf):
         num_gpus = conf['training']['num_gpus']
+        conf['training']['learning_rate'] *= conf['training']['batch_size']
         if num_gpus == 0:
             return
         conf['training']['batch_size'] *= num_gpus

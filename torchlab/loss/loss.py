@@ -170,7 +170,8 @@ class CrossEntropyLoss2d(_WeightedLoss):
             weight, reduction='mean')
         self.ignore_index = ignore_index
 
-        self.NLLLoss = NLLLoss(ignore_index=ignore_index, reduction=reduction)
+        self.NLLLoss = NLLLoss(ignore_index=ignore_index, reduction=reduction,
+                               weight=weight)
         self.logsoftmax = nn.LogSoftmax(dim=1)
 
     def forward(self, input, target):
