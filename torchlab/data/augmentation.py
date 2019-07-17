@@ -23,6 +23,7 @@ import torchvision
 from PIL import Image
 
 import pyvision as pv2
+import pyvision.image
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -149,14 +150,16 @@ class ColorJitter(object):
             Numpy array: Color jittered image.
         """
 
-        image = Image.fromarray(255 * img).convert("RGB")
+        img = (255 * img).astype(np.uint8)
+
+        image = Image.fromarray(img).convert("RGB")
 
         transform = self.get_params(self.brightness, self.contrast,
                                     self.saturation, self.hue)
 
         transformed = np.array(transform(image))
 
-        return pv2.images.normalization(transformed)
+        return pv2.image.normalize(transformed)
 
 
 def random_rotation(image, gt_image, warp_img,

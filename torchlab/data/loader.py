@@ -17,17 +17,17 @@ import scipy as scp
 import logging
 import random
 import random as rng
+import warnings
+
+import torch
+from torch.utils import data
+from torchlab.data import augmentation
+
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
 
-import torch
-from torch.utils import data
-
-from torchlab.data import augmentation
-
-import warnings
 
 default_conf = {
     "num_workers": 4
@@ -193,10 +193,10 @@ class DataGen(data.Dataset):
 
         for img, pad in zip(img_list, pad_list):
 
-            assert len(img.shape) < 3
+            assert len(img.shape) < 4
 
             if len(img.shape) > 2:
-                new_shape = patch_size + img.shape[2]
+                new_shape = patch_size + [img.shape[2]]
             else:
                 new_shape = patch_size
 
@@ -212,13 +212,13 @@ class DataGen(data.Dataset):
 
     def random_resize(
             self, img_list, mode_list, load_dict,
-            sig=0.5, lower_size=0.5, upper_size=2):
+            sig=0.5):
 
         if random.random() < 0.12:
             return img_list
 
         factor = augmentation.skewed_normal(
-            mean=1, std=sig, lower=lower_size, upper=upper_size)
+            mean=1, std=sig)
 
         load_dict['augmentation']['resize_factor'] = factor
         new_list = []
