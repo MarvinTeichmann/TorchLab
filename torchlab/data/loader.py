@@ -246,24 +246,28 @@ class DataGen(data.Dataset):
 
         return img_list
 
-    def resize_torch(self, array, size=None, factor=None, mode="nearest"):
-        if len(array.shape) == 3:
-            tensor = torch.tensor(array).float().transpose(0, 2).unsqueeze(0)
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                resized = torch.nn.functional.interpolate(
-                    tensor, size=size, scale_factor=factor, mode=mode)
-            return resized.squeeze(0).transpose(0, 2).numpy()
-        elif len(array.shape) == 2:
-            tensor = torch.tensor(array).float().unsqueeze(0).unsqueeze(0)
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                resized = torch.nn.functional.interpolate(
-                    tensor, size=size,
-                    scale_factor=factor, mode=mode)
-            return resized.squeeze(0).squeeze(0).numpy()
-        else:
-            raise NotImplementedError
+    def resize_torch(self, *args, **kwargs):
+        return resize_torch(*args, **kwargs)
+
+
+def resize_torch(array, size=None, factor=None, mode="nearest"):
+    if len(array.shape) == 3:
+        tensor = torch.tensor(array).float().transpose(0, 2).unsqueeze(0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            resized = torch.nn.functional.interpolate(
+                tensor, size=size, scale_factor=factor, mode=mode)
+        return resized.squeeze(0).transpose(0, 2).numpy()
+    elif len(array.shape) == 2:
+        tensor = torch.tensor(array).float().unsqueeze(0).unsqueeze(0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            resized = torch.nn.functional.interpolate(
+                tensor, size=size,
+                scale_factor=factor, mode=mode)
+        return resized.squeeze(0).squeeze(0).numpy()
+    else:
+        raise NotImplementedError
 
 
 if __name__ == '__main__':

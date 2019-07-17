@@ -29,7 +29,21 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     stream=sys.stdout)
 
 
-def skewed_normal(mean=1, std=0, lower=0.5, upper=2):
+def skewed_normal(std=0, mean=1):
+
+    diff = random.normalvariate(0, std)
+
+    if diff < 0:
+        factor = 1 / (1 - diff)
+    else:
+        factor = mean + diff
+
+    factor *= mean
+
+    return factor
+
+
+def skewed_normal_old(mean=1, std=0, lower=0.5, upper=2):
 
     while True:
 
@@ -107,8 +121,7 @@ class ColorJitter(object):
             transforms.append(tfm)
 
         if contrast > 0:
-            ct_factor = skewed_normal(mean=1, std=contrast,
-                                      lower=0.33, upper=3)
+            ct_factor = skewed_normal(mean=1, std=contrast)
             cfm = Lambda(lambda img: f.adjust_contrast(img, ct_factor))
             transforms.append(cfm)
 
