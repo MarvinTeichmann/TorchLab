@@ -18,10 +18,6 @@ import scipy as scp
 import logging
 from functools import partial
 
-logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
-                    level=logging.INFO,
-                    stream=sys.stdout)
-
 import gc
 
 import torch
@@ -42,8 +38,12 @@ from torch.utils.data.sampler import RandomSampler
 
 import itertools as it
 
+logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
+                    level=logging.INFO,
+                    stream=sys.stdout)
 
-class SegmentationTrainer():
+
+class Trainer():
 
     def __init__(self, conf, model, data_loader, logger=None):
         self.model = model
@@ -369,6 +369,9 @@ class SegmentationTrainer():
 
                 torch.save(state, self.checkpoint_name)
                 logging.info("Checkpoint saved sucessfully.")
+
+
+SegmentationTrainer = Trainer
 
 
 def _set_lr(optimizer, learning_rate):
