@@ -250,22 +250,28 @@ class DataGen(data.Dataset):
         return resize_torch(*args, **kwargs)
 
 
-def resize_torch(array, size=None, factor=None, mode="nearest"):
+def resize_torch(array, size=None, factor=None, mode="nearest", cuda=False):
+
+    float_tensor = torch.tensor(array).float()
+
+    if cuda:
+        float_tensor = float_tensor.cuda()
+
     if len(array.shape) == 3:
-        tensor = torch.tensor(array).float().transpose(0, 2).unsqueeze(0)
+        tensor = float_tensor.transpose(0, 2).unsqueeze(0)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             resized = torch.nn.functional.interpolate(
                 tensor, size=size, scale_factor=factor, mode=mode)
-        return resized.squeeze(0).transpose(0, 2).numpy()
+        return resized.squeeze(0).transpose(0, 2).cpu().numpy()
     elif len(array.shape) == 2:
-        tensor = torch.tensor(array).float().unsqueeze(0).unsqueeze(0)
+        tensor = float_tensor.unsqueeze(0).unsqueeze(0)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             resized = torch.nn.functional.interpolate(
                 tensor, size=size,
                 scale_factor=factor, mode=mode)
-        return resized.squeeze(0).squeeze(0).numpy()
+        return resized.squeeze(0).squeeze(0).cpu().numpy()
     else:
         raise NotImplementedError
 

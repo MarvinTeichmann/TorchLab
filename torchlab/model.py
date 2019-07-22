@@ -18,6 +18,9 @@ import torch
 import logging
 import pyvision.logger
 
+# from torchlab.utils import parallel
+from torch.nn.parallel.data_parallel import DataParallel
+
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
@@ -33,7 +36,7 @@ class Model():
         self.debug = debug
 
         self._assert_num_gpus(conf, warning=True)
-        self._normalize_parallel(conf)
+        # self._normalize_parallel(conf)
 
         self.logger = pyvision.logger.Logger()
 
@@ -47,7 +50,9 @@ class Model():
 
         self.trainer = trainer
 
-        self.network = network
+        self.network = DataParallel(network)
+
+        self.network.get_weight_dicts = self.network.module.get_weight_dicts
         self.loss = loss
 
         self.network.to(self.device)
