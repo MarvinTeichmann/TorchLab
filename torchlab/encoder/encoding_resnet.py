@@ -7,10 +7,8 @@ import logging
 
 from collections import OrderedDict
 
-try:
-    from torchsegkit.layer.dilated import space2batch, batch2space
-except:
-    pass
+from torchlab.layer.dilated import space2batch, batch2space
+
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
            'resnet152', 'BasicBlock', 'Bottleneck']

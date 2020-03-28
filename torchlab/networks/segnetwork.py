@@ -77,6 +77,8 @@ class SegNetwork(nn.Module):
         else:
             normalized_imgs = imgs
 
+        normalized_imgs = normalized_imgs.clone().detach()
+
         feats32 = self.encoder(normalized_imgs,
                                verbose=self.verbose, return_dict=True)
 
@@ -231,7 +233,8 @@ class SegLoss(nn.Module):
     def forward(self, prediction, sample):
 
         device = prediction.device
-        label = sample['segmentation'].long().to(device)
+        # Older version used sample['segmentation']
+        label = sample['label'].long().to(device)
 
         total_loss = self.XentropyLoss(prediction, label)
         loss_dict = {'total_loss': total_loss}
