@@ -31,6 +31,7 @@ default_conf = {
     "skip_connections": False,
     "scale_down": 0.01,
     "dropout": False,
+    "upsample": True,
     "bottleneck": None
 }
 
@@ -66,21 +67,13 @@ class FCN(nn.Module):
             self.drop16 = nn.Dropout2d(p=0.4)
             self.drop8 = nn.Dropout2d(p=0.3)
 
-        if not conf['skip_connections']:
-            self.upsample32 = nn.Upsample(scale_factor=down_factor,
-                                          mode='bilinear', align_corners=False)
-
-        else:
-            assert(down_factor == 32)
-            self.upsample32 = nn.Upsample(scale_factor=2, mode='bilinear',
-                                          align_corners=False)
+        if conf['skip_connections']:
             self.conv16 = nn.Conv2d(scale_dict['scale16'], num_classes,
                                     kernel_size=1, stride=1, padding=0,
                                     bias=False)
 
             self.drop16 = nn.Dropout2d(p=0.2)
-            self.upsample16 = nn.Upsample(scale_factor=2, mode='bilinear',
-                                          align_corners=False)
+
             self.conv8 = nn.Conv2d(scale_dict['scale8'], num_classes,
                                    kernel_size=1, stride=1, padding=0,
                                    bias=False)
@@ -140,16 +133,21 @@ class FCN(nn.Module):
 
             return score32
 
-        if not self.conf['skip_connections']:
-            size = in_dict['image'].shape[2:]
+        size32 = in_dict['scale32'].shape[2:]
+        size16 = in_dict['scale16'].shape[2:]
+        size8 = in_dict['scale8'].shape[2:]
+        size = in_dict['image'].shape[2:]
 
+        if not self.conf['skip_connections']:
             up32 = torch.nn.functional.interpolate(
                 score32, size=size, mode='bilinear', align_corners=True)
-
             return up32
 
-        if not self.conf['skip_connections']:
-            return up32
+        if size32 == size16:
+            up16 = score32
+        else:
+            up16 = torch.nn.functional.interpolate(
+                score32, size=size16, mode='bilinear', align_corners=True)
 
         if self.dropout:
             scale16 = self.drop32(in_dict['scale16'])
@@ -157,8 +155,13 @@ class FCN(nn.Module):
             scale16 = in_dict['scale16']
 
         score16 = self.conv16(scale16)
-        fuse16 = up32 + score16
-        up16 = self.upsample16(fuse16)
+        fuse16 = up16 + score16
+
+        if size16 == size8:
+            up8 = fuse16
+        else:
+            fuse = torch.nn.functional.interpolate(
+                fuse16, size=size8, mode='bilinear', align_corners=True)
 
         if self.dropout:
             scale8 = self.drop32(in_dict['scale8'])
@@ -166,16 +169,18 @@ class FCN(nn.Module):
             scale8 = in_dict['scale8']
 
         score8 = self.conv8(scale8)
-        fuse8 = up16 + score8
-        up8 = self.upsample8(fuse8)
+        fuse8 = up8 + score8
+
+        up = torch.nn.functional.interpolate(
+            fuse8, size=size, mode='bilinear', align_corners=True)
 
         if self.conf['bottleneck'] is not None:
-            bottle = self.bottle1(up8)
+            bottle = self.bottle1(up)
             bottle = self.bn(bottle)
             bottle = self.relu(bottle)
-            up8 = self.bottle2(bottle)
+            up = self.bottle2(bottle)
 
-        return up8
+        return up
 
 
 if __name__ == '__main__':
