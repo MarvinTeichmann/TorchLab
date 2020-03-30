@@ -140,7 +140,13 @@ class FCN(nn.Module):
 
             return score32
 
-        up32 = self.upsample32(score32)
+        if not self.conf['skip_connections']:
+            size = in_dict['image'].shape[2:]
+
+            up32 = torch.nn.functional.interpolate(
+                score32, size=size, mode='bilinear', align_corners=True)
+
+            return up32
 
         if not self.conf['skip_connections']:
             return up32

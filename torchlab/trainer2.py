@@ -310,7 +310,7 @@ class Trainer():
             if not self.epoch % self.eval_iter or self.epoch == max_epochs:
 
                 level = self.conf['evaluation']['default_level']
-                if not self.epoch % self.mayor_eval or \
+                if self.epoch > 1 and not self.epoch % self.mayor_eval or \
                         self.epoch == max_epochs:
                     level = 'mayor'
 
