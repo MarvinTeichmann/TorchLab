@@ -77,7 +77,8 @@ class SegNetwork(nn.Module):
         else:
             normalized_imgs = imgs
 
-        normalized_imgs = normalized_imgs.clone().detach()
+        with torch.no_grad():
+            normalized_imgs = normalized_imgs.clone()
 
         feats32 = self.encoder(normalized_imgs,
                                verbose=self.verbose, return_dict=True)

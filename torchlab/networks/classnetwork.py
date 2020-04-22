@@ -68,6 +68,9 @@ class ClassNetwork(nn.Module):
         else:
             normalized_imgs = imgs
 
+        with torch.no_grad():
+            normalized_imgs = normalized_imgs.clone()
+
         feats32 = self.encoder(normalized_imgs,
                                verbose=self.verbose, return_dict=True)
 
