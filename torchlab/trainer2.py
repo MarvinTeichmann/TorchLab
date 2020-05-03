@@ -281,7 +281,6 @@ class Trainer():
 
         if self.conf['training']['pre_eval']:
             level = self.conf['evaluation']['default_level']
-            level = 'mayor'
             self.model.evaluate(level=level)
 
         for epoch in range(self.epoch, max_epochs, self.eval_iter):
