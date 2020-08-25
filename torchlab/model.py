@@ -29,7 +29,8 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 class Model():
 
     def __init__(self, conf, network, loss, trainer,
-                 loader, pv_evaluator, logdir='tmp', debug=False):
+                 loader, pv_evaluator, logdir='tmp', debug=False,
+                 data_parallel=False):
 
         self.conf = conf
         self.logdir = logdir
@@ -50,9 +51,12 @@ class Model():
 
         self.trainer = trainer
 
-        self.network = DataParallel(network)
+        if data_parallel:
+            self.network = DataParallel(network)
+            self.network.get_weight_dicts = self.network.module.get_weight_dicts
+        else:
+            self.network = network
 
-        self.network.get_weight_dicts = self.network.module.get_weight_dicts
         self.loss = loss
 
         self.network.to(self.device)
