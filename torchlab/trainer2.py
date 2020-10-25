@@ -4,39 +4,34 @@ The MIT License (MIT)
 Copyright (c) 2018 Marvin Teichmann
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
+import gc
+import logging
+import math
 import os
 import sys
-import math
+from functools import partial
 
 import numpy as np
 import scipy as scp
-
-import logging
-from functools import partial
-
-import gc
-
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 import torch.nn.functional as functional
+from torch.autograd import Variable
 
 try:
     import matplotlib.pyplot as plt
-except:
+except ImportError:
     pass
 
+import itertools as it
 import time
 
 from torch.utils import data
-from torchlab.data import sampler
 from torch.utils.data.sampler import RandomSampler
 
-import itertools as it
+from torchlab.data import sampler
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -284,6 +279,7 @@ class Trainer():
             self.model.evaluate(level=level)
 
         for epoch in range(self.epoch, max_epochs, self.eval_iter):
+
             self.epoch = epoch
             self.model.epoch = epoch
 
@@ -309,8 +305,12 @@ class Trainer():
             if not self.epoch % self.eval_iter or self.epoch == max_epochs:
 
                 level = self.conf['evaluation']['default_level']
-                if self.epoch > 1 and not self.epoch % self.mayor_eval or \
+                if self.epoch > 0 and not self.epoch % self.mayor_eval or \
                         self.epoch == max_epochs:
+                    level = 'mayor'
+
+                if self.epoch == 0 and \
+                        self.conf['evaluation']['first_eval_is_mayor']:
                     level = 'mayor'
 
                 self.logger.init_step(epoch + self.eval_iter)

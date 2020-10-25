@@ -4,30 +4,22 @@ The MIT License (MIT)
 Copyright (c) 2019 Marvin Teichmann
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import os
-import sys
-
-import numpy as np
-import scipy as scp
+from __future__ import absolute_import, division, print_function
 
 import logging
-
-import torch
+import os
+import sys
 import time
+from ast import literal_eval
+from functools import partial
 
 import matplotlib
 import matplotlib.pyplot as plt
-
-from functools import partial
-from torchlab.data import sampler
-
-from ast import literal_eval
-
+import numpy as np
 import pyvision
+import scipy as scp
+import torch
+from torchlab.data import sampler
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
@@ -37,7 +29,8 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 class GenericEvaluator():
 
     def __init__(self, conf, model, subsample=None,
-                 name='', split=None, imgdir=None, do_augmentation=False):
+                 name='', split=None, imgdir=None,
+                 do_augmentation=False, **kwargs):
         self.model = model
         self.conf = conf
         self.name = name
@@ -67,7 +60,7 @@ class GenericEvaluator():
         self.loader = loader.get_data_loader(
             conf['dataset'], split=split, batch_size=batch_size,
             sampler=subsampler, do_augmentation=do_augmentation,
-            pin_memory=False, shuffle=False)
+            pin_memory=False, shuffle=False, **kwargs)
 
         self.minor_iter = max(
             1, len(self.loader) // conf['evaluation']['num_minor_imgs'])
@@ -97,7 +90,8 @@ class GenericEvaluator():
         self.display_iter = max(
             1, len(self.loader) // self.conf['logging']['disp_per_epoch'])
 
-        self.smoother = pyvision.utils.MedianSmoother(20)
+        self.smoother = pyvision.utils.MedianSmoother(
+            conf['evaluation']['num_smoothing_samples'])
 
     def evaluate(self, epoch=None, level='minor'):
 
@@ -165,8 +159,7 @@ class GenericEvaluator():
                 os.mkdir(stepdir)
 
             if epoch is None:
-                newfile = ".".join(filename.split(".")[:-1]) + "_None.png"\
-                    .format(num=epoch)
+                newfile = ".".join(filename.split(".")[:-1]) + "_None.png"
             else:
                 newfile = ".".join(filename.split(".")[:-1]) \
                     + "_epoch_{num:05d}.png".format(num=epoch)
