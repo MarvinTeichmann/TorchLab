@@ -29,6 +29,8 @@ import mutils
 from mutils import json
 import mutils.image
 
+import mutils2
+
 from torchlab.data import loader
 from torchlab.data import augmentation
 
@@ -53,6 +55,13 @@ default_conf = {
         "random_flip": True,
         "random_resize": True,
         "resize_sig": 0.4
+    },
+
+    "split": {
+        "method": 'skf',
+        "num_folds": 5,
+        "seed": 42,
+        "fold": 0
     },
 
     "transform": {
@@ -90,35 +99,21 @@ def get_data_loader(conf=default_conf, split='train',
 
 class DataGen(loader.DataGen):
 
-    def __init__(self, conf=default_conf, split="train", dataset=None,
-                 do_augmentation=True):
-
-            self.conf = conf
-            self.root_dir = os.environ['PV_DIR_DATA']
-
-            self.split = split
-
-            if dataset is None:
-                dataset = self.conf['dataset']
-
-            self.data_dir = os.path.join(self.root_dir, dataset)
-
-            self.do_augmentation = do_augmentation
-
-            self.read_annotations()
-
-            self.init_colour_augmentation()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def __len__(self):
-        return len(self.filelist)
+        return len(self.index)
 
     def __getitem__(self, idx):
         item = self.decode_item(idx)
-        aug_item = self.augment_item(item)
-        aug_item['load_dict'] = str(aug_item['load_dict'])
-        return aug_item
+        item = self.augment_item(item)
+        item['load_dict'] = str(item['load_dict'])
+        return item
 
     def read_annotations(self):
+
+        self.data_dir = os.path.join(self.root_dir, self.dataset)
 
         if not os.path.exists(self.data_dir):
             logging.error("Dataset folder not found: {}".format(self.data_dir))
@@ -131,7 +126,7 @@ class DataGen(loader.DataGen):
             logging.error("File not found: {}".format(json_file))
             raise NotImplementedError
 
-        self.filelist = json.load(json_file)
+        self.index = json.load(json_file)
 
         self.meta = json.load(os.path.join(self.data_dir, "meta.json"))
         self.num_classes = len(self.meta['classes'])
@@ -140,7 +135,7 @@ class DataGen(loader.DataGen):
 
     def decode_item(self, idx):
 
-        load_dict = self.filelist[idx]
+        load_dict = self.index[idx]
 
         img_file = load_dict['img_file']
         img_file = os.path.join(self.root_dir, img_file)
@@ -199,10 +194,16 @@ class DataGen(loader.DataGen):
         return item
 
     def random_resize(self, image, mode, *args, **kwargs):
-        return super().crop_or_pad([image], [mode], *args, **kwargs)[0]
+        return super().random_resize([image], [mode], *args, **kwargs)[0]
+
+    def random_rotation(self, image, pad=0.5, *args, **kwargs):
+        return super().random_rotation([image], [pad], *args, **kwargs)[0]
 
     def random_flip(self, image, *args, **kwargs):
         return super().random_flip([image], *args, **kwargs)[0]
+
+    def random_flip_ud(self, image, *args, **kwargs):
+        return super().random_flip_ud([image], *args, **kwargs)[0]
 
     def crop_or_pad(self, image, pad=0.5, *args, **kwargs):
         return super().crop_or_pad([image], [pad], *args, **kwargs)[0]
@@ -231,6 +232,7 @@ def plot_example(idx=0, split='train'):
     ax.set_xlabel("Label: {}".format(item['label']))
 
     plt.show()
+    plt.close(fig)
 
 
 def plot_examples(
@@ -258,6 +260,7 @@ def plot_examples(
         ax.set_xlabel("Label: {}".format(myclass))
 
     plt.show()
+    plt.close(fig)
 
 
 def plot_examples_aug():
@@ -281,6 +284,7 @@ def plot_augmentation(idx=2, split='train', num_examples=8):
         ax.set_xlabel("Label: {}".format(item['label']))
 
     plt.show()
+    plt.close(fig)
 
 
 if __name__ == '__main__':

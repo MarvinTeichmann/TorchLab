@@ -19,6 +19,11 @@ import random
 import random as rng
 import warnings
 
+from sklearn.model_selection import StratifiedKFold
+
+import skimage
+import skimage.transform
+
 import torch
 from torch.utils import data
 from torchlab.data import augmentation
@@ -63,22 +68,20 @@ class DataGen(data.Dataset):
                  do_augmentation=True):
 
         self.conf = conf
+        self.do_augmentation = do_augmentation
+        self.root_dir = os.environ['PV_DIR_DATA']
+        self.split = split
 
         if dataset is None:
-            self.index = conf['index']
+            self.dataset = conf['dataset']
         else:
-            self.index = dataset
-
-        self.do_augmentation = do_augmentation
-
-        self.root_dir = os.environ['PV_DIR_DATA']
+            self.dataset = dataset
 
         self.read_annotations()
-
         self.init_colour_augmentation()
 
     def __len__(self):
-        return len(self.filelist)
+        return len(self.index)
 
     def __getitem__(self, idx):
         item = self.decode_item(idx)
@@ -86,7 +89,6 @@ class DataGen(data.Dataset):
 
     def decode_item(self, idx):
         raise NotImplementedError
-        return None
 
     def augment_item(self, item):
         return item
@@ -114,26 +116,38 @@ class DataGen(data.Dataset):
             saturation=saturation,
             hue=hue)
 
-    def do_split(self, split):
+    def do_split(self, index, split):
 
-        mode = self.conf['split']['mode']
-        amount = self.conf['split']['val_size']
+        assert split in ['train', 'val', 'all', 'test']
 
-        if mode == 'last':
+        if split == 'all' or split == 'test':
+            return index
+
+        if self.conf['split']['method'] == 'skf':
+            num_folds = self.conf['split']['num_folds']
+            fold = self.conf['split']['fold']
+            seed = self.conf['split']['seed']
+
+            skf = StratifiedKFold(num_folds, shuffle=True, random_state=seed)
+            folds = [i for i in skf.split(index, self.targets)]
+
+            indicies = folds[fold][0] if split == 'train' else folds[fold][1]
+
+            return [item for i, item in enumerate(index) if i in indicies]
+
+        elif self.conf['split']['method'] == 'last':
+            amount = self.conf['split']['val_size']
             if split == 'train':
-                self.filelist = self.filelist[:-amount]
-            elif split == 'val':
-                self.filelist = self.filelist[-amount:]
-            elif split == 'all':
-                self.filelist = self.filelist
-            elif split == 'test':
-                self.filelist = self.filelist
+                return index[:-amount]
             else:
-                raise NotImplementedError
+                return index[-amount:]
         else:
             raise NotImplementedError
 
-    def crop_or_pad(
+    def crop_or_pad(self, *args, **kwargs):
+        return self._crop_or_pad(*args, **kwargs)
+
+    def _crop_or_pad(
             self, img_list, pad_list, patch_size,
             load_dict, random):
 
@@ -229,6 +243,25 @@ class DataGen(data.Dataset):
 
         return new_list
 
+    def random_rotation(
+        self, image_list, pad_list, load_dict,
+            lower=-85, upper=85, scale_factor=0.66):
+
+        angle = np.random.randint(lower, upper)
+        load_dict['augmentation']['resize_factor'] = angle
+
+        new_list = []
+
+        for image, cval in zip(image_list, pad_list):
+
+            image = skimage.transform.rotate(
+                image, angle, resize=False, preserve_range=True,
+                order=3, cval=cval)
+
+            new_list.append(image)
+
+        return new_list
+
     def random_flip(self, img_list, load_dict):
 
         assert type(img_list) is list, "Please input a list of images."
@@ -242,6 +275,24 @@ class DataGen(data.Dataset):
                 return new_list
             else:
                 load_dict['augmentation']['flipped'] = False
+                return img_list
+
+        return img_list
+
+    def random_flip_ud(self, img_list, load_dict):
+        "Flip image upside down"
+
+        assert type(img_list) is list, "Please input a list of images."
+
+        if self.conf['augmentation']['random_flip_ud']:
+            if random.random() > 0.5:
+                load_dict['augmentation']['flipped_ud'] = True
+                new_list = []
+                for img in img_list:
+                    new_list.append(np.flipud(img).copy())
+                return new_list
+            else:
+                load_dict['augmentation']['flipped_ud'] = False
                 return img_list
 
         return img_list
