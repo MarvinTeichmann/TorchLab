@@ -21,6 +21,8 @@ import pyvision.logger
 # from torchlab.utils import parallel
 from torch.nn.parallel.data_parallel import DataParallel
 
+from torchlab import utils as labutils
+
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
                     stream=sys.stdout)
@@ -100,16 +102,7 @@ class Model():
                      conf['training']['num_gpus'], torch.cuda.device_count()))
 
     def _normalize_parallel(self, conf):
-        num_gpus = conf['training']['num_gpus']
-        conf['training']['learning_rate'] *= conf['training']['batch_size']
-        if num_gpus == 0:
-            return
-        conf['training']['batch_size'] *= num_gpus
-        conf['training']['learning_rate'] *= num_gpus
-        conf['training']['min_lr'] *= num_gpus
-        # conf['logging']['display_iter'] //= num_gpus
-
-        conf['dataset']['num_workers'] *= num_gpus
+        labutils.config.normalize_training_config(conf)
 
     def get_weight_dicts(self):
         # TODO: move to network?
@@ -184,4 +177,6 @@ class Model():
 
 
 if __name__ == '__main__':
+    conf = {}
+    labutils.config.normalize_training_config(conf)
     logging.info("Hello World.")
