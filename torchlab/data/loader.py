@@ -20,6 +20,7 @@ import random as rng
 import warnings
 
 from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import KFold
 
 import skimage
 import skimage.transform
@@ -29,22 +30,26 @@ from torch.utils import data
 from torchlab.data import augmentation
 
 
-logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
-                    level=logging.INFO,
-                    stream=sys.stdout)
+logging.basicConfig(
+    format="%(asctime)s %(levelname)s %(message)s",
+    level=logging.INFO,
+    stream=sys.stdout,
+)
 
 
-default_conf = {
-    "num_workers": 4
-}
+default_conf = {"num_workers": 4}
 
 
-def get_data_loader(conf=default_conf, split='train',
-                    batch_size=1, dataset=None,
-                    pin_memory=True, shuffle=True, sampler=None):
-
-    dataset = DataGen(
-        conf=conf, split=split, dataset=dataset)
+def get_data_loader(
+    conf=default_conf,
+    split="train",
+    batch_size=1,
+    dataset=None,
+    pin_memory=True,
+    shuffle=True,
+    sampler=None,
+):
+    dataset = DataGen(conf=conf, split=split, dataset=dataset)
 
     if sampler is not None:
         shuffle = None
@@ -52,28 +57,34 @@ def get_data_loader(conf=default_conf, split='train',
     else:
         mysampler = None
 
-    data_loader = data.DataLoader(dataset, batch_size=batch_size,
-                                  sampler=mysampler,
-                                  shuffle=shuffle,
-                                  num_workers=conf['num_workers'],
-                                  pin_memory=pin_memory,
-                                  drop_last=True)
+    data_loader = data.DataLoader(
+        dataset,
+        batch_size=batch_size,
+        sampler=mysampler,
+        shuffle=shuffle,
+        num_workers=conf["num_workers"],
+        pin_memory=pin_memory,
+        drop_last=True,
+    )
 
     return data_loader
 
 
 class DataGen(data.Dataset):
-
-    def __init__(self, conf=default_conf, split="train", dataset=None,
-                 do_augmentation=True):
-
+    def __init__(
+        self,
+        conf=default_conf,
+        split="train",
+        dataset=None,
+        do_augmentation=True,
+    ):
         self.conf = conf
         self.do_augmentation = do_augmentation
-        self.root_dir = os.environ['PV_DIR_DATA']
+        self.root_dir = os.environ["PV_DIR_DATA"]
         self.split = split
 
         if dataset is None:
-            self.dataset = conf['dataset']
+            self.dataset = conf["dataset"]
         else:
             self.dataset = dataset
 
@@ -97,47 +108,65 @@ class DataGen(data.Dataset):
         raise NotImplementedError
 
     def init_colour_augmentation(self):
-
-        colour_cfg = self.conf['augmentation']['colour']
-        level = colour_cfg['level']
+        colour_cfg = self.conf["augmentation"]["colour"]
+        level = colour_cfg["level"]
 
         if level <= 1e-6:
             self.color_jitter = None
             return
 
-        brightness = level * colour_cfg['brightness']
-        contrast = level * colour_cfg['contrast']
-        saturation = level * colour_cfg['saturation']
-        hue = level * colour_cfg['hue']
+        brightness = level * colour_cfg["brightness"]
+        contrast = level * colour_cfg["contrast"]
+        saturation = level * colour_cfg["saturation"]
+        hue = level * colour_cfg["hue"]
 
         self.color_jitter = augmentation.ColorJitter(
             brightness=brightness,
             contrast=contrast,
             saturation=saturation,
-            hue=hue)
+            hue=hue,
+        )
 
-    def do_split(self, index, split):
+    def do_split(self, index, split, targets=None):
+        assert split in ["train", "val", "all", "test"]
 
-        assert split in ['train', 'val', 'all', 'test']
-
-        if split == 'all' or split == 'test':
+        if split == "all" or split == "test":
             return index
 
-        if self.conf['split']['method'] == 'skf':
-            num_folds = self.conf['split']['num_folds']
-            fold = self.conf['split']['fold']
-            seed = self.conf['split']['seed']
+        if self.conf["split"]["method"] in ["kfold", "skf"]:
+            num_folds = self.conf["split"]["num_folds"]
+            fold = self.conf["split"]["fold"]
+            seed = self.conf["split"]["seed"]
 
-            skf = StratifiedKFold(num_folds, shuffle=True, random_state=seed)
-            folds = [i for i in skf.split(index, self.targets)]
+            if self.conf["split"]["method"] == "kfold":
+                folder = KFold(num_folds, shuffle=True, random_state=seed)
+            elif self.conf["split"]["method"] == "skf":
+                folder = StratifiedKFold(
+                    num_folds, shuffle=True, random_state=seed
+                )
+            else:
+                raise NotImplementedError
 
-            indicies = folds[fold][0] if split == 'train' else folds[fold][1]
+            folds = [i for i in folder.split(index)]
 
-            return [item for i, item in enumerate(index) if i in indicies]
+            indicies = folds[fold][0] if split == "train" else folds[fold][1]
 
-        elif self.conf['split']['method'] == 'last':
-            amount = self.conf['split']['val_size']
-            if split == 'train':
+            index_new = [item for i, item in enumerate(index) if i in indicies]
+
+            if targets is None:
+                return index_new
+
+            targets_new = [
+                target
+                for i, target in enumerate(self.targets)
+                if i in indicies
+            ]
+
+            return index_new, targets_new
+
+        elif self.conf["split"]["method"] == "last":
+            amount = self.conf["split"]["val_size"]
+            if split == "train":
                 return index[:-amount]
             else:
                 return index[-amount:]
@@ -147,10 +176,7 @@ class DataGen(data.Dataset):
     def crop_or_pad(self, *args, **kwargs):
         return self._crop_or_pad(*args, **kwargs)
 
-    def _crop_or_pad(
-            self, img_list, pad_list, patch_size,
-            load_dict, random):
-
+    def _crop_or_pad(self, img_list, pad_list, patch_size, load_dict, random):
         assert type(img_list) is list
         assert len(img_list) == len(pad_list)
 
@@ -198,15 +224,14 @@ class DataGen(data.Dataset):
             else:
                 crop_h = max_crop // 2
 
-        load_dict['augmentation']['pad_h'] = pad_h
-        load_dict['augmentation']['pad_w'] = pad_w
-        load_dict['augmentation']['crop_h'] = crop_h
-        load_dict['augmentation']['crop_w'] = crop_w
+        load_dict["augmentation"]["pad_h"] = pad_h
+        load_dict["augmentation"]["pad_w"] = pad_w
+        load_dict["augmentation"]["crop_h"] = crop_h
+        load_dict["augmentation"]["crop_w"] = crop_w
 
         new_list = []
 
         for img, pad in zip(img_list, pad_list):
-
             assert len(img.shape) < 4
 
             if len(img.shape) > 2:
@@ -214,27 +239,20 @@ class DataGen(data.Dataset):
             else:
                 new_shape = patch_size
 
-            new_img = pad * np.ones(shape=new_shape,
-                                    dtype=img.dtype)
+            new_img = pad * np.ones(shape=new_shape, dtype=img.dtype)
 
-            new_img[pad_h:pad_h + height, pad_w:pad_w + width] = \
-                img[crop_h:crop_h + new_height, crop_w:crop_w + new_width]
+            new_img[pad_h : pad_h + height, pad_w : pad_w + width] = img[
+                crop_h : crop_h + new_height, crop_w : crop_w + new_width
+            ]
 
             new_list.append(new_img)
 
         return new_list
 
-    def random_resize(
-            self, img_list, mode_list, load_dict,
-            sig=0.5):
+    def random_resize(self, img_list, mode_list, load_dict, sig=0.5):
+        factor = augmentation.skewed_normal(mean=1, std=sig)
 
-        if random.random() < 0.12:
-            return img_list
-
-        factor = augmentation.skewed_normal(
-            mean=1, std=sig)
-
-        load_dict['augmentation']['resize_factor'] = factor
+        load_dict["augmentation"]["resize_factor"] = factor
         new_list = []
 
         for img, mode in zip(img_list, mode_list):
@@ -244,37 +262,45 @@ class DataGen(data.Dataset):
         return new_list
 
     def random_rotation(
-        self, image_list, pad_list, load_dict,
-            lower=-85, upper=85, scale_factor=0.66):
-
+        self,
+        image_list,
+        pad_list,
+        load_dict,
+        lower=-85,
+        upper=85,
+        scale_factor=0.66,
+    ):
         angle = np.random.randint(lower, upper)
-        load_dict['augmentation']['resize_factor'] = angle
+        load_dict["augmentation"]["resize_factor"] = angle
 
         new_list = []
 
         for image, cval in zip(image_list, pad_list):
-
             image = skimage.transform.rotate(
-                image, angle, resize=False, preserve_range=True,
-                order=3, cval=cval)
+                image,
+                angle,
+                resize=False,
+                preserve_range=True,
+                order=3,
+                cval=cval,
+            )
 
             new_list.append(image)
 
         return new_list
 
     def random_flip(self, img_list, load_dict):
-
         assert type(img_list) is list, "Please input a list of images."
 
-        if self.conf['augmentation']['random_flip']:
+        if self.conf["augmentation"]["random_flip"]:
             if random.random() > 0.5:
-                load_dict['augmentation']['flipped'] = True
+                load_dict["augmentation"]["flipped"] = True
                 new_list = []
                 for img in img_list:
                     new_list.append(np.fliplr(img).copy())
                 return new_list
             else:
-                load_dict['augmentation']['flipped'] = False
+                load_dict["augmentation"]["flipped"] = False
                 return img_list
 
         return img_list
@@ -284,15 +310,15 @@ class DataGen(data.Dataset):
 
         assert type(img_list) is list, "Please input a list of images."
 
-        if self.conf['augmentation']['random_flip_ud']:
+        if self.conf["augmentation"]["random_flip_ud"]:
             if random.random() > 0.5:
-                load_dict['augmentation']['flipped_ud'] = True
+                load_dict["augmentation"]["flipped_ud"] = True
                 new_list = []
                 for img in img_list:
                     new_list.append(np.flipud(img).copy())
                 return new_list
             else:
-                load_dict['augmentation']['flipped_ud'] = False
+                load_dict["augmentation"]["flipped_ud"] = False
                 return img_list
 
         return img_list
@@ -302,7 +328,6 @@ class DataGen(data.Dataset):
 
 
 def resize_torch(array, size=None, factor=None, mode="nearest", cuda=False):
-
     float_tensor = torch.tensor(array).float()
 
     if cuda:
@@ -313,19 +338,20 @@ def resize_torch(array, size=None, factor=None, mode="nearest", cuda=False):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             resized = torch.nn.functional.interpolate(
-                tensor, size=size, scale_factor=factor, mode=mode)
+                tensor, size=size, scale_factor=factor, mode=mode
+            )
         return resized.squeeze(0).transpose(0, 2).cpu().numpy()
     elif len(array.shape) == 2:
         tensor = float_tensor.unsqueeze(0).unsqueeze(0)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             resized = torch.nn.functional.interpolate(
-                tensor, size=size,
-                scale_factor=factor, mode=mode)
+                tensor, size=size, scale_factor=factor, mode=mode
+            )
         return resized.squeeze(0).squeeze(0).cpu().numpy()
     else:
         raise NotImplementedError
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     logging.info("Hello World.")

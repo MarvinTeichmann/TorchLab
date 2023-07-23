@@ -15,9 +15,11 @@ import sys
 import torch
 
 
-logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
-                    level=logging.INFO,
-                    stream=sys.stdout)
+logging.basicConfig(
+    format="%(asctime)s %(levelname)s %(message)s",
+    level=logging.INFO,
+    stream=sys.stdout,
+)
 
 
 def normalize_training_config(conf, check_gpus=True):
@@ -34,7 +36,10 @@ def normalize_training_config(conf, check_gpus=True):
         https://arxiv.org/abs/1706.02677v2)
     """
 
-    num_gpus = conf['training']['num_gpus']
+    num_gpus = conf["training"]["num_gpus"]
+
+    if not torch.cuda.is_available() and torch.backends.mps.is_available():
+        check_gpus = False
 
     if check_gpus:
         assert num_gpus == torch.cuda.device_count()
@@ -44,14 +49,12 @@ def normalize_training_config(conf, check_gpus=True):
         # Assuming single CPU training.
         num_gpus = 1
 
-    conf['dataset']['num_workers'] *= num_gpus
-    conf['training']['batch_size'] *= num_gpus
+    conf["dataset"]["num_workers"] *= num_gpus
+    conf["training"]["batch_size"] *= num_gpus
 
-    conf['training']['learning_rate'] *= conf['training']['batch_size']
-    conf['training']['min_lr'] *= conf['training']['batch_size']
-
-
+    conf["training"]["learning_rate"] *= conf["training"]["batch_size"]
+    conf["training"]["min_lr"] *= conf["training"]["batch_size"]
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     logging.info("Hello World.")

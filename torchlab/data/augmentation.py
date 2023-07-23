@@ -25,12 +25,14 @@ from PIL import Image
 import pyvision as pv2
 import pyvision.image
 
-logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
-                    level=logging.INFO,
-                    stream=sys.stdout)
+logging.basicConfig(
+    format="%(asctime)s %(levelname)s %(message)s",
+    level=logging.INFO,
+    stream=sys.stdout,
+)
 
 
-def skewed_normal(std=0, mean=1):
+def skewed_normal(mean=1, std=0):
 
     diff = random.normalvariate(0, std)
 
@@ -91,8 +93,9 @@ class ColorJitter(object):
             [-hue, hue]. Should be >=0 and <= 0.5.
     """
 
-    def __init__(self, brightness=0.22,
-                 contrast=0.18, saturation=0.22, hue=0.015):
+    def __init__(
+        self, brightness=0.22, contrast=0.18, saturation=0.22, hue=0.015
+    ):
 
         self.brightness = brightness
         self.contrast = contrast
@@ -129,12 +132,14 @@ class ColorJitter(object):
         if saturation > 0:
             sat = skewed_normal(mean=1, std=saturation)
             transforms.append(
-                Lambda(lambda img: f.adjust_saturation(img, sat)))
+                Lambda(lambda img: f.adjust_saturation(img, sat))
+            )
 
         if hue > 0:
             hue_factor = truncated_normal(mean=0, std=hue)
             transforms.append(
-                Lambda(lambda img: f.adjust_hue(img, hue_factor)))
+                Lambda(lambda img: f.adjust_hue(img, hue_factor))
+            )
 
         np.random.shuffle(transforms)
         transform = Compose(transforms)
@@ -154,23 +159,24 @@ class ColorJitter(object):
 
         image = Image.fromarray(img).convert("RGB")
 
-        transform = self.get_params(self.brightness, self.contrast,
-                                    self.saturation, self.hue)
+        transform = self.get_params(
+            self.brightness, self.contrast, self.saturation, self.hue
+        )
 
         transformed = np.array(transform(image))
 
         return pv2.image.normalize(transformed)
 
 
-def random_rotation(image, gt_image, warp_img,
-                    std=3.5, lower=-10, upper=10, expand=True):
+def random_rotation(
+    image, gt_image, warp_img, std=3.5, lower=-10, upper=10, expand=True
+):
     # TODO: Check efficiency
 
     assert lower < upper
     assert std > 0
 
-    angle = truncated_normal(mean=0, std=std, lower=lower,
-                             upper=upper)
+    angle = truncated_normal(mean=0, std=std, lower=lower, upper=upper)
 
     image_r = scp.ndimage.rotate(image, angle, order=3, cval=127)
     gt_image_r = scp.ndimage.rotate(gt_image, angle, order=0, cval=255)
@@ -179,14 +185,15 @@ def random_rotation(image, gt_image, warp_img,
     gt_image[10, 10] = 255
     if False:
         if not np.all(np.unique(gt_image_r) == np.unique(gt_image)):
-            logging.info("np.unique(gt_image_r): {}".format(
-                np.unique(gt_image_r)))
+            logging.info(
+                "np.unique(gt_image_r): {}".format(np.unique(gt_image_r))
+            )
             logging.info("np.unique(gt_image): {}".format(np.unique(gt_image)))
 
-            assert(False)
+            assert False
 
     return image_r, gt_image_r, warp_img_r
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     logging.info("Hello World.")

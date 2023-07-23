@@ -158,7 +158,7 @@ class Model():
             checkpoint = torch.load(checkpoint_name)
 
         self.trainer.epoch = checkpoint['epoch']
-        self.epoch = checkpoint['epoch']
+        # self.epoch = checkpoint['epoch']
         self.trainer.step = checkpoint['step']
 
         if not self.conf == checkpoint['conf']:
@@ -167,11 +167,10 @@ class Model():
             logging.warning("This is a dangerous BUG, unless you have changed"
                             "the config manually and know what is going on.")
 
-        self.network.load_state_dict(checkpoint['state_dict'])
+        self.model.network.load_state_dict(checkpoint['state_dict'])
         self.trainer.optimizer.load_state_dict(checkpoint['optimizer'])
 
         # load logger
-
         logger_file = os.path.join(logdir, 'summary.log.hdf5')
         self.logger.load(logger_file)
 

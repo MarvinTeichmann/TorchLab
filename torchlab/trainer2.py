@@ -11,27 +11,18 @@ import logging
 import math
 import os
 import sys
-from functools import partial
-
-import numpy as np
-import scipy as scp
-import torch
-import torch.nn as nn
-import torch.nn.functional as functional
-from torch.autograd import Variable
-
-try:
-    import matplotlib.pyplot as plt
-except ImportError:
-    pass
-
-import itertools as it
 import time
 
-from torch.utils import data
-from torch.utils.data.sampler import RandomSampler
+from functools import partial
+import itertools as it
 
+import torch
 from torchlab.data import sampler
+
+try:
+    import matplotlib.pyplot as plt  # NOQA
+except ImportError:
+    pass
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO,
