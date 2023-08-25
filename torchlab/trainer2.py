@@ -341,6 +341,13 @@ class Trainer:
                 np_values = [val.item() / 100 for val in loss_dict.values()]
                 loss_dict_np = dict(zip(loss_dict.keys(), np_values))
 
+                self.logger.add_value(
+                    duration / 100,
+                    name="train_duration",
+                    prefix="time",
+                    step=epoch + self.eval_iter,
+                )
+
                 self.logger.add_values(
                     value_dict=loss_dict_np,
                     prefix="losses",
