@@ -131,7 +131,7 @@ class DataGen(data.Dataset):
         assert split in ["train", "val", "all", "test"]
 
         if split == "all" or split == "test":
-            return index
+            return index, targets
 
         if self.conf["split"]["method"] in ["kfold", "skf"]:
             num_folds = self.conf["split"]["num_folds"]
@@ -328,10 +328,24 @@ class DataGen(data.Dataset):
 
 
 def resize_torch(array, size=None, factor=None, mode="nearest", cuda=False):
-    float_tensor = torch.tensor(array).float()
+
+    if type(array) is np.ndarray:
+        array = torch.tensor(array)
+
+    float_tensor = array.float()
 
     if cuda:
         float_tensor = float_tensor.cuda()
+
+    if len(array.shape) == 4:
+        tensor = float_tensor.unsqueeze(0)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            resized = torch.nn.functional.interpolate(
+                tensor, size=size, scale_factor=factor, mode=mode
+            )
+        return resized.squeeze(0).cpu().numpy()
 
     if len(array.shape) == 3:
         tensor = float_tensor.transpose(0, 2).unsqueeze(0)

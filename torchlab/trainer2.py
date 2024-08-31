@@ -296,6 +296,7 @@ class Trainer:
         for epoch in range(self.epoch, max_epochs, self.eval_iter):
             self.epoch = epoch
             self.model.epoch = epoch
+            self.model.network.train()
 
             assert self.step == self.epoch_steps * math.ceil(
                 self.epoch / self.eval_iter
@@ -354,6 +355,7 @@ class Trainer:
                     step=epoch + self.eval_iter,
                 )
 
+                self.model.network.eval()
                 self.model.evaluate(epoch + self.eval_iter, level=level)
                 if self.conf["logging"]["log"]:
                     logging.info(
