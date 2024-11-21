@@ -157,9 +157,7 @@ class DataGen(data.Dataset):
                 return index_new
 
             targets_new = [
-                target
-                for i, target in enumerate(self.targets)
-                if i in indicies
+                target for i, target in enumerate(targets) if i in indicies
             ]
 
             return index_new, targets_new
