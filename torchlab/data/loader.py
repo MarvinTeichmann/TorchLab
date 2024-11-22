@@ -25,6 +25,7 @@ from sklearn.model_selection import KFold
 import skimage
 import skimage.transform
 
+
 import torch
 from torch.utils import data
 from torchlab.data import augmentation
@@ -172,9 +173,11 @@ class DataGen(data.Dataset):
             raise NotImplementedError
 
     def crop_or_pad(self, *args, **kwargs):
-        return self._crop_or_pad(*args, **kwargs)
+        return crop_or_pad(*args, **kwargs)
 
-    def _crop_or_pad(self, img_list, pad_list, patch_size, load_dict, random):
+    def _crop_or_pad_old(
+        self, img_list, pad_list, patch_size, load_dict, random
+    ):
         assert type(img_list) is list
         assert len(img_list) == len(pad_list)
 
@@ -363,6 +366,109 @@ def resize_torch(array, size=None, factor=None, mode="nearest", cuda=False):
         return resized.squeeze(0).squeeze(0).cpu().numpy()
     else:
         raise NotImplementedError
+
+
+def crop_or_pad(
+    img_list,
+    patch_size,
+    pad_list=None,
+    load_dict={"augmentation": {}},
+    random=True,
+):
+    """
+    Generalized function to crop or pad 2D/3D images for CNN training.
+
+    Args:
+        img_list: List of input images (numpy arrays), each with at least spatial dimensions.
+        pad_list: List of padding values corresponding to each image in img_list.
+        patch_size: Target size. A list of 2 (for 2D) or 3 (for 3D) numbers.
+        load_dict: Dictionary to store augmentation parameters (e.g., padding/cropping values).
+        random: Boolean indicating whether to perform random cropping or central cropping.
+
+    Returns:
+        A list of images cropped/padded to the specified patch_size.
+    """
+
+    if pad_list is None:
+        pad_list = [0] * len(img_list)
+
+    assert isinstance(img_list, list), "img_list must be a list"
+    assert len(img_list) == len(
+        pad_list
+    ), "img_list and pad_list must have the same length"
+
+    spatial_dims = len(patch_size)
+    assert spatial_dims in [
+        2,
+        3,
+    ], "patch_size must be a list of 2 or 3 numbers"
+
+    orig_shape = img_list[0].shape[:spatial_dims]
+    assert all(
+        img.shape[:spatial_dims] == orig_shape for img in img_list
+    ), "All images must have the same spatial dimensions"
+
+    new_shape = patch_size
+    crop_values, pad_values = [], []
+
+    # Compute padding and cropping values for each dimension
+    for i in range(spatial_dims):
+        orig_dim = orig_shape[i]
+        new_dim = new_shape[i]
+
+        if orig_dim < new_dim:
+            # Padding is required
+            max_pad = new_dim - orig_dim
+            if random:
+                pad_start = np.random.randint(0, max_pad + 1)
+            else:
+                pad_start = max_pad // 2
+            crop_start = 0
+        else:
+            # Cropping is required
+            max_crop = orig_dim - new_dim
+            if random:
+                crop_start = np.random.randint(0, max_crop + 1)
+            else:
+                crop_start = max_crop // 2
+            pad_start = 0
+
+        pad_values.append((pad_start, max(0, new_dim - orig_dim - pad_start)))
+        crop_values.append((crop_start, crop_start + new_dim))
+
+    # Store augmentation details in load_dict
+    for i, dim in enumerate(["height", "width", "depth"][:spatial_dims]):
+        load_dict["augmentation"][f"pad_{dim}"] = pad_values[i]
+        load_dict["augmentation"][f"crop_{dim}"] = crop_values[i]
+
+    new_list = []
+
+    # Process each image in the list
+    for img, pad_value in zip(img_list, pad_list):
+        assert (
+            img.ndim >= spatial_dims
+        ), "Each image must have at least spatial dimensions"
+
+        # Prepare the new image shape, accounting for optional channels
+        if img.ndim > spatial_dims:
+            target_shape = patch_size + [img.shape[spatial_dims]]
+        else:
+            target_shape = patch_size
+
+        new_img = pad_value * np.ones(shape=target_shape, dtype=img.dtype)
+
+        # Extract cropping and padding indices
+        crop_slices = tuple(slice(crop[0], crop[1]) for crop in crop_values)
+        pad_slices = tuple(
+            slice(pad[0], pad[0] + orig_shape[i])
+            for i, pad in enumerate(pad_values)
+        )
+
+        # Perform padding and cropping
+        new_img[tuple(pad_slices)] = img[tuple(crop_slices)]
+        new_list.append(new_img)
+
+    return new_list
 
 
 if __name__ == "__main__":
