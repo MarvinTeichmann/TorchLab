@@ -23,9 +23,11 @@ import torch
 from torch.utils.data.sampler import Sampler
 
 
-logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
-                    level=logging.INFO,
-                    stream=sys.stdout)
+logging.basicConfig(
+    format="%(asctime)s %(levelname)s %(message)s",
+    level=logging.INFO,
+    stream=sys.stdout,
+)
 
 
 class RandomMultiEpochSampler(Sampler):
@@ -48,7 +50,8 @@ class RandomMultiEpochSampler(Sampler):
         n = len(self.data_source)
 
         myiter = it.chain(
-            *[iter(torch.randperm(n).tolist()) for i in range(self.mult)])
+            *[iter(torch.randperm(n).tolist()) for i in range(self.mult)]
+        )
 
         return myiter
 
@@ -63,7 +66,7 @@ class SubSampler(Sampler):
         data_source (Dataset): dataset to sample from
     """
 
-    def __init__(self, data_source, subsample):
+    def __init__(self, data_source, subsample=1):
         self.data_source = data_source
         self.subsample = subsample
 
@@ -82,5 +85,5 @@ class SubSampler(Sampler):
             return len(self.data_source) // self.subsample
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     logging.info("Hello World.")

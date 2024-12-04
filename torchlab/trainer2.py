@@ -17,6 +17,7 @@ from functools import partial
 import itertools as it
 
 import torch
+from torch.utils import data
 from torchlab.data import sampler
 
 try:
@@ -32,7 +33,7 @@ logging.basicConfig(
 
 
 class Trainer:
-    def __init__(self, conf, model, data_loader, logger=None):
+    def __init__(self, conf, model, data_loader=None, logger=None):
         self.model = model
         self.conf = conf
 
@@ -48,16 +49,26 @@ class Trainer:
         self.checkpoint_backup = conf["logging"]["checkpoint_backup"]
         self.max_epoch_steps = conf["training"]["max_epoch_steps"]
 
-        mulsampler = partial(
-            sampler.RandomMultiEpochSampler, multiplicator=self.eval_iter
-        )
+        self.logdir = self.model.logdir
 
-        self.loader = data_loader.get_data_loader(
-            conf["dataset"],
-            split="train",
-            batch_size=self.bs,
-            sampler=mulsampler,
-        )
+        self.loader = None
+
+        self.device = "cpu"
+
+        if data_loader is not None:
+
+            logger.warning("")
+
+            mulsampler = partial(
+                sampler.RandomMultiEpochSampler, multiplicator=self.eval_iter
+            )
+
+            self.loader = data_loader.get_data_loader(
+                conf["dataset"],
+                split="train",
+                batch_size=self.bs,
+                sampler=mulsampler,
+            )
 
         # mysampler = sampler.RandomMultiEpochSampler(dataset, self.eval_iter)
         # mysampler = RandomSampler(dataset)
@@ -66,6 +77,107 @@ class Trainer:
         self.step = 0
 
         self.initialized = False
+
+    def init_trainer(self, dataset=None):
+
+        if self.loader is None and dataset is None:
+            logging.error("Please provide a training dataset.")
+            raise AssertionError
+
+        self.initialized = True
+
+        self.logger = self.model.logger
+
+        self.device = self.conf["training"]["device"]
+        self.model.device = self.device
+
+        self.checkpoint_name = os.path.join(
+            self.model.logdir, "checkpoint.pth.tar"
+        )
+
+        backup_dir = os.path.join(self.model.logdir, "backup")
+        if not os.path.exists(backup_dir):
+            os.mkdir(backup_dir)
+
+        self.log_file = os.path.join(self.model.logdir, "summary.log.hdf5")
+
+        if hasattr(self.model, "get_weight_dicts"):
+            weight_dicts = self.model.get_weight_dicts()
+        else:
+            weight_dicts = self.model.network.parameters()
+
+        if self.conf["training"]["optimizer"] == "adam":
+            self.optimizer = torch.optim.Adam(weight_dicts, lr=self.lr)
+
+        elif self.conf["training"]["optimizer"] == "SGD":
+            momentum = self.conf["training"]["momentum"]
+            self.optimizer = torch.optim.SGD(
+                weight_dicts, lr=self.lr, momentum=momentum
+            )
+
+        elif self.conf["training"]["optimizer"] == "adamW":
+            wd = self.conf["training"]["weight_decay"]
+            self.optimizer = torch.optim.AdamW(
+                weight_dicts, lr=self.lr, weight_decay=wd
+            )
+
+        else:
+            raise NotImplementedError
+
+        if dataset is None:
+            return
+
+        num_workers = self.conf["dataset"]["num_workers"]
+
+        multisampler = sampler.RandomMultiEpochSampler(
+            dataset, multiplicator=self.eval_iter
+        )
+
+        self.loader = data.DataLoader(
+            dataset,
+            batch_size=self.bs,
+            sampler=multisampler,
+            num_workers=num_workers,
+            pin_memory=True,
+            drop_last=True,
+        )
+
+    def load_from_logdir(self, logdir=None, ckp_name=None):
+
+        if logdir is None:
+            logdir = self.logdir
+
+        if ckp_name is None:
+            checkpoint_name = os.path.join(logdir, "checkpoint.pth.tar")
+        else:
+            checkpoint_name = os.path.join(logdir, ckp_name)
+
+        if not os.path.exists(checkpoint_name):
+            logging.info("No checkpoint file found. Train from scratch.")
+            return
+
+        if self.device == "cpu":
+            checkpoint = torch.load(checkpoint_name, map_location=self.device)
+        else:
+            checkpoint = torch.load(checkpoint_name)
+
+        self.epoch = checkpoint["epoch"]
+
+        if not self.conf == checkpoint["conf"]:
+            logging.warning(
+                "Config loaded is different then the config "
+                "the model was trained with."
+            )
+
+        self.model.network.load_state_dict(checkpoint["state_dict"])
+
+        self.epoch = checkpoint["epoch"]
+        self.step = checkpoint["step"]
+        self.optimizer.load_state_dict(checkpoint["optimizer"])
+
+        # load logger
+        logger_file = os.path.join(logdir, "summary.log.hdf5")
+        self.logger.load(logger_file)
 
     def measure_data_loading_speed(self):
         start_time = time.time()
@@ -89,38 +201,6 @@ class Trainer:
 
         duration = time.time() - start_time
         logging.info("Loading 100 examples took: {}".format(duration))
-
-    def init_trainer(self):
-        self.initialized = True
-
-        self.logger = self.model.logger
-
-        self.device = self.conf["training"]["device"]
-        self.model.device = self.device
-
-        self.checkpoint_name = os.path.join(
-            self.model.logdir, "checkpoint.pth.tar"
-        )
-
-        backup_dir = os.path.join(self.model.logdir, "backup")
-        if not os.path.exists(backup_dir):
-            os.mkdir(backup_dir)
-
-        self.log_file = os.path.join(self.model.logdir, "summary.log.hdf5")
-
-        weight_dicts = self.model.get_weight_dicts()
-
-        if self.conf["training"]["optimizer"] == "adam":
-            self.optimizer = torch.optim.Adam(weight_dicts, lr=self.lr)
-
-        elif self.conf["training"]["optimizer"] == "SGD":
-            momentum = self.conf["training"]["momentum"]
-            self.optimizer = torch.optim.SGD(
-                weight_dicts, lr=self.lr, momentum=momentum
-            )
-
-        else:
-            raise NotImplementedError
 
     def update_lr(self):
         conf = self.conf["training"]
@@ -200,7 +280,7 @@ class Trainer:
         clip_norm = self.conf["training"]["clip_norm"]
         if clip_norm is not None:
             totalnorm = torch.nn.utils.clip_grad.clip_grad_norm(
-                self.model.parameters(), clip_norm
+                self.model.network.parameters(), clip_norm
             )
         else:
             totalnorm = 0
@@ -291,7 +371,7 @@ class Trainer:
 
         if self.conf["training"]["pre_eval"]:
             level = self.conf["evaluation"]["default_level"]
-            self.model.evaluate(level=level)
+            self.model.evaluate(epoch=self.epoch, level=level)
 
         for epoch in range(self.epoch, max_epochs, self.eval_iter):
             self.epoch = epoch
