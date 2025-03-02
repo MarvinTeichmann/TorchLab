@@ -50,6 +50,7 @@ class Trainer:
         self.max_epoch_steps = conf["training"]["max_epoch_steps"]
 
         self.logdir = self.model.logdir
+        self.logger = self.model.logger
 
         self.loader = None
 
@@ -85,8 +86,6 @@ class Trainer:
             raise AssertionError
 
         self.initialized = True
-
-        self.logger = self.model.logger
 
         self.device = self.conf["training"]["device"]
         self.model.device = self.device
@@ -173,7 +172,9 @@ class Trainer:
 
         self.epoch = checkpoint["epoch"]
         self.step = checkpoint["step"]
-        self.optimizer.load_state_dict(checkpoint["optimizer"])
+
+        if self.initialized:
+            self.optimizer.load_state_dict(checkpoint["optimizer"])
 
         # load logger
         logger_file = os.path.join(logdir, "summary.log.hdf5")
