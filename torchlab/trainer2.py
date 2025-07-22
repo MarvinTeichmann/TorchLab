@@ -299,6 +299,10 @@ class Trainer:
 
         self.optimizer.step()
 
+        return total_loss, totalnorm, loss_dict
+
+    def log_training_step(self, step, total_loss, totalnorm, loss_dict):
+
         if step % self.display_iter == 0:
             # Printing logging information
             duration = (time.time() - self.start_time) / self.display_iter
@@ -390,7 +394,8 @@ class Trainer:
             self.start_time = time.time()
 
             for step, sample in zip(count_steps, self.loader):
-                loss_dict = self.do_training_step(step, sample)
+                loss, gnorm, loss_dict = self.do_training_step(step, sample)
+                self.log_training_step(step, loss, gnorm, loss_dict)
 
             gc.collect()
 
