@@ -5,7 +5,7 @@ scipy>=0.17.1
 commentjson>=0.6
 ipdb
 ipython
-deepdish
+# deepdish
 torchvision
 scikit-image
 imageio
